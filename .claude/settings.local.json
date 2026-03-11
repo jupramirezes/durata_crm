@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test -f \"C:/Users/diseno1.DURATA/durata-crm/.gitignore\")",
+      "Bash(test -f \"C:/Users/diseno1.DURATA/durata-crm/.env.example\")"
+    ]
+  }
+}
