@@ -1,22 +1,65 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0f1117;
-  --color-surface: #1a1d27;
-  --color-surface-hover: #22262f;
-  --color-border: #2a2e3a;
-  --color-text: #e4e4e7;
-  --color-text-muted: #8b8fa3;
-  --color-primary: #3b82f6;
-  --color-primary-hover: #2563eb;
-  --color-accent-green: #22c55e;
-  --color-accent-yellow: #eab308;
-  --color-accent-red: #ef4444;
-  --color-accent-purple: #a855f7;
-  --color-accent-orange: #f97316;
+  --color-bg: #0c0f16;
+  --color-surface: #141822;
+  --color-surface-hover: #1a2030;
+  --color-border: #1e2638;
+  --color-border-light: #2a3348;
+  --color-text: #e8eaf0;
+  --color-text-muted: #6b7394;
+  --color-primary: #4f8cff;
+  --color-primary-hover: #3b7aed;
+  --color-primary-glow: rgba(79, 140, 255, 0.15);
+  --color-accent-green: #34d399;
+  --color-accent-yellow: #fbbf24;
+  --color-accent-red: #f87171;
+  --color-accent-purple: #a78bfa;
+  --color-accent-orange: #fb923c;
+  --color-sidebar: #0a0d13;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--color-bg); color: var(--color-text); font-family: 'Inter', system-ui, sans-serif; }
-input, select, textarea { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, select, textarea {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes checkPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+.animate-check { animation: checkPop 0.3s ease-out; }
+.animate-check-pop { animation: checkPop 0.4s ease-out; }

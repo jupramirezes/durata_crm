@@ -1,8 +1,20 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS } from '../types'
-import { formatDate, formatCOP } from '../lib/utils'
-import { ArrowLeft, Plus, FileText } from 'lucide-react'
+import { formatDate, formatCOP, getInitials, getAvatarColor } from '../lib/utils'
+import { ArrowLeft, Plus, FileText, Mail, Phone, MapPin, Building2, Calendar, Tag, Package } from 'lucide-react'
+
+function InfoItem({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon size={14} className="text-[var(--color-text-muted)]" />
+        <span className="text-xs text-[var(--color-text-muted)] font-medium">{label}</span>
+      </div>
+      <span className="text-sm">{value || '\u2014'}</span>
+    </div>
+  )
+}
 
 export default function ClienteDetalle() {
   const { id } = useParams()
@@ -30,70 +42,108 @@ export default function ClienteDetalle() {
   }
 
   return (
-    <div className="p-8 space-y-6 max-w-5xl">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-white">
+    <div className="p-8 space-y-6 max-w-5xl animate-fade-in">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-white transition-colors duration-200">
         <ArrowLeft size={16} /> Volver
       </button>
 
-      <div className="flex items-start justify-between">
-        <div>
+      {/* Header */}
+      <div className="flex items-center gap-5">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-lg" style={{ background: getAvatarColor(cliente.nombre) }}>
+          {getInitials(cliente.nombre)}
+        </div>
+        <div className="flex-1">
           <h2 className="text-2xl font-bold">{cliente.nombre}</h2>
           <p className="text-[var(--color-text-muted)]">{cliente.empresa}</p>
         </div>
-        <span className="text-sm px-3 py-1 rounded-full font-medium" style={{ background: etapa?.color + '22', color: etapa?.color }}>{etapa?.label}</span>
+        <span className="text-sm px-4 py-1.5 rounded-full font-medium border" style={{ background: etapa?.color + '12', color: etapa?.color, borderColor: etapa?.color + '30' }}>{etapa?.label}</span>
       </div>
 
-      {/* Info del cliente */}
-      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 grid grid-cols-3 gap-4 text-sm">
-        <div><span className="text-[var(--color-text-muted)] block mb-1">NIT</span>{cliente.nit || '—'}</div>
-        <div><span className="text-[var(--color-text-muted)] block mb-1">Ubicación</span>{cliente.ubicacion || '—'}</div>
-        <div><span className="text-[var(--color-text-muted)] block mb-1">Correo</span>{cliente.correo || '—'}</div>
-        <div><span className="text-[var(--color-text-muted)] block mb-1">WhatsApp</span>{cliente.whatsapp || '—'}</div>
-        <div><span className="text-[var(--color-text-muted)] block mb-1">Fecha ingreso</span>{formatDate(cliente.fecha_ingreso)}</div>
-        <div><span className="text-[var(--color-text-muted)] block mb-1">Etapa</span>
-          <select value={cliente.etapa} onChange={e => dispatch({ type: 'MOVE_ETAPA', payload: { clienteId: cliente.id, nuevaEtapa: e.target.value as any } })} className="px-2 py-1 rounded text-sm">
-            {ETAPAS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
-          </select>
+      {/* Info grid */}
+      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-6">
+        <div className="grid grid-cols-3 gap-6">
+          <InfoItem icon={Building2} label="NIT" value={cliente.nit} />
+          <InfoItem icon={MapPin} label="Ubicacion" value={cliente.ubicacion} />
+          <InfoItem icon={Mail} label="Correo" value={cliente.correo} />
+          <InfoItem icon={Phone} label="WhatsApp" value={cliente.whatsapp} />
+          <InfoItem icon={Calendar} label="Fecha ingreso" value={formatDate(cliente.fecha_ingreso)} />
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Tag size={14} className="text-[var(--color-text-muted)]" />
+              <span className="text-xs text-[var(--color-text-muted)] font-medium">Etapa</span>
+            </div>
+            <select value={cliente.etapa} onChange={e => dispatch({ type: 'MOVE_ETAPA', payload: { clienteId: cliente.id, nuevaEtapa: e.target.value as any } })} className="px-3 py-1.5 rounded-lg text-sm">
+              {ETAPAS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
+            </select>
+          </div>
         </div>
-        {cliente.notas && <div className="col-span-3"><span className="text-[var(--color-text-muted)] block mb-1">Notas</span>{cliente.notas}</div>}
+        {cliente.notas && (
+          <div className="mt-5 pt-5 border-t border-[var(--color-border)]">
+            <span className="text-xs text-[var(--color-text-muted)] font-medium block mb-1.5">Notas</span>
+            <p className="text-sm leading-relaxed">{cliente.notas}</p>
+          </div>
+        )}
       </div>
 
-      {/* Historial de etapas */}
+      {/* Timeline */}
       {historial.length > 0 && (
-        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5">
-          <h3 className="font-semibold mb-3">Historial de etapas</h3>
-          <div className="space-y-2">
-            {historial.map(h => (
-              <div key={h.id} className="text-sm text-[var(--color-text-muted)]">
-                {formatDate(h.created_at)} — {ETAPAS.find(e => e.key === h.etapa_anterior)?.label} → <span className="text-white">{ETAPAS.find(e => e.key === h.etapa_nueva)?.label}</span>
-              </div>
-            ))}
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-6">
+          <h3 className="font-semibold mb-4">Historial de etapas</h3>
+          <div className="space-y-0">
+            {historial.map((h, i) => {
+              const etapaNueva = ETAPAS.find(e => e.key === h.etapa_nueva)
+              return (
+                <div key={h.id} className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-3 h-3 rounded-full shrink-0 z-10 ring-4 ring-[var(--color-surface)]" style={{ background: etapaNueva?.color }} />
+                    {i < historial.length - 1 && <div className="w-0.5 flex-1 bg-[var(--color-border)] min-h-[20px]" />}
+                  </div>
+                  <div className="pb-4 -mt-0.5">
+                    <div className="text-sm">
+                      <span className="text-[var(--color-text-muted)]">{ETAPAS.find(e => e.key === h.etapa_anterior)?.label}</span>
+                      <span className="text-[var(--color-text-muted)] mx-1.5">{'\u2192'}</span>
+                      <span className="font-medium">{etapaNueva?.label}</span>
+                    </div>
+                    <div className="text-xs text-[var(--color-text-muted)] mt-0.5">{formatDate(h.created_at)}</div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* Productos solicitados */}
-      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5">
-        <div className="flex justify-between items-center mb-4">
+      {/* Productos */}
+      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-6">
+        <div className="flex justify-between items-center mb-5">
           <h3 className="font-semibold">Productos solicitados</h3>
-          <button onClick={() => navigate(`/clientes/${id}/configurar`)} className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-3 py-1.5 rounded-lg text-sm">
+          <button onClick={() => navigate(`/clientes/${id}/configurar`)} className="flex items-center gap-2 bg-gradient-to-r from-[#4f8cff] to-[#3b7aed] hover:opacity-90 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-blue-500/20">
             <Plus size={14} /> Agregar producto
           </button>
         </div>
         {productos.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)]">Sin productos configurados. Haz clic en "Agregar producto" para comenzar.</p>
+          <div className="text-center py-8">
+            <Package size={32} className="text-[var(--color-border-light)] mx-auto mb-3" />
+            <p className="text-sm text-[var(--color-text-muted)]">Sin productos configurados.</p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">Haz clic en "Agregar producto" para comenzar.</p>
+          </div>
         ) : (
           <div className="space-y-3">
             {productos.map(p => (
-              <div key={p.id} className="bg-[var(--color-bg)] rounded-lg p-4 border border-[var(--color-border)]">
+              <div key={p.id} className="bg-[var(--color-bg)] rounded-xl p-5 border border-[var(--color-border)] hover:border-[var(--color-border-light)] transition-all duration-200">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <div className="font-medium text-sm">{p.subtipo}</div>
-                    <div className="text-xs text-[var(--color-text-muted)] mt-1 max-w-2xl">{p.descripcion_comercial}</div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <Package size={18} className="text-[var(--color-accent-purple)]" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm">{p.subtipo}</div>
+                      <div className="text-xs text-[var(--color-text-muted)] mt-1 max-w-2xl leading-relaxed">{p.descripcion_comercial}</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold">{formatCOP(p.precio_calculado || 0)}</div>
-                    <div className="text-xs text-[var(--color-text-muted)]">× {p.cantidad}</div>
+                  <div className="text-right shrink-0 ml-4">
+                    <div className="font-bold text-lg">{formatCOP(p.precio_calculado || 0)}</div>
+                    <div className="text-xs text-[var(--color-text-muted)]">{'\u00d7'} {p.cantidad} und</div>
                   </div>
                 </div>
               </div>
@@ -103,25 +153,28 @@ export default function ClienteDetalle() {
       </div>
 
       {/* Cotizaciones */}
-      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5">
-        <div className="flex justify-between items-center mb-4">
+      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-6">
+        <div className="flex justify-between items-center mb-5">
           <h3 className="font-semibold">Cotizaciones</h3>
           {productos.length > 0 && (
-            <button onClick={generarCotizacion} className="flex items-center gap-2 bg-[var(--color-accent-green)] hover:opacity-90 text-white px-3 py-1.5 rounded-lg text-sm">
-              <FileText size={14} /> Generar cotización
+            <button onClick={generarCotizacion} className="flex items-center gap-2 bg-gradient-to-r from-[#059669] to-[#34d399] hover:opacity-90 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/20">
+              <FileText size={14} /> Generar cotizacion
             </button>
           )}
         </div>
         {cotizaciones.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)]">No hay cotizaciones generadas para este cliente.</p>
+          <div className="text-center py-8">
+            <FileText size={32} className="text-[var(--color-border-light)] mx-auto mb-3" />
+            <p className="text-sm text-[var(--color-text-muted)]">No hay cotizaciones generadas para este cliente.</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {cotizaciones.map(c => (
-              <div key={c.id} className="flex justify-between items-center text-sm bg-[var(--color-bg)] rounded-lg p-3 border border-[var(--color-border)]">
-                <span className="font-medium">{c.numero}</span>
-                <span>{formatDate(c.fecha)}</span>
+              <div key={c.id} className="flex justify-between items-center text-sm bg-[var(--color-bg)] rounded-xl p-4 border border-[var(--color-border)] hover:border-[var(--color-border-light)] transition-all duration-200">
+                <span className="font-medium font-mono">{c.numero}</span>
+                <span className="text-[var(--color-text-muted)]">{formatDate(c.fecha)}</span>
                 <span className="font-bold">{formatCOP(c.total)}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${c.estado === 'aprobada' ? 'bg-green-900/30 text-green-400' : c.estado === 'rechazada' ? 'bg-red-900/30 text-red-400' : 'bg-blue-900/30 text-blue-400'}`}>{c.estado}</span>
+                <span className={`text-xs px-3 py-1 rounded-full font-medium border ${c.estado === 'aprobada' ? 'bg-green-500/10 text-green-400 border-green-500/20' : c.estado === 'rechazada' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>{c.estado}</span>
               </div>
             ))}
           </div>
