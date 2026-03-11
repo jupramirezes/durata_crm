@@ -13,16 +13,21 @@ export default function Pipeline() {
   const [showModal, setShowModal] = useState(false)
 
   function onDragStart(e: React.DragEvent, clienteId: string) {
-    e.dataTransfer.setData('clienteId', clienteId)
+    e.dataTransfer.setData('text/plain', clienteId)
+    e.dataTransfer.effectAllowed = 'move'
     setDragging(clienteId)
   }
-  function onDragOver(e: React.DragEvent) { e.preventDefault() }
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
   function onDrop(e: React.DragEvent, etapa: Etapa) {
     e.preventDefault()
-    const clienteId = e.dataTransfer.getData('clienteId')
-    dispatch({ type: 'MOVE_ETAPA', payload: { clienteId, nuevaEtapa: etapa } })
+    const clienteId = e.dataTransfer.getData('text/plain')
+    if (clienteId) dispatch({ type: 'MOVE_ETAPA', payload: { clienteId, nuevaEtapa: etapa } })
     setDragging(null)
   }
+  function onDragEnd() { setDragging(null) }
 
   return (
     <div className="p-6 h-screen flex flex-col">
@@ -49,7 +54,7 @@ export default function Pipeline() {
               </div>
               <div className="flex-1 p-2 space-y-2 overflow-y-auto">
                 {clientes.map(c => (
-                  <div key={c.id} draggable onDragStart={e => onDragStart(e, c.id)}
+                  <div key={c.id} draggable onDragStart={e => onDragStart(e, c.id)} onDragEnd={onDragEnd}
                     onClick={() => navigate(`/clientes/${c.id}`)}
                     className={`bg-[var(--color-bg)] rounded-lg p-3 border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-primary)] transition-all ${dragging === c.id ? 'opacity-40' : ''}`}
                   >

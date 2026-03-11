@@ -2,7 +2,7 @@ import { useStore } from '../lib/store'
 import { formatCOP, formatDate } from '../lib/utils'
 
 export default function Cotizaciones() {
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
 
   return (
     <div className="p-8 space-y-5">
@@ -20,6 +20,7 @@ export default function Cotizaciones() {
               <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-muted)]">
                 <th className="px-4 py-3 font-medium">Número</th>
                 <th className="px-4 py-3 font-medium">Cliente</th>
+                <th className="px-4 py-3 font-medium">Empresa</th>
                 <th className="px-4 py-3 font-medium">Fecha</th>
                 <th className="px-4 py-3 font-medium text-right">Total</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
@@ -31,11 +32,12 @@ export default function Cotizaciones() {
                 return (
                   <tr key={c.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)]">
                     <td className="px-4 py-3 font-medium font-mono">{c.numero}</td>
-                    <td className="px-4 py-3">{cliente?.nombre} — {cliente?.empresa}</td>
+                    <td className="px-4 py-3">{cliente?.nombre}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-muted)]">{cliente?.empresa}</td>
                     <td className="px-4 py-3 text-[var(--color-text-muted)]">{formatDate(c.fecha)}</td>
                     <td className="px-4 py-3 text-right font-bold">{formatCOP(c.total)}</td>
                     <td className="px-4 py-3">
-                      <select value={c.estado} className="text-xs px-2 py-1 rounded bg-[var(--color-bg)] border border-[var(--color-border)]">
+                      <select value={c.estado} onChange={e => dispatch({ type: 'UPDATE_COTIZACION_ESTADO', payload: { id: c.id, estado: e.target.value as any } })} className="text-xs px-2 py-1 rounded bg-[var(--color-bg)] border border-[var(--color-border)]">
                         <option value="borrador">Borrador</option>
                         <option value="enviada">Enviada</option>
                         <option value="aprobada">Aprobada</option>

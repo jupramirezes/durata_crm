@@ -17,6 +17,18 @@ export default function ClienteDetalle() {
 
   const etapa = ETAPAS.find(e => e.key === cliente.etapa)
 
+  function generarCotizacion() {
+    if (productos.length === 0 || !cliente) return
+    const year = new Date().getFullYear()
+    const numExistentes = state.cotizaciones.filter(c => c.numero.startsWith(`COT-${year}-`)).length
+    const numero = `COT-${year}-${String(numExistentes + 1).padStart(3, '0')}`
+    const total = productos.reduce((sum, p) => sum + (p.precio_calculado || 0) * p.cantidad, 0)
+    dispatch({
+      type: 'ADD_COTIZACION',
+      payload: { cliente_id: cliente.id, numero, fecha: new Date().toISOString().split('T')[0], estado: 'borrador', total },
+    })
+  }
+
   return (
     <div className="p-8 space-y-6 max-w-5xl">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-white">
@@ -95,7 +107,7 @@ export default function ClienteDetalle() {
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-semibold">Cotizaciones</h3>
           {productos.length > 0 && (
-            <button className="flex items-center gap-2 bg-[var(--color-accent-green)] hover:opacity-90 text-white px-3 py-1.5 rounded-lg text-sm">
+            <button onClick={generarCotizacion} className="flex items-center gap-2 bg-[var(--color-accent-green)] hover:opacity-90 text-white px-3 py-1.5 rounded-lg text-sm">
               <FileText size={14} /> Generar cotización
             </button>
           )}
