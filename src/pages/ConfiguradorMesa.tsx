@@ -26,9 +26,9 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   const [open, setOpen] = useState(defaultOpen)
   const Icon = sectionIcons[title] || Settings
   return (
-    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden transition-all duration-200">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-5 py-4 hover:bg-[var(--color-surface-hover)] text-sm font-semibold transition-colors duration-200">
-        <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+    <div className="bg-white rounded-2xl border border-[var(--color-border)] overflow-hidden transition-all duration-200">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-5 py-4 hover:bg-[var(--color-surface)] text-sm font-semibold transition-colors duration-200">
+        <div className="w-8 h-8 rounded-xl bg-cyan-50 flex items-center justify-center shrink-0">
           <Icon size={16} className="text-[var(--color-primary)]" />
         </div>
         <span className="flex-1 text-left">{title}</span>
@@ -118,12 +118,12 @@ export default function ConfiguradorMesa() {
 
   return (
     <div className="p-8 max-w-6xl animate-fade-in">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-white mb-5 transition-colors duration-200">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-5 transition-colors duration-200">
         <ArrowLeft size={16} /> Volver a {cliente?.nombre || 'cliente'}
       </button>
 
       <div className="flex items-center gap-4 mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center shrink-0">
+        <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center shrink-0">
           <Settings size={24} className="text-[var(--color-accent-purple)]" />
         </div>
         <div>
@@ -280,7 +280,7 @@ export default function ConfiguradorMesa() {
 
         {/* Panel de resultado */}
         <div className="space-y-4 sticky top-4 self-start">
-          <button onClick={calcular} className="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-[#4f8cff] to-[#3b7aed] hover:opacity-90 text-white px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200 shadow-lg shadow-blue-500/20">
+          <button onClick={calcular} className="w-full flex items-center justify-center gap-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200">
             <Calculator size={20} /> CALCULAR PRECIO
           </button>
 
@@ -297,7 +297,7 @@ export default function ConfiguradorMesa() {
               </div>
 
               {/* Cost breakdown with bars */}
-              <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
+              <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
                 <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-2">Desglose de costos</h4>
                 <CostBar label="Insumos" value={resultado.costo_insumos} total={resultado.costo_total} color="#4f8cff" />
                 <CostBar label="Mano de obra" value={resultado.costo_mo} total={resultado.costo_total} color="#a78bfa" />
@@ -318,7 +318,7 @@ export default function ConfiguradorMesa() {
               </button>
 
               {showApu && (
-                <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 max-h-96 overflow-y-auto">
+                <div className="bg-white rounded-2xl border border-[var(--color-border)] p-4 max-h-96 overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-[var(--color-text-muted)] text-left">
@@ -327,7 +327,7 @@ export default function ConfiguradorMesa() {
                     </thead>
                     <tbody>
                       {resultado.lineas.map((l, i) => (
-                        <tr key={i} className={`border-t border-[var(--color-border)] ${i % 2 === 1 ? 'bg-[var(--color-bg)]/50' : ''}`}>
+                        <tr key={i} className={`border-t border-[var(--color-border)] ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : ''}`}>
                           <td className="px-2 py-2 font-mono">{l.cantidad.toFixed(2)}</td>
                           <td className="px-2 py-2 truncate max-w-40">{l.descripcion}</td>
                           <td className="px-2 py-2 text-right font-mono">{formatCOP(l.precio_unitario)}</td>
@@ -340,7 +340,7 @@ export default function ConfiguradorMesa() {
               )}
 
               {/* Commercial description */}
-              <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5">
+              <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-1 h-4 rounded-full bg-[var(--color-primary)]" />
                   <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Descripcion comercial</span>
@@ -352,10 +352,10 @@ export default function ConfiguradorMesa() {
               <button
                 onClick={agregarAlPedido}
                 disabled={added}
-                className={`w-full flex items-center justify-center gap-2.5 px-5 py-4 rounded-2xl text-base font-bold transition-all duration-300 shadow-lg ${
+                className={`w-full flex items-center justify-center gap-2.5 px-5 py-4 rounded-2xl text-base font-bold transition-all duration-300 ${
                   added
-                    ? 'bg-emerald-500 text-white shadow-emerald-500/20 scale-95'
-                    : 'bg-gradient-to-r from-[#059669] to-[#34d399] hover:opacity-90 text-white shadow-emerald-500/20'
+                    ? 'bg-emerald-500 text-white scale-95'
+                    : 'bg-[var(--color-accent-green)] hover:opacity-90 text-white'
                 }`}
               >
                 {added ? (

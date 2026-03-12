@@ -23,16 +23,16 @@ export default function ClienteFormModal({ onClose }: Props) {
     setForm(f => ({ ...f, [key]: e.target.value }))
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
-      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] w-full max-w-lg p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] w-full max-w-lg p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center">
               <UserPlus size={20} className="text-[var(--color-primary)]" />
             </div>
             <h3 className="text-lg font-bold">Nuevo Cliente</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)]"><X size={20} /></button>
+          <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors p-1.5 rounded-lg hover:bg-[var(--color-surface)]"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -51,8 +51,8 @@ export default function ClienteFormModal({ onClose }: Props) {
           </div>
           <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Notas</label><textarea value={form.notas} onChange={set('notas')} className="w-full px-3 py-2.5 rounded-xl text-sm h-20 resize-none" /></div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm text-[var(--color-text-muted)] hover:text-white rounded-xl hover:bg-[var(--color-surface-hover)] transition-all duration-200">Cancelar</button>
-            <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-[#4f8cff] to-[#3b7aed] hover:opacity-90 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-blue-500/20">Guardar cliente</button>
+            <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] rounded-xl hover:bg-[var(--color-surface-hover)] transition-all duration-200">Cancelar</button>
+            <button type="submit" className="px-5 py-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-xl text-sm font-semibold transition-all duration-200">Guardar cliente</button>
           </div>
         </form>
       </div>

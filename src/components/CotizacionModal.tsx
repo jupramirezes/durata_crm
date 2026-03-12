@@ -86,15 +86,15 @@ export default function CotizacionModal({ defaultNumero, onConfirm, onClose }: P
   }
 
   const tabClass = (t: string) =>
-    `px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === t ? 'bg-blue-500/15 text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-surface-hover)]'}`
+    `px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === t ? 'bg-blue-500/15 text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]'}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-2xl w-full max-w-2xl mx-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-2xl w-full max-w-2xl mx-4" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
               <FileText size={20} className="text-[var(--color-accent-green)]" />
             </div>
             <div>
@@ -102,7 +102,7 @@ export default function CotizacionModal({ defaultNumero, onConfirm, onClose }: P
               <p className="text-xs text-[var(--color-text-muted)]">Configura los datos antes de generar</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-white transition-colors p-1">
+          <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors p-1">
             <X size={20} />
           </button>
         </div>
@@ -182,10 +182,10 @@ export default function CotizacionModal({ defaultNumero, onConfirm, onClose }: P
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[var(--color-border)] flex justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-surface-hover)] transition-all duration-200">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-all duration-200">
             Cancelar
           </button>
-          <button onClick={handleConfirm} className="flex items-center gap-2 bg-gradient-to-r from-[#059669] to-[#34d399] hover:opacity-90 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 shadow-lg shadow-emerald-500/20">
+          <button onClick={handleConfirm} className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200">
             <FileText size={14} /> Generar PDF
           </button>
         </div>

@@ -15,9 +15,13 @@ type Action =
   | { type: 'UPDATE_CLIENTE'; payload: Cliente }
   | { type: 'MOVE_ETAPA'; payload: { clienteId: string; nuevaEtapa: Etapa } }
   | { type: 'ADD_PRODUCTO'; payload: Omit<ProductoCliente, 'id'> }
+  | { type: 'DELETE_PRODUCTO'; payload: { id: string } }
   | { type: 'UPDATE_PRECIO'; payload: { id: string; precio: number } }
+  | { type: 'UPDATE_PRECIO_PROVEEDOR'; payload: { id: string; proveedor: string } }
   | { type: 'ADD_COTIZACION'; payload: Omit<Cotizacion, 'id'> }
   | { type: 'UPDATE_COTIZACION_ESTADO'; payload: { id: string; estado: Cotizacion['estado'] } }
+  | { type: 'DELETE_COTIZACION'; payload: { id: string } }
+  | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string } }
 
 const STORAGE_KEY = 'durata_crm_state'
 
@@ -62,12 +66,24 @@ function reducer(state: State, action: Action): State {
     }
     case 'ADD_PRODUCTO':
       return { ...state, productos: [...state.productos, { ...action.payload, id: String(Date.now()) }] }
+    case 'DELETE_PRODUCTO':
+      return { ...state, productos: state.productos.filter(p => p.id !== action.payload.id) }
     case 'UPDATE_PRECIO':
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, precio: action.payload.precio, updated_at: new Date().toISOString().split('T')[0] } : p) }
+    case 'UPDATE_PRECIO_PROVEEDOR':
+      return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, proveedor: action.payload.proveedor, updated_at: new Date().toISOString().split('T')[0] } : p) }
     case 'ADD_COTIZACION':
       return { ...state, cotizaciones: [...state.cotizaciones, { ...action.payload, id: String(Date.now()) }] }
     case 'UPDATE_COTIZACION_ESTADO':
       return { ...state, cotizaciones: state.cotizaciones.map(c => c.id === action.payload.id ? { ...c, estado: action.payload.estado } : c) }
+    case 'DELETE_COTIZACION':
+      return { ...state, cotizaciones: state.cotizaciones.filter(c => c.id !== action.payload.id) }
+    case 'DUPLICATE_COTIZACION': {
+      const original = state.cotizaciones.find(c => c.id === action.payload.originalId)
+      if (!original) return state
+      const duplicated: Cotizacion = { ...original, id: String(Date.now()), numero: action.payload.nuevoNumero, estado: 'borrador', fecha: new Date().toISOString().split('T')[0] }
+      return { ...state, cotizaciones: [...state.cotizaciones, duplicated] }
+    }
     default: return state
   }
 }

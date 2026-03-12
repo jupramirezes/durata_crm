@@ -8,6 +8,7 @@ import ClienteDetalle from './pages/ClienteDetalle'
 import ConfiguradorMesa from './pages/ConfiguradorMesa'
 import Cotizaciones from './pages/Cotizaciones'
 import Precios from './pages/Precios'
+import Configuracion from './pages/Configuracion'
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -31,7 +32,7 @@ export default function App() {
             <Route path="/clientes/:id/configurar" element={<ConfiguradorMesa />} />
             <Route path="/cotizaciones" element={<Cotizaciones />} />
             <Route path="/precios" element={<Precios />} />
-            <Route path="/config" element={<div className="p-8"><h2 className="text-2xl font-bold mb-4">Configuración</h2><p className="text-[var(--color-text-muted)]">Módulo en construcción. Aquí irán: datos de la empresa, usuarios, integraciones.</p></div>} />
+            <Route path="/config" element={<Configuracion />} />
           </Routes>
         </Layout>
       </BrowserRouter>
