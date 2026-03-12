@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS } from '../types'
 import { formatDate, formatCOP, getInitials, getAvatarColor } from '../lib/utils'
+import { generarPdfCotizacion } from '../lib/generar-pdf'
+import CotizacionModal from '../components/CotizacionModal'
 import { ArrowLeft, Plus, FileText, Mail, Phone, MapPin, Building2, Calendar, Tag, Package } from 'lucide-react'
 
 function InfoItem({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
@@ -25,20 +28,27 @@ export default function ClienteDetalle() {
   const productos = state.productos.filter(p => p.cliente_id === id)
   const cotizaciones = state.cotizaciones.filter(c => c.cliente_id === id)
 
+  const [showCotModal, setShowCotModal] = useState(false)
+
   if (!cliente) return <div className="p-8 text-[var(--color-text-muted)]">Cliente no encontrado</div>
 
   const etapa = ETAPAS.find(e => e.key === cliente.etapa)
 
-  function generarCotizacion() {
-    if (productos.length === 0 || !cliente) return
+  function getDefaultNumero() {
     const year = new Date().getFullYear()
     const numExistentes = state.cotizaciones.filter(c => c.numero.startsWith(`COT-${year}-`)).length
-    const numero = `COT-${year}-${String(numExistentes + 1).padStart(3, '0')}`
-    const total = productos.reduce((sum, p) => sum + (p.precio_calculado || 0) * p.cantidad, 0)
+    return `COT-${year}-${String(numExistentes + 1).padStart(3, '0')}`
+  }
+
+  function handleGenerarCotizacion(numero: string, tiempoEntrega: string, noIncluyeItems: string[]) {
+    if (productos.length === 0 || !cliente) return
+    const fecha = new Date().toISOString().split('T')[0]
+    const total = generarPdfCotizacion({ numero, fecha, cliente, productos, tiempoEntrega, noIncluyeItems })
     dispatch({
       type: 'ADD_COTIZACION',
-      payload: { cliente_id: cliente.id, numero, fecha: new Date().toISOString().split('T')[0], estado: 'borrador', total },
+      payload: { cliente_id: cliente.id, numero, fecha, estado: 'borrador', total },
     })
+    setShowCotModal(false)
   }
 
   return (
@@ -157,7 +167,7 @@ export default function ClienteDetalle() {
         <div className="flex justify-between items-center mb-5">
           <h3 className="font-semibold">Cotizaciones</h3>
           {productos.length > 0 && (
-            <button onClick={generarCotizacion} className="flex items-center gap-2 bg-gradient-to-r from-[#059669] to-[#34d399] hover:opacity-90 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/20">
+            <button onClick={() => setShowCotModal(true)} className="flex items-center gap-2 bg-gradient-to-r from-[#059669] to-[#34d399] hover:opacity-90 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/20">
               <FileText size={14} /> Generar cotizacion
             </button>
           )}
@@ -180,6 +190,14 @@ export default function ClienteDetalle() {
           </div>
         )}
       </div>
+
+      {showCotModal && (
+        <CotizacionModal
+          defaultNumero={getDefaultNumero()}
+          onConfirm={handleGenerarCotizacion}
+          onClose={() => setShowCotModal(false)}
+        />
+      )}
     </div>
   )
 }
