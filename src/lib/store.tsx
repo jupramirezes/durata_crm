@@ -22,6 +22,7 @@ type Action =
   | { type: 'UPDATE_COTIZACION_ESTADO'; payload: { id: string; estado: Cotizacion['estado'] } }
   | { type: 'DELETE_COTIZACION'; payload: { id: string } }
   | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string } }
+  | { type: 'UPDATE_COTIZACION'; payload: Partial<Cotizacion> & { id: string } }
 
 const STORAGE_KEY = 'durata_crm_state'
 
@@ -84,6 +85,8 @@ function reducer(state: State, action: Action): State {
       const duplicated: Cotizacion = { ...original, id: String(Date.now()), numero: action.payload.nuevoNumero, estado: 'borrador', fecha: new Date().toISOString().split('T')[0] }
       return { ...state, cotizaciones: [...state.cotizaciones, duplicated] }
     }
+    case 'UPDATE_COTIZACION':
+      return { ...state, cotizaciones: state.cotizaciones.map(c => c.id === action.payload.id ? { ...c, ...action.payload } : c) }
     default: return state
   }
 }

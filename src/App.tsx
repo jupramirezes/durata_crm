@@ -7,6 +7,7 @@ import Clientes from './pages/Clientes'
 import ClienteDetalle from './pages/ClienteDetalle'
 import ConfiguradorMesa from './pages/ConfiguradorMesa'
 import Cotizaciones from './pages/Cotizaciones'
+import CotizacionEditor from './pages/CotizacionEditor'
 import Precios from './pages/Precios'
 import Configuracion from './pages/Configuracion'
 
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/clientes/:id" element={<ClienteDetalle />} />
             <Route path="/clientes/:id/configurar" element={<ConfiguradorMesa />} />
             <Route path="/cotizaciones" element={<Cotizaciones />} />
+            <Route path="/cotizaciones/:id/editar" element={<CotizacionEditor />} />
             <Route path="/precios" element={<Precios />} />
             <Route path="/config" element={<Configuracion />} />
           </Routes>

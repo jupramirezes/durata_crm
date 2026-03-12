@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado } from '../types'
 import { calcularApuMesa } from '../lib/calcular-apu'
 import { formatCOP } from '../lib/utils'
 import {
-  ArrowLeft, Calculator, ShoppingCart, ChevronDown, ChevronRight, Check,
-  Ruler, Layers, Shield, Package, Circle, Droplets, SlidersHorizontal, Settings, Minus, LayoutGrid
+  ArrowLeft, ShoppingCart, ChevronDown, ChevronRight, Check,
+  Ruler, Layers, Shield, Package, Circle, Droplets, SlidersHorizontal, Settings, Minus, LayoutGrid,
+  Wrench, Truck, AlertCircle
 } from 'lucide-react'
 
 const sectionIcons: Record<string, any> = {
@@ -15,11 +16,13 @@ const sectionIcons: Record<string, any> = {
   'Refuerzos': Shield,
   'Salpicaderos': Minus,
   'Babero': Minus,
-  'Entrepaños y soporte': LayoutGrid,
+  'Entrepa\u00f1os y soporte': LayoutGrid,
   'Pozuelos': Circle,
   'Escabiladero': Package,
   'Vertedero': Droplets,
-  'Extras y parámetros comerciales': SlidersHorizontal,
+  'Extras y par\u00e1metros comerciales': SlidersHorizontal,
+  'Mano de obra': Wrench,
+  'Transporte': Truck,
 }
 
 function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -67,6 +70,43 @@ function CostBar({ label, value, total, color }: { label: string; value: number;
   )
 }
 
+function MOField({ label, suggested, value, onChange }: { label: string; suggested: number; value: number | null; onChange: (v: number | null) => void }) {
+  const actual = value ?? suggested
+  const isOverridden = value !== null
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <span className="text-xs text-[var(--color-text)] flex-1">{label}</span>
+      <span className="text-[10px] text-[var(--color-text-muted)] italic whitespace-nowrap">Sug: {formatCOP(suggested)}</span>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number"
+          value={actual}
+          onChange={e => onChange(Number(e.target.value))}
+          className={`w-28 px-2 py-1.5 rounded-lg text-xs text-right border ${isOverridden ? 'border-amber-300 bg-amber-50' : 'border-[var(--color-border)] bg-white'}`}
+        />
+        {isOverridden && (
+          <button onClick={() => onChange(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-0.5" title="Restaurar sugerido">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface MOOverrides {
+  acero: number | null
+  pulido: number | null
+  patas: number | null
+  instalacion: number | null
+}
+
+interface TransporteOverrides {
+  elementos: number | null
+  personal: number | null
+  descripcion: string
+}
+
 export default function ConfiguradorMesa() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -77,36 +117,100 @@ export default function ConfiguradorMesa() {
   const [cantidad, setCantidad] = useState(1)
   const [showApu, setShowApu] = useState(false)
   const [added, setAdded] = useState(false)
+  const [toast, setToast] = useState(false)
+  const [descripcionEdit, setDescripcionEdit] = useState('')
+  const [descOverridden, setDescOverridden] = useState(false)
+
+  // MO overrides
+  const [moOverrides, setMoOverrides] = useState<MOOverrides>({ acero: null, pulido: null, patas: null, instalacion: null })
+  // Transporte overrides
+  const [transporteOverrides, setTransporteOverrides] = useState<TransporteOverrides>({ elementos: null, personal: null, descripcion: '' })
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const upd = (key: keyof ConfigMesa, value: any) => setCfg(c => ({ ...c, [key]: value }))
 
-  function calcular() {
-    // Ensure pozuelo_dims matches pozuelos_rect count
-    const dims = [...cfg.pozuelo_dims]
-    while (dims.length < cfg.pozuelos_rect) dims.push({ largo: 0.50, ancho: 0.40, alto: 0.18 })
-    const cfgFinal = { ...cfg, pozuelo_dims: dims.slice(0, cfg.pozuelos_rect) }
-    setCfg(cfgFinal)
-    const res = calcularApuMesa(cfgFinal, state.precios)
-    setResultado(res)
-  }
+  // Suggested MO values
+  const metrosLineales = 2 * (cfg.largo + cfg.ancho)
+  const sugMoAcero = Math.round(metrosLineales * 30000)
+  const sugMoPulido = Math.round(metrosLineales * 23000)
+  const sugMoPatas = cfg.patas * 10000
+  const sugMoInstalacion = cfg.instalado ? Math.round(cfg.largo * 22200) : 0
+
+  // Suggested transporte values
+  const sugTransElementos = 15000
+  const sugTransPersonal = 5000
+
+  // Actual MO and transport values (override or suggested)
+  const actualMoAcero = moOverrides.acero ?? sugMoAcero
+  const actualMoPulido = moOverrides.pulido ?? sugMoPulido
+  const actualMoPatas = moOverrides.patas ?? sugMoPatas
+  const actualMoInstalacion = moOverrides.instalacion ?? sugMoInstalacion
+  const totalMoOverride = actualMoAcero + actualMoPulido + actualMoPatas + actualMoInstalacion
+
+  const actualTransElementos = transporteOverrides.elementos ?? sugTransElementos
+  const actualTransPersonal = transporteOverrides.personal ?? sugTransPersonal
+  const totalTransOverride = actualTransElementos + actualTransPersonal
+
+  // Auto-calculate APU with 500ms debounce
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      if (cfg.largo <= 0 || cfg.ancho <= 0 || cfg.alto <= 0) {
+        setResultado(null)
+        return
+      }
+      // Ensure pozuelo_dims matches pozuelos_rect count
+      const dims = [...cfg.pozuelo_dims]
+      while (dims.length < cfg.pozuelos_rect) dims.push({ largo: 0.50, ancho: 0.40, alto: 0.18 })
+      const cfgFinal = { ...cfg, pozuelo_dims: dims.slice(0, cfg.pozuelos_rect) }
+      const res = calcularApuMesa(cfgFinal, state.precios)
+      setResultado(res)
+      if (!descOverridden) {
+        setDescripcionEdit(res.descripcion_comercial)
+      }
+    }, 500)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [cfg, state.precios])
+
+  // Compute adjusted resultado with MO/transport overrides
+  const adjustedResultado = resultado ? (() => {
+    const moOriginal = resultado.costo_mo
+    const transOriginal = resultado.costo_transporte
+    const moDiff = totalMoOverride - moOriginal
+    const transDiff = totalTransOverride - transOriginal
+    const newCostoTotal = resultado.costo_total + moDiff + transDiff
+    const newPrecioVenta = Math.round(newCostoTotal / (1 - resultado.margen))
+    const newPrecioComercial = Math.ceil(newPrecioVenta / 1000) * 1000
+    return {
+      ...resultado,
+      costo_mo: totalMoOverride,
+      costo_transporte: totalTransOverride,
+      costo_total: newCostoTotal,
+      precio_venta: newPrecioVenta,
+      precio_comercial: newPrecioComercial,
+    }
+  })() : null
 
   function agregarAlPedido() {
-    if (!resultado || !id) return
+    if (!adjustedResultado || !id) return
     setAdded(true)
+    setToast(true)
     dispatch({
       type: 'ADD_PRODUCTO',
       payload: {
         cliente_id: id,
         categoria: 'Mesas',
-        subtipo: 'Mesa lisa con entrepaño',
+        subtipo: 'Mesa lisa con entrepa\u00f1o',
         configuracion: cfg,
-        apu_resultado: resultado,
-        precio_calculado: resultado.precio_comercial,
-        descripcion_comercial: resultado.descripcion_comercial,
+        apu_resultado: adjustedResultado,
+        precio_calculado: adjustedResultado.precio_comercial,
+        descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
         cantidad,
       },
     })
-    setTimeout(() => navigate(`/clientes/${id}`), 1200)
+    setTimeout(() => setToast(false), 3000)
+    setTimeout(() => navigate(`/clientes/${id}`), 1500)
   }
 
   function updPozDim(i: number, key: string, val: number) {
@@ -116,8 +220,18 @@ export default function ConfiguradorMesa() {
     upd('pozuelo_dims', dims)
   }
 
+  const needsDimensions = cfg.largo <= 0 || cfg.ancho <= 0 || cfg.alto <= 0
+
   return (
-    <div className="p-8 max-w-6xl animate-fade-in">
+    <div className="p-8 max-w-6xl animate-fade-in relative">
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in">
+          <Check size={18} strokeWidth={3} />
+          <span className="text-sm font-semibold">Producto agregado al pedido</span>
+        </div>
+      )}
+
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-5 transition-colors duration-200">
         <ArrowLeft size={16} /> Volver a {cliente?.nombre || 'cliente'}
       </button>
@@ -198,9 +312,9 @@ export default function ConfiguradorMesa() {
             )}
           </Section>
 
-          <Section title="Entrepaños y soporte">
+          <Section title="Entrepa\u00f1os y soporte">
             <div className="grid grid-cols-3 gap-3">
-              <Field label="Entrepanos"><NumInput value={cfg.entrepaños} onChange={v => upd('entrepaños', v)} step={1} min={0} /></Field>
+              <Field label="Entrepanos"><NumInput value={cfg.entrepa\u00f1os} onChange={v => upd('entrepa\u00f1os', v)} step={1} min={0} /></Field>
               <Field label="Patas"><NumInput value={cfg.patas} onChange={v => upd('patas', v)} step={2} min={2} /></Field>
             </div>
             <label className="flex items-center gap-2.5 text-sm cursor-pointer mt-2">
@@ -259,7 +373,7 @@ export default function ConfiguradorMesa() {
             )}
           </Section>
 
-          <Section title="Extras y parámetros comerciales">
+          <Section title="Extras y par\u00e1metros comerciales">
             <div className="space-y-2.5">
               <label className="flex items-center gap-2.5 text-sm cursor-pointer">
                 <input type="checkbox" checked={cfg.push_pedal} onChange={e => upd('push_pedal', e.target.checked)} className="rounded" /> Push Pedal + Grifo + Canastilla
@@ -276,45 +390,91 @@ export default function ConfiguradorMesa() {
               <Field label="Cantidad de mesas"><NumInput value={cantidad} onChange={setCantidad} step={1} min={1} /></Field>
             </div>
           </Section>
+
+          {/* MO Section */}
+          <Section title="Mano de obra" defaultOpen={false}>
+            <p className="text-[10px] text-[var(--color-text-muted)] mb-2">Valores sugeridos basados en la configuraci&oacute;n. Edita para ajustar.</p>
+            <div className="divide-y divide-[var(--color-border)]">
+              <MOField label="MO Acero (metros lineales)" suggested={sugMoAcero} value={moOverrides.acero} onChange={v => setMoOverrides(p => ({ ...p, acero: v }))} />
+              <MOField label="MO Pulido (metros lineales)" suggested={sugMoPulido} value={moOverrides.pulido} onChange={v => setMoOverrides(p => ({ ...p, pulido: v }))} />
+              <MOField label="MO Patas" suggested={sugMoPatas} value={moOverrides.patas} onChange={v => setMoOverrides(p => ({ ...p, patas: v }))} />
+              {cfg.instalado && <MOField label="MO Instalaci&oacute;n" suggested={sugMoInstalacion} value={moOverrides.instalacion} onChange={v => setMoOverrides(p => ({ ...p, instalacion: v }))} />}
+            </div>
+            <div className="flex justify-between items-center mt-3 pt-3 border-t border-[var(--color-border)]">
+              <span className="text-xs font-semibold text-[var(--color-text)]">Total MO</span>
+              <span className="text-sm font-bold text-[var(--color-text)]">{formatCOP(totalMoOverride)}</span>
+            </div>
+          </Section>
+
+          {/* Transporte Section */}
+          <Section title="Transporte" defaultOpen={false}>
+            <p className="text-[10px] text-[var(--color-text-muted)] mb-2">Costos de transporte. Edita para ajustar.</p>
+            <div className="divide-y divide-[var(--color-border)]">
+              <MOField label="Transporte elementos" suggested={sugTransElementos} value={transporteOverrides.elementos} onChange={v => setTransporteOverrides(p => ({ ...p, elementos: v }))} />
+              <MOField label="Transporte personal" suggested={sugTransPersonal} value={transporteOverrides.personal} onChange={v => setTransporteOverrides(p => ({ ...p, personal: v }))} />
+            </div>
+            <div className="mt-3">
+              <Field label="Descripci&oacute;n transporte">
+                <input
+                  type="text"
+                  value={transporteOverrides.descripcion}
+                  onChange={e => setTransporteOverrides(p => ({ ...p, descripcion: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl text-xs"
+                  placeholder="Ej: Transporte Medell&iacute;n - Bogot&aacute;..."
+                />
+              </Field>
+            </div>
+            <div className="flex justify-between items-center mt-3 pt-3 border-t border-[var(--color-border)]">
+              <span className="text-xs font-semibold text-[var(--color-text)]">Total Transporte</span>
+              <span className="text-sm font-bold text-[var(--color-text)]">{formatCOP(totalTransOverride)}</span>
+            </div>
+          </Section>
         </div>
 
         {/* Panel de resultado */}
         <div className="space-y-4 sticky top-4 self-start">
-          <button onClick={calcular} className="w-full flex items-center justify-center gap-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 py-4 rounded-2xl text-base font-bold transition-all duration-200">
-            <Calculator size={20} /> CALCULAR PRECIO
-          </button>
-
-          {resultado && (
+          {needsDimensions ? (
+            <div className="bg-white rounded-2xl border border-[var(--color-border)] p-8 text-center">
+              <AlertCircle size={32} className="text-[var(--color-border)] mx-auto mb-3" />
+              <p className="text-sm text-[var(--color-text-muted)] font-medium">Completa las dimensiones</p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">Ingresa largo, ancho y alto para ver el precio en tiempo real.</p>
+            </div>
+          ) : !adjustedResultado ? (
+            <div className="bg-white rounded-2xl border border-[var(--color-border)] p-8 text-center">
+              <div className="animate-spin w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full mx-auto mb-3" />
+              <p className="text-sm text-[var(--color-text-muted)]">Calculando...</p>
+            </div>
+          ) : (
             <>
               {/* Price hero */}
               <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30" style={{ background: 'linear-gradient(135deg, #059669 0%, #34d399 100%)' }}>
                 <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/10 -translate-y-8 translate-x-8" />
                 <div className="p-6 text-center relative">
                   <div className="text-xs text-white/70 uppercase tracking-widest font-semibold mb-1">Precio comercial</div>
-                  <div className="text-4xl font-black text-white mb-1">{formatCOP(resultado.precio_comercial)}</div>
-                  <div className="text-sm text-white/70">{'\u00D7'} {cantidad} = <span className="font-bold text-white">{formatCOP(resultado.precio_comercial * cantidad)}</span></div>
+                  <div className="text-4xl font-black text-white mb-1">{formatCOP(adjustedResultado.precio_comercial)}</div>
+                  <div className="text-sm text-white/70">{'\u00D7'} {cantidad} = <span className="font-bold text-white">{formatCOP(adjustedResultado.precio_comercial * cantidad)}</span></div>
                 </div>
               </div>
 
               {/* Cost breakdown with bars */}
               <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
                 <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-2">Desglose de costos</h4>
-                <CostBar label="Insumos" value={resultado.costo_insumos} total={resultado.costo_total} color="#4f8cff" />
-                <CostBar label="Mano de obra" value={resultado.costo_mo} total={resultado.costo_total} color="#a78bfa" />
-                <CostBar label="Transporte" value={resultado.costo_transporte} total={resultado.costo_total} color="#fb923c" />
-                <CostBar label="Corte laser" value={resultado.costo_laser} total={resultado.costo_total} color="#f87171" />
-                {resultado.costo_poliza > 0 && <CostBar label="Poliza" value={resultado.costo_poliza} total={resultado.costo_total} color="#fbbf24" />}
+                <CostBar label="Insumos" value={adjustedResultado.costo_insumos} total={adjustedResultado.costo_total} color="#4f8cff" />
+                <CostBar label="Mano de obra" value={adjustedResultado.costo_mo} total={adjustedResultado.costo_total} color="#a78bfa" />
+                <CostBar label="Transporte" value={adjustedResultado.costo_transporte} total={adjustedResultado.costo_total} color="#fb923c" />
+                <CostBar label="Corte laser" value={adjustedResultado.costo_laser} total={adjustedResultado.costo_total} color="#f87171" />
+                {adjustedResultado.costo_poliza > 0 && <CostBar label="Poliza" value={adjustedResultado.costo_poliza} total={adjustedResultado.costo_total} color="#fbbf24" />}
 
                 <div className="border-t border-[var(--color-border)] pt-3 mt-3 space-y-2 text-sm">
-                  <div className="flex justify-between font-medium"><span>Costo total</span><span>{formatCOP(resultado.costo_total)}</span></div>
-                  <div className="flex justify-between text-[var(--color-text-muted)]"><span>Margen {(resultado.margen * 100).toFixed(0)}%</span><span>{formatCOP(resultado.precio_venta - resultado.costo_total)}</span></div>
-                  <div className="flex justify-between font-bold text-base"><span>Precio venta</span><span className="text-[var(--color-accent-green)]">{formatCOP(resultado.precio_venta)}</span></div>
+                  <div className="flex justify-between font-medium"><span>Costo total</span><span>{formatCOP(adjustedResultado.costo_total)}</span></div>
+                  <div className="flex justify-between text-[var(--color-text-muted)]"><span>Margen {(adjustedResultado.margen * 100).toFixed(0)}%</span><span>{formatCOP(adjustedResultado.precio_venta - adjustedResultado.costo_total)}</span></div>
+                  <div className="flex justify-between font-bold text-base"><span>Precio venta</span><span className="text-[var(--color-accent-green)]">{formatCOP(adjustedResultado.precio_venta)}</span></div>
                 </div>
               </div>
 
               {/* APU toggle */}
               <button onClick={() => setShowApu(!showApu)} className="w-full text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium text-center py-2 rounded-xl hover:bg-blue-500/5 transition-all duration-200">
-                {showApu ? 'Ocultar' : 'Ver'} APU detallado ({resultado.lineas.length} lineas)
+                {showApu ? 'Ocultar' : 'Ver'} APU detallado ({adjustedResultado.lineas.length} lineas)
               </button>
 
               {showApu && (
@@ -326,7 +486,7 @@ export default function ConfiguradorMesa() {
                       </tr>
                     </thead>
                     <tbody>
-                      {resultado.lineas.map((l, i) => (
+                      {adjustedResultado.lineas.map((l, i) => (
                         <tr key={i} className={`border-t border-[var(--color-border)] ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : ''}`}>
                           <td className="px-2 py-2 font-mono">{l.cantidad.toFixed(2)}</td>
                           <td className="px-2 py-2 truncate max-w-40">{l.descripcion}</td>
@@ -339,13 +499,24 @@ export default function ConfiguradorMesa() {
                 </div>
               )}
 
-              {/* Commercial description */}
+              {/* Editable commercial description */}
               <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-1 h-4 rounded-full bg-[var(--color-primary)]" />
                   <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Descripcion comercial</span>
+                  {descOverridden && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-medium border border-amber-200">Editado</span>}
                 </div>
-                <p className="text-sm leading-relaxed">{resultado.descripcion_comercial}</p>
+                <textarea
+                  value={descripcionEdit}
+                  onChange={e => { setDescripcionEdit(e.target.value); setDescOverridden(true) }}
+                  rows={4}
+                  className="w-full text-sm leading-relaxed px-3 py-2 rounded-xl border border-[var(--color-border)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                />
+                {descOverridden && (
+                  <button onClick={() => { setDescripcionEdit(adjustedResultado.descripcion_comercial); setDescOverridden(false) }} className="text-[10px] text-[var(--color-primary)] hover:underline mt-1">
+                    Restaurar descripci&oacute;n original
+                  </button>
+                )}
               </div>
 
               {/* Add to order button with success animation */}

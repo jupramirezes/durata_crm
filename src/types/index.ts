@@ -102,6 +102,12 @@ export interface ApuResultado {
   descripcion_comercial: string
 }
 
+export interface CotizacionProducto {
+  descripcion: string
+  cantidad: number
+  precio_unitario: number
+}
+
 export interface Cotizacion {
   id: string
   cliente_id: string
@@ -110,6 +116,12 @@ export interface Cotizacion {
   estado: 'borrador' | 'enviada' | 'aprobada' | 'rechazada'
   total: number
   cliente?: Cliente
+  // Editor fields (optional, populated when editing)
+  productos_snapshot?: CotizacionProducto[]
+  tiempoEntrega?: string
+  incluyeTransporte?: boolean
+  condicionesItems?: string[]
+  noIncluyeItems?: string[]
 }
 
 export interface PrecioMaestro {

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { formatCOP, formatDate } from '../lib/utils'
-import { FileText, Copy, Trash2 } from 'lucide-react'
+import { FileText, Copy, Trash2, Edit3 } from 'lucide-react'
 
 export default function Cotizaciones() {
   const { state, dispatch } = useStore()
@@ -55,11 +55,11 @@ export default function Cotizaciones() {
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => cliente && navigate('/clientes/' + c.cliente_id)}
-                          className="text-xs px-3 py-1.5 rounded-lg text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] font-medium transition-all duration-200"
-                          title="Ver PDF"
+                          onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] font-medium transition-all duration-200"
+                          title="Editar cotizaci&oacute;n"
                         >
-                          PDF
+                          <Edit3 size={12} /> Editar
                         </button>
                         <button
                           onClick={() => {

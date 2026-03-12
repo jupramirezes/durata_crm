@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS } from '../types'
 import { formatDate, formatCOP, getInitials, getAvatarColor } from '../lib/utils'
-import { generarPdfCotizacion } from '../lib/generar-pdf'
 import CotizacionModal from '../components/CotizacionModal'
 import { ArrowLeft, Plus, FileText, Mail, Phone, MapPin, Calendar, Tag, Package, Hash, Trash2 } from 'lucide-react'
 
@@ -40,15 +39,34 @@ export default function ClienteDetalle() {
     return `COT-${year}-${String(numExistentes + 1).padStart(3, '0')}`
   }
 
-  function handleGenerarCotizacion(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
+  function handleCrearCotizacion(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
     if (productos.length === 0 || !cliente) return
     const fecha = new Date().toISOString().split('T')[0]
-    const total = generarPdfCotizacion({ ...data, fecha, cliente, productos })
+    const subtotal = productos.reduce((s, p) => s + (p.precio_calculado || 0) * p.cantidad, 0)
+    const total = subtotal + subtotal * 0.19
+    const cotId = String(Date.now())
     dispatch({
       type: 'ADD_COTIZACION',
-      payload: { cliente_id: cliente.id, numero: data.numero, fecha, estado: 'borrador', total },
+      payload: {
+        cliente_id: cliente.id,
+        numero: data.numero,
+        fecha,
+        estado: 'borrador',
+        total,
+        tiempoEntrega: data.tiempoEntrega,
+        incluyeTransporte: data.incluyeTransporte,
+        condicionesItems: data.condicionesItems,
+        noIncluyeItems: data.noIncluyeItems,
+        productos_snapshot: productos.map(p => ({
+          descripcion: p.descripcion_comercial || p.subtipo,
+          cantidad: p.cantidad,
+          precio_unitario: p.precio_calculado || 0,
+        })),
+      },
     })
     setShowCotModal(false)
+    // Navigate to editor with the new cotizacion
+    setTimeout(() => navigate(`/cotizaciones/${cotId}/editar`), 100)
   }
 
   return (
@@ -214,10 +232,10 @@ export default function ClienteDetalle() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setShowCotModal(true)}
+                          onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
                           className="text-xs px-3 py-1.5 rounded-lg text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] font-medium transition-all duration-200"
                         >
-                          PDF
+                          Editar
                         </button>
                         <button
                           onClick={() => {
@@ -242,7 +260,7 @@ export default function ClienteDetalle() {
       {showCotModal && (
         <CotizacionModal
           defaultNumero={getDefaultNumero()}
-          onConfirm={handleGenerarCotizacion}
+          onConfirm={handleCrearCotizacion}
           onClose={() => setShowCotModal(false)}
         />
       )}
