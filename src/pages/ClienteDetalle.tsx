@@ -40,13 +40,13 @@ export default function ClienteDetalle() {
     return `COT-${year}-${String(numExistentes + 1).padStart(3, '0')}`
   }
 
-  function handleGenerarCotizacion(numero: string, tiempoEntrega: string, noIncluyeItems: string[]) {
+  function handleGenerarCotizacion(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
     if (productos.length === 0 || !cliente) return
     const fecha = new Date().toISOString().split('T')[0]
-    const total = generarPdfCotizacion({ numero, fecha, cliente, productos, tiempoEntrega, noIncluyeItems })
+    const total = generarPdfCotizacion({ ...data, fecha, cliente, productos })
     dispatch({
       type: 'ADD_COTIZACION',
-      payload: { cliente_id: cliente.id, numero, fecha, estado: 'borrador', total },
+      payload: { cliente_id: cliente.id, numero: data.numero, fecha, estado: 'borrador', total },
     })
     setShowCotModal(false)
   }

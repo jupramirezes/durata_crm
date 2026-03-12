@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import { Cliente, ProductoCliente } from '../types'
 import { formatCOP } from './utils'
+import { LOGO_DURATA_B64 } from './logo-b64'
 
 export interface PdfCotizacionData {
   numero: string
@@ -8,125 +9,161 @@ export interface PdfCotizacionData {
   cliente: Cliente
   productos: ProductoCliente[]
   tiempoEntrega: string
+  incluyeTransporte: boolean
+  condicionesItems: string[]
   noIncluyeItems: string[]
 }
 
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+function fechaLarga(isoDate: string): string {
+  const d = new Date(isoDate + 'T12:00:00')
+  return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
+}
+
 export function generarPdfCotizacion(data: PdfCotizacionData) {
-  const { numero, fecha, cliente, productos, tiempoEntrega, noIncluyeItems } = data
+  const { numero, fecha, cliente, productos, incluyeTransporte, condicionesItems, noIncluyeItems } = data
   const doc = new jsPDF({ unit: 'mm', format: 'letter' })
   const pageW = doc.internal.pageSize.getWidth()
-  const marginL = 20
-  const marginR = 20
-  const contentW = pageW - marginL - marginR
-  let y = 20
+  const pageH = doc.internal.pageSize.getHeight()
+  const mL = 18
+  const mR = 18
+  const cW = pageW - mL - mR
+  let y = 0
+
+  const BLUE = { r: 26, g: 35, b: 50 } // #1a2332
 
   function checkPage(needed: number) {
-    if (y + needed > doc.internal.pageSize.getHeight() - 20) {
+    if (y + needed > pageH - 22) {
       doc.addPage()
-      y = 20
+      y = 15
     }
   }
 
-  function drawLine() {
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.3)
-    doc.line(marginL, y, pageW - marginR, y)
-    y += 3
+  function textBlock(text: string, x: number, maxW: number, lineH: number, fontSize: number, font: string, style: string, color: [number, number, number]) {
+    doc.setFont(font, style)
+    doc.setFontSize(fontSize)
+    doc.setTextColor(color[0], color[1], color[2])
+    const lines: string[] = doc.splitTextToSize(text, maxW)
+    for (const line of lines) {
+      checkPage(lineH + 2)
+      doc.text(line, x, y)
+      y += lineH
+    }
   }
 
-  // ===== HEADER =====
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(18)
-  doc.setTextColor(30, 30, 30)
-  doc.text('DURATA\u00ae S.A.S.', marginL, y)
-  y += 6
+  // ================================================================
+  // ENCABEZADO - Fondo azul oscuro con logo
+  // ================================================================
+  const headerH = 40
+  doc.setFillColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.rect(0, 0, pageW, headerH, 'F')
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.setTextColor(100, 100, 100)
-  doc.text('NIT 890.939.027-6', marginL, y)
-  y += 4
-  doc.text('Itagui, Antioquia | Tel: 444 43 70', marginL, y)
-  y += 8
+  // Logo (proporcional, dentro del header)
+  try {
+    doc.addImage(LOGO_DURATA_B64, 'PNG', mL, 8, 55, 24)
+  } catch {
+    // Fallback text si no carga
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(22)
+    doc.setTextColor(255, 255, 255)
+    doc.text('DURATA\u00ae S.A.S.', mL, 25)
+  }
 
-  // Cotizacion number + date block (right-aligned box)
-  doc.setFillColor(245, 245, 245)
-  doc.roundedRect(pageW - marginR - 75, y - 16, 75, 20, 2, 2, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(30, 30, 30)
-  doc.text(numero, pageW - marginR - 5, y - 10, { align: 'right' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(100, 100, 100)
-  doc.text(`Fecha: ${fecha} | Validez: 10 dias calendario`, pageW - marginR - 5, y - 4, { align: 'right' })
+  y = headerH + 8
 
-  drawLine()
-  y += 2
-
-  // ===== DATOS CLIENTE =====
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(30, 30, 30)
-  doc.text('DATOS DEL CLIENTE', marginL, y)
-  y += 6
-
+  // ================================================================
+  // DATOS DE COTIZACION
+  // ================================================================
+  // Izquierda: lugar y fecha
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(60, 60, 60)
+  doc.text(`Itag\u00fc\u00ed, ${fechaLarga(fecha)}`, mL, y)
 
-  const clienteFields = [
-    ['Nombre', cliente.nombre],
-    ['Empresa', cliente.empresa],
-    ['NIT', cliente.nit],
-    ['Ubicacion', cliente.ubicacion],
-    ['Telefono', cliente.whatsapp],
-    ['Email', cliente.correo],
-  ]
-
-  for (const [label, value] of clienteFields) {
-    doc.setFont('helvetica', 'bold')
-    doc.text(`${label}:`, marginL, y)
-    doc.setFont('helvetica', 'normal')
-    doc.text(value || '-', marginL + 25, y)
-    y += 5
-  }
-  y += 3
-  drawLine()
-  y += 2
-
-  // ===== TABLA DE PRODUCTOS =====
+  // Derecha: numero cotizacion
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
+  doc.setFontSize(12)
+  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.text(`Cotizaci\u00f3n: ${numero}`, pageW - mR, y, { align: 'right' })
+  y += 8
+
+  // Senor(a)(es)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(60, 60, 60)
+  doc.text('Se\u00f1or(a)(es)', mL, y)
+  y += 5
+
+  // Empresa en MAYUSCULAS bold
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
   doc.setTextColor(30, 30, 30)
-  doc.text('PRODUCTOS', marginL, y)
-  y += 6
+  doc.text((cliente.empresa || '').toUpperCase(), mL, y)
+  y += 5
 
-  // Table header
-  const colX = {
-    cant: marginL,
-    und: marginL + 15,
-    desc: marginL + 30,
-    vUnit: pageW - marginR - 50,
-    vTotal: pageW - marginR - 2,
-  }
-  const descMaxW = colX.vUnit - colX.desc - 3
+  // Nombre contacto
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(60, 60, 60)
+  doc.text(cliente.nombre, mL, y)
 
-  doc.setFillColor(40, 40, 50)
-  doc.rect(marginL, y - 4, contentW, 7, 'F')
+  // Derecha: tel y email
+  doc.text(`Tel: ${cliente.whatsapp || '-'}`, pageW - mR, y - 5, { align: 'right' })
+  doc.text(`Email: ${cliente.correo || '-'}`, pageW - mR, y, { align: 'right' })
+  y += 5
+
+  // PRODUCTO
+  const subtipos = [...new Set(productos.map(p => p.subtipo))].join(', ')
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(255, 255, 255)
-  doc.text('CANT', colX.cant + 1, y)
-  doc.text('UND', colX.und + 1, y)
-  doc.text('DESCRIPCION', colX.desc + 1, y)
-  doc.text('VALOR UNIT', colX.vUnit, y, { align: 'right' })
-  doc.text('VALOR TOTAL', colX.vTotal, y, { align: 'right' })
-  y += 6
+  doc.setFontSize(9)
+  doc.setTextColor(30, 30, 30)
+  doc.text(`PRODUCTO: ${subtipos}`, mL, y)
+  y += 8
 
+  // ================================================================
+  // PARRAFO INSTITUCIONAL
+  // ================================================================
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(8)
+  doc.setTextColor(80, 80, 80)
+  const parrafoInst = 'DURATA\u00ae S.A.S es una empresa antioque\u00f1a fundada desde 1985, dedicada a la fabricaci\u00f3n de art\u00edculos en Acero Inoxidable y estructura met\u00e1lica. Nos destacamos en el mercado por nuestra eficiencia y calidad. Nuestro personal est\u00e1 debidamente capacitado y cuenta con la experiencia para desarrollar proyectos a la medida de nuestros clientes.'
+  const instLines: string[] = doc.splitTextToSize(parrafoInst, cW)
+  for (const line of instLines) {
+    doc.text(line, mL, y)
+    y += 3.5
+  }
+  y += 2
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
-  doc.setTextColor(40, 40, 40)
+  doc.setTextColor(60, 60, 60)
+  doc.text('A continuaci\u00f3n presentamos la propuesta comercial de acuerdo a su solicitud.', mL, y)
+  y += 8
+
+  // ================================================================
+  // TABLA DE PRODUCTOS
+  // ================================================================
+  const colCant = mL
+  const colUnd = mL + 14
+  const colDesc = mL + 28
+  const colVUnit = pageW - mR - 45
+  const colVTotal = pageW - mR
+  const descW = colVUnit - colDesc - 4
+
+  // Header
+  const thH = 7
+  doc.setFillColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.rect(mL, y, cW, thH, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(255, 255, 255)
+  const thY = y + 5
+  doc.text('CANT', colCant + 2, thY)
+  doc.text('UND', colUnd + 2, thY)
+  doc.text('DESCRIPCI\u00d3N', colDesc + 2, thY)
+  doc.text('VALOR UNIT', colVUnit - 2, thY, { align: 'right' })
+  doc.text('VALOR TOTAL', colVTotal - 2, thY, { align: 'right' })
+  y += thH
 
   let subtotal = 0
 
@@ -136,162 +173,185 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     const totalLinea = precioUnit * p.cantidad
     subtotal += totalLinea
 
-    // Wrap description text
-    const descLines = doc.splitTextToSize(p.descripcion_comercial || p.subtipo, descMaxW)
-    const rowH = Math.max(descLines.length * 3.8, 5)
-
-    checkPage(rowH + 4)
-
-    // Alternating row bg
-    if (idx % 2 === 0) {
-      doc.setFillColor(248, 248, 250)
-      doc.rect(marginL, y - 3.5, contentW, rowH + 2, 'F')
-    }
-
-    doc.setTextColor(40, 40, 40)
-    doc.text(String(p.cantidad), colX.cant + 1, y)
-    doc.text('und', colX.und + 1, y)
-
-    // Description (multi-line)
-    doc.setFontSize(7.5)
-    for (let li = 0; li < descLines.length; li++) {
-      doc.text(descLines[li], colX.desc + 1, y + li * 3.8)
-    }
-    doc.setFontSize(8)
-
-    doc.text(formatCOP(precioUnit), colX.vUnit, y, { align: 'right' })
-    doc.setFont('helvetica', 'bold')
-    doc.text(formatCOP(totalLinea), colX.vTotal, y, { align: 'right' })
     doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    const descLines: string[] = doc.splitTextToSize(p.descripcion_comercial || p.subtipo, descW)
+    const rowH = Math.max(descLines.length * 3.5 + 3, 7)
 
-    y += rowH + 2
+    checkPage(rowH + 2)
+
+    // Alternating row background
+    if (idx % 2 === 0) {
+      doc.setFillColor(245, 247, 250)
+      doc.rect(mL, y, cW, rowH, 'F')
+    }
+
+    // Row border bottom
+    doc.setDrawColor(210, 215, 225)
+    doc.setLineWidth(0.2)
+    doc.line(mL, y + rowH, mL + cW, y + rowH)
+
+    const cellY = y + 4.5
+    doc.setTextColor(40, 40, 40)
+    doc.text(String(p.cantidad), colCant + 2, cellY)
+    doc.text('UND', colUnd + 2, cellY)
+
+    // Description multi-line
+    doc.setFontSize(7)
+    for (let li = 0; li < descLines.length; li++) {
+      doc.text(descLines[li], colDesc + 2, cellY + li * 3.5)
+    }
+
+    // Prices
+    doc.setFontSize(7.5)
+    doc.text(formatCOP(precioUnit), colVUnit - 2, cellY, { align: 'right' })
+    doc.setFont('helvetica', 'bold')
+    doc.text(formatCOP(totalLinea), colVTotal - 2, cellY, { align: 'right' })
+
+    y += rowH
   }
 
-  y += 2
-  // Divider
-  doc.setDrawColor(40, 40, 50)
-  doc.setLineWidth(0.5)
-  doc.line(pageW - marginR - 70, y, pageW - marginR, y)
-  y += 5
+  y += 4
 
-  // ===== TOTALES =====
+  // ================================================================
+  // TOTALES
+  // ================================================================
   const iva = subtotal * 0.19
   const totalFinal = subtotal + iva
-
-  const totalesData = [
-    ['Subtotal', formatCOP(subtotal)],
-    ['IVA (19%)', formatCOP(iva)],
-  ]
+  const totX = pageW - mR - 80
 
   doc.setFontSize(9)
-  for (const [label, val] of totalesData) {
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80, 80, 80)
-    doc.text(label, pageW - marginR - 70, y)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(40, 40, 40)
-    doc.text(val, pageW - marginR - 2, y, { align: 'right' })
-    y += 5
-  }
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(60, 60, 60)
+  doc.text('SUBTOTAL', totX, y)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 30, 30)
+  doc.text(formatCOP(subtotal), pageW - mR - 2, y, { align: 'right' })
+  y += 5
 
-  // TOTAL big
-  doc.setFillColor(40, 40, 50)
-  doc.roundedRect(pageW - marginR - 72, y - 3.5, 72, 9, 1.5, 1.5, 'F')
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(60, 60, 60)
+  doc.text('IVA (19%)', totX, y)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(30, 30, 30)
+  doc.text(formatCOP(iva), pageW - mR - 2, y, { align: 'right' })
+  y += 6
+
+  // TOTAL grande con fondo
+  doc.setFillColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.roundedRect(totX - 3, y - 4, pageW - mR - totX + 5, 10, 1.5, 1.5, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(255, 255, 255)
-  doc.text('TOTAL', pageW - marginR - 68, y + 2)
-  doc.text(formatCOP(totalFinal), pageW - marginR - 4, y + 2, { align: 'right' })
+  doc.text('TOTAL', totX, y + 2.5)
+  doc.text(formatCOP(totalFinal), pageW - mR - 2, y + 2.5, { align: 'right' })
   y += 16
 
-  // ===== CONDICIONES =====
-  checkPage(80)
-  drawLine()
-  y += 2
+  // ================================================================
+  // NOTA
+  // ================================================================
+  checkPage(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.text('EN CASO DE ACEPTAR LA PROPUESTA, FAVOR DILIGENCIAR EL FORMATO Y ENVIAR POR CORREO PARA PODER INICIAR EL PROCESO.', mL, y)
+  y += 8
+
+  // ================================================================
+  // CONDICIONES COMERCIALES
+  // ================================================================
+  checkPage(15)
+  doc.setDrawColor(200, 200, 200)
+  doc.setLineWidth(0.3)
+  doc.line(mL, y, mL + cW, y)
+  y += 5
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  doc.setTextColor(30, 30, 30)
-  doc.text('CONDICIONES COMERCIALES', marginL, y)
-  y += 6
+  doc.setFontSize(9)
+  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.text('CONDICIONES COMERCIALES', mL, y)
+  y += 5
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor(60, 60, 60)
-
-  const condiciones = [
-    `Tiempo de entrega: ${tiempoEntrega}, este tiempo corre a partir de la orden de compra, pago del anticipo, la firma de los planos definitivos, la validacion de los disenos y los acabados solicitados.`,
-    'IVA: Se cobrara de acuerdo a la tarifa vigente en el momento del despacho. No incluye impuestos adicionales gubernamentales, en caso de existir seran asumidos por el cliente y adicionados a la factura final.',
-    'Cantidades: El presupuesto puede variar de acuerdo a lo realmente Suministrado, el cual sera el valor final de la factura.',
-    'Danos: Los danos causados en los acabados de los elementos de Durata\u00ae por cuenta de la obra seran asumidos por el cliente, la recepcion de los elementos implica responsabilidad en el cuidado de los mismos.',
-    'Requerimiento: Energia 220v y 110v a maximo 30ml del espacio de trabajo, cuarto para guardar herramienta y material.',
-    'Forma de Pago: 50% anticipo y 50% contra entrega.',
-    'Validez de la propuesta: 10 dias calendario.',
-    'Cuentas Bancarias: Bancolombia Corriente 27250080764.',
-    'Garantia: DURATA ofrece garantia de 1 ANO MATERIALES Y CORRECTO FUNCIONAMIENTO, SIEMPRE Y CUANDO SEA INSTALADO POR DURATA.',
-  ]
-
-  for (const cond of condiciones) {
-    checkPage(12)
-    const lines = doc.splitTextToSize(`\u2022 ${cond}`, contentW)
-    for (const line of lines) {
-      doc.text(line, marginL, y)
-      y += 3.5
-    }
+  for (const cond of condicionesItems) {
+    checkPage(14)
+    textBlock(`\u2022 ${cond}`, mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
     y += 1.5
   }
 
-  // ===== NO INCLUYE =====
+  // Transporte
+  if (incluyeTransporte) {
+    checkPage(10)
+    textBlock('\u2022 Transporte: Transporte de la totalidad de los elementos van incluidos en el valor del \u00edtem. Si var\u00eda la orden de compra, a menor cantidad los precios pueden variar.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+    y += 1.5
+  }
+
+  // ================================================================
+  // NO INCLUYE
+  // ================================================================
   if (noIncluyeItems.length > 0) {
     y += 2
-    checkPage(20)
+    checkPage(12)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(30, 30, 30)
-    doc.text('NO INCLUYE:', marginL, y)
-    y += 5
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(60, 60, 60)
+    doc.setFontSize(8)
+    doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+    doc.text('NO INCLUYE:', mL, y)
+    y += 4
 
     for (const item of noIncluyeItems) {
-      checkPage(12)
-      const lines = doc.splitTextToSize(`\u2022 ${item}`, contentW)
-      for (const line of lines) {
-        doc.text(line, marginL, y)
-        y += 3.5
-      }
+      checkPage(14)
+      textBlock(`\u2022 ${item}`, mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
       y += 1.5
     }
   }
 
-  // ===== PIE =====
-  y += 5
+  // Forma de pago, cuentas, validez (siempre)
+  y += 2
+  checkPage(18)
+  textBlock('\u2022 Forma de Pago: 50% ANTICIPO Y 50% contra entrega.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+  y += 1
+  textBlock('\u2022 Cuentas Bancarias: Bancolombia Corriente 27250080764.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+  y += 1
+  textBlock('\u2022 Validez de la propuesta: 10 d\u00edas calendario.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+
+  // ================================================================
+  // PIE DE FIRMA
+  // ================================================================
+  y += 10
   checkPage(20)
-  drawLine()
-  y += 3
+  doc.setDrawColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.setLineWidth(0.4)
+  doc.line(mL, y, mL + cW, y)
+  y += 6
 
+  // Columna izquierda
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(30, 30, 30)
-  doc.text('SEBASTIAN AGUIRRE', marginL, y)
+  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.text('SEBASTI\u00c1N AGUIRRE', mL, y)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
-  doc.text('Director comercial - 317 666 8023', marginL, y + 4)
+  doc.text('Director comercial', mL, y + 4)
+  doc.text('CEL 317 666 8023', mL, y + 8)
 
+  // Columna derecha
+  const colR = mL + cW / 2 + 10
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(30, 30, 30)
-  doc.text('OMAR COSSIO', marginL + 80, y)
+  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.text('OMAR COSSIO', colR, y)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
-  doc.text('Comercial - 444 43 70 ext 108', marginL + 80, y + 4)
+  doc.text('Comercial', colR, y + 4)
+  doc.text('444 43 70 ext 108', colR, y + 8)
 
-  // Save
-  doc.save(`${numero}.pdf`)
+  // ================================================================
+  // GUARDAR
+  // ================================================================
+  const empresaClean = (cliente.empresa || 'cliente').replace(/[^a-zA-Z0-9]/g, '_')
+  const subtipoClean = subtipos.replace(/[^a-zA-Z0-9]/g, '_')
+  doc.save(`Cotizacion_${numero}_${subtipoClean}_${empresaClean}.pdf`)
 
   return totalFinal
 }
