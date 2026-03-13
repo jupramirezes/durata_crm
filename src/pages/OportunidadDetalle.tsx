@@ -137,8 +137,7 @@ export default function OportunidadDetalle() {
             <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Oportunidad</span>
           </div>
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Valor estimado</span><span className="font-bold text-[var(--color-text)]">{formatCOP(oportunidad.valor_estimado)}</span></div>
-            {oportunidad.valor_cotizado > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Valor cotizado</span><span className="font-medium">{formatCOP(oportunidad.valor_cotizado)}</span></div>}
+            <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Valor cotizado</span><span className="font-bold text-[var(--color-text)]">{formatCOP(oportunidad.valor_cotizado)}</span></div>
             {oportunidad.valor_adjudicado > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Valor adjudicado</span><span className="font-bold text-[var(--color-accent-green)]">{formatCOP(oportunidad.valor_adjudicado)}</span></div>}
             <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Fuente</span><span>{oportunidad.fuente_lead}</span></div>
             <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Ingreso</span><span>{formatDate(oportunidad.fecha_ingreso)}</span></div>

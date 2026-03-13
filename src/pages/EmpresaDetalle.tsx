@@ -85,7 +85,7 @@ export default function EmpresaDetalle() {
               <th className="px-5 py-2.5 font-medium">Contacto</th>
               <th className="px-5 py-2.5 font-medium">Etapa</th>
               <th className="px-5 py-2.5 font-medium">Cotizador</th>
-              <th className="px-5 py-2.5 font-medium text-right">Valor est.</th>
+              <th className="px-5 py-2.5 font-medium text-right">Valor cot.</th>
               <th className="px-5 py-2.5 font-medium">Fecha</th>
               <th className="px-5 py-2.5 font-medium w-10"></th>
             </tr>
@@ -106,7 +106,7 @@ export default function EmpresaDetalle() {
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: etapa?.color + '15', color: etapa?.color }}>{etapa?.label}</span>
                   </td>
                   <td className="px-5 py-3 text-xs">{cotizador?.iniciales}</td>
-                  <td className="px-5 py-3 text-right font-bold">{formatCOP(o.valor_estimado)}</td>
+                  <td className="px-5 py-3 text-right font-bold">{formatCOP(o.valor_cotizado)}</td>
                   <td className="px-5 py-3 text-[var(--color-text-muted)]">{formatDate(o.fecha_ingreso)}</td>
                   <td className="px-5 py-3">
                     <button

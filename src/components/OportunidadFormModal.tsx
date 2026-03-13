@@ -25,7 +25,6 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
 
   // === Oportunidad state ===
   const [oportunidad, setOportunidad] = useState({
-    valor_estimado: 0,
     cotizador_asignado: 'OC',
     fuente_lead: 'WhatsApp' as FuenteLead,
     ubicacion: '',
@@ -103,7 +102,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
         empresa_id: empresaId,
         contacto_id: contactoId,
         etapa: 'nuevo_lead',
-        valor_estimado: oportunidad.valor_estimado,
+        valor_estimado: 0,
         valor_cotizado: 0,
         valor_adjudicado: 0,
         cotizador_asignado: oportunidad.cotizador_asignado,
@@ -266,10 +265,6 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
 
           {step === 'oportunidad' && (
             <div className="space-y-3">
-              <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Valor estimado (COP)</label>
-                <input type="number" value={oportunidad.valor_estimado || ''} onChange={e => setOportunidad(p => ({ ...p, valor_estimado: Number(e.target.value) }))} className="w-full px-3 py-2.5 rounded-xl text-sm" min={0} />
-                {oportunidad.valor_estimado > 0 && <p className="text-xs text-[var(--color-text-muted)] mt-1">{formatCOP(oportunidad.valor_estimado)}</p>}
-              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Cotizador asignado</label>
                   <select value={oportunidad.cotizador_asignado} onChange={e => setOportunidad(p => ({ ...p, cotizador_asignado: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm">
