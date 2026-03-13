@@ -26,7 +26,7 @@ type Action =
   | { type: 'DELETE_PRODUCTO'; payload: { id: string } }
   | { type: 'UPDATE_PRECIO'; payload: { id: string; precio: number } }
   | { type: 'UPDATE_PRECIO_PROVEEDOR'; payload: { id: string; proveedor: string } }
-  | { type: 'ADD_COTIZACION'; payload: Omit<Cotizacion, 'id'> }
+  | { type: 'ADD_COTIZACION'; payload: Omit<Cotizacion, 'id'> & { id?: string } }
   | { type: 'UPDATE_COTIZACION_ESTADO'; payload: { id: string; estado: Cotizacion['estado'] } }
   | { type: 'DELETE_COTIZACION'; payload: { id: string } }
   | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string } }
@@ -137,7 +137,7 @@ function reducer(state: State, action: Action): State {
     case 'UPDATE_PRECIO_PROVEEDOR':
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, proveedor: action.payload.proveedor, updated_at: new Date().toISOString().split('T')[0] } : p) }
     case 'ADD_COTIZACION':
-      return { ...state, cotizaciones: [...state.cotizaciones, { ...action.payload, id: String(Date.now()) }] }
+      return { ...state, cotizaciones: [...state.cotizaciones, { ...action.payload, id: action.payload.id || String(Date.now()) }] }
     case 'UPDATE_COTIZACION_ESTADO': {
       const { id: cotId, estado: nuevoEstado } = action.payload
       const cot = state.cotizaciones.find(c => c.id === cotId)

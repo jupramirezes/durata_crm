@@ -86,6 +86,7 @@ export default function OportunidadDetalle() {
     dispatch({
       type: 'ADD_COTIZACION',
       payload: {
+        id: cotId,
         oportunidad_id: oportunidad.id,
         numero: data.numero,
         fecha,

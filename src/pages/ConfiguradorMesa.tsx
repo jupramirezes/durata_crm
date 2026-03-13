@@ -110,6 +110,24 @@ function ApuLineRow({ linea, onChange }: { linea: ApuLinea; onChange: (updated: 
   )
 }
 
+// Editable extra cost line (MO, transporte, laser, push pedal, poliza)
+function ExtraCostRow({ label, cantidad, precioUnit, onCantidadChange, onPrecioChange }: {
+  label: string; cantidad: number; precioUnit: number; onCantidadChange: (v: number) => void; onPrecioChange: (v: number) => void
+}) {
+  return (
+    <tr className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]">
+      <td className="px-2 py-1.5">
+        <input type="number" value={cantidad} onChange={e => onCantidadChange(Number(e.target.value))} step="0.01" className="w-16 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
+      </td>
+      <td className="px-2 py-1.5 text-xs truncate max-w-36" title={label}>{label}</td>
+      <td className="px-2 py-1.5">
+        <input type="number" value={precioUnit} onChange={e => onPrecioChange(Number(e.target.value))} step="100" className="w-24 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
+      </td>
+      <td className="px-2 py-1.5 text-right font-mono text-xs font-medium">{formatCOP(cantidad * precioUnit)}</td>
+    </tr>
+  )
+}
+
 interface MOOverrides {
   acero: number | null
   pulido: number | null
@@ -121,6 +139,11 @@ interface TransporteOverrides {
   elementos: number | null
   personal: number | null
   descripcion: string
+}
+
+interface ExtraCostOverride {
+  cantidad: number | null
+  precio: number | null
 }
 
 export default function ConfiguradorMesa() {
@@ -151,6 +174,10 @@ export default function ConfiguradorMesa() {
   const [moOverrides, setMoOverrides] = useState<MOOverrides>({ acero: null, pulido: null, patas: null, instalacion: null })
   // Transporte overrides
   const [transporteOverrides, setTransporteOverrides] = useState<TransporteOverrides>({ elementos: null, personal: null, descripcion: '' })
+  // Extra cost overrides (laser, push pedal, poliza)
+  const [laserOverride, setLaserOverride] = useState<ExtraCostOverride>({ cantidad: null, precio: null })
+  const [pushPedalOverride, setPushPedalOverride] = useState<ExtraCostOverride>({ cantidad: null, precio: null })
+  const [polizaOverride, setPolizaOverride] = useState<ExtraCostOverride>({ cantidad: null, precio: null })
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -177,6 +204,25 @@ export default function ConfiguradorMesa() {
   const actualTransElementos = transporteOverrides.elementos ?? sugTransElementos
   const actualTransPersonal = transporteOverrides.personal ?? sugTransPersonal
   const totalTransOverride = actualTransElementos + actualTransPersonal
+
+  // Laser: suggested from APU result, override from state
+  const sugLaserMinutos = resultado ? Math.round(resultado.costo_laser / 6500) : 0
+  const sugLaserPrecio = 6500
+  const actualLaserCant = laserOverride.cantidad ?? sugLaserMinutos
+  const actualLaserPrecio = laserOverride.precio ?? sugLaserPrecio
+  const totalLaserOverride = actualLaserCant * actualLaserPrecio
+
+  // Push pedal
+  const sugPushPedalPrecio = Math.round((348000 + 74000 + 24000) / (1 - 0.20))
+  const actualPushCant = pushPedalOverride.cantidad ?? 1
+  const actualPushPrecio = pushPedalOverride.precio ?? sugPushPedalPrecio
+  const totalPushOverride = cfg.push_pedal ? actualPushCant * actualPushPrecio : 0
+
+  // Poliza
+  const sugPolizaPrecio = resultado ? Math.round(resultado.costo_poliza) : 0
+  const actualPolizaCant = polizaOverride.cantidad ?? 1
+  const actualPolizaPrecio = polizaOverride.precio ?? sugPolizaPrecio
+  const totalPolizaOverride = cfg.poliza ? actualPolizaCant * actualPolizaPrecio : 0
 
   // Auto-calculate APU with 500ms debounce
   useEffect(() => {
@@ -215,20 +261,24 @@ export default function ConfiguradorMesa() {
 
     const moOriginal = resultado.costo_mo
     const transOriginal = resultado.costo_transporte
+    const laserOriginal = resultado.costo_laser
+    const polizaOriginal = resultado.costo_poliza
     const moDiff = totalMoOverride - moOriginal
     const transDiff = totalTransOverride - transOriginal
+    const laserDiff = totalLaserOverride - laserOriginal
+    const polizaDiff = totalPolizaOverride - polizaOriginal
     const insDiff = costoInsumosAdj - resultado.costo_insumos
-    const newCostoTotal = resultado.costo_total + moDiff + transDiff + insDiff
+    const newCostoTotal = resultado.costo_total + moDiff + transDiff + laserDiff + polizaDiff + insDiff
     const newPrecioVenta = Math.round(newCostoTotal / (1 - resultado.margen))
-    // Add push pedal extras BEFORE rounding
-    const extrasPush = cfg.push_pedal ? (348000 + 74000 + 24000) / (1 - 0.20) : 0
-    const newPrecioComercial = Math.ceil(newPrecioVenta / 1000) * 1000 + extrasPush
+    const newPrecioComercial = Math.ceil(newPrecioVenta / 1000) * 1000 + totalPushOverride
     return {
       ...resultado,
       lineas: adjustedLineas,
       costo_insumos: costoInsumosAdj,
       costo_mo: totalMoOverride,
       costo_transporte: totalTransOverride,
+      costo_laser: totalLaserOverride,
+      costo_poliza: totalPolizaOverride,
       costo_total: newCostoTotal,
       precio_venta: newPrecioVenta,
       precio_comercial: newPrecioComercial,
@@ -537,7 +587,7 @@ export default function ConfiguradorMesa() {
                 <div className="border-t border-[var(--color-border)] pt-3 mt-3 space-y-2 text-sm">
                   <div className="flex justify-between font-medium"><span>Costo total</span><span>{formatCOP(adjustedResultado.costo_total)}</span></div>
                   <div className="flex justify-between text-[var(--color-text-muted)]"><span>Margen {(adjustedResultado.margen * 100).toFixed(0)}%</span><span>{formatCOP(adjustedResultado.precio_venta - adjustedResultado.costo_total)}</span></div>
-                  {cfg.push_pedal && <div className="flex justify-between text-[var(--color-text-muted)]"><span>Push Pedal + Grifo + Canastilla</span><span>{formatCOP(Math.round((348000 + 74000 + 24000) / (1 - 0.20)))}</span></div>}
+                  {cfg.push_pedal && <div className="flex justify-between text-[var(--color-text-muted)]"><span>Push Pedal + Grifo + Canastilla</span><span>{formatCOP(totalPushOverride)}</span></div>}
                   <div className="flex justify-between font-bold text-base"><span>Precio venta</span><span className="text-[var(--color-accent-green)]">{formatCOP(adjustedResultado.precio_comercial)}</span></div>
                 </div>
               </div>
@@ -583,32 +633,55 @@ export default function ConfiguradorMesa() {
                     <div className="px-4 py-2 bg-purple-50/50 border-t border-[var(--color-border)]">
                       <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Mano de obra</span>
                     </div>
-                    <div className="px-4 py-2 text-xs space-y-1">
-                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Acero</span><span className="font-medium">{formatCOP(actualMoAcero)}</span></div>
-                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Pulido</span><span className="font-medium">{formatCOP(actualMoPulido)}</span></div>
-                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Patas</span><span className="font-medium">{formatCOP(actualMoPatas)}</span></div>
-                      {cfg.instalado && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Instalacion</span><span className="font-medium">{formatCOP(actualMoInstalacion)}</span></div>}
-                      <div className="flex justify-between font-semibold border-t border-[var(--color-border)] pt-1"><span>Total MO</span><span>{formatCOP(adjustedResultado.costo_mo)}</span></div>
-                    </div>
+                    <table className="w-full text-xs">
+                      <tbody>
+                        <ExtraCostRow label="MO Acero" cantidad={1} precioUnit={actualMoAcero} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, acero: v }))} />
+                        <ExtraCostRow label="MO Pulido" cantidad={1} precioUnit={actualMoPulido} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, pulido: v }))} />
+                        <ExtraCostRow label="MO Patas" cantidad={1} precioUnit={actualMoPatas} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, patas: v }))} />
+                        {cfg.instalado && <ExtraCostRow label="MO Instalacion" cantidad={1} precioUnit={actualMoInstalacion} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, instalacion: v }))} />}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-[var(--color-border)] bg-purple-50/30">
+                          <td colSpan={3} className="px-2 py-2 text-xs font-semibold">Total MO</td>
+                          <td className="px-2 py-2 text-right font-bold text-xs">{formatCOP(adjustedResultado.costo_mo)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
 
                     {/* Transporte */}
                     <div className="px-4 py-2 bg-orange-50/50 border-t border-[var(--color-border)]">
                       <span className="text-[10px] font-bold text-orange-700 uppercase tracking-wide">Transporte</span>
                     </div>
-                    <div className="px-4 py-2 text-xs space-y-1">
-                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Transporte elementos</span><span className="font-medium">{formatCOP(actualTransElementos)}</span></div>
-                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Transporte personal</span><span className="font-medium">{formatCOP(actualTransPersonal)}</span></div>
-                      <div className="flex justify-between font-semibold border-t border-[var(--color-border)] pt-1"><span>Total Transporte</span><span>{formatCOP(adjustedResultado.costo_transporte)}</span></div>
-                    </div>
+                    <table className="w-full text-xs">
+                      <tbody>
+                        <ExtraCostRow label="Transporte elementos" cantidad={1} precioUnit={actualTransElementos} onCantidadChange={() => {}} onPrecioChange={v => setTransporteOverrides(p => ({ ...p, elementos: v }))} />
+                        <ExtraCostRow label="Transporte personal" cantidad={1} precioUnit={actualTransPersonal} onCantidadChange={() => {}} onPrecioChange={v => setTransporteOverrides(p => ({ ...p, personal: v }))} />
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-[var(--color-border)] bg-orange-50/30">
+                          <td colSpan={3} className="px-2 py-2 text-xs font-semibold">Total Transporte</td>
+                          <td className="px-2 py-2 text-right font-bold text-xs">{formatCOP(adjustedResultado.costo_transporte)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
 
-                    {/* Laser + Poliza */}
+                    {/* Corte laser + extras */}
                     <div className="px-4 py-2 bg-red-50/50 border-t border-[var(--color-border)]">
                       <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide">Otros costos</span>
                     </div>
-                    <div className="px-4 py-2 text-xs space-y-1 border-b border-[var(--color-border)]">
-                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Corte laser</span><span className="font-medium">{formatCOP(adjustedResultado.costo_laser)}</span></div>
-                      {adjustedResultado.costo_poliza > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Poliza</span><span className="font-medium">{formatCOP(adjustedResultado.costo_poliza)}</span></div>}
-                    </div>
+                    <table className="w-full text-xs border-b border-[var(--color-border)]">
+                      <tbody>
+                        {adjustedResultado.costo_laser > 0 && (
+                          <ExtraCostRow label="Corte laser (min)" cantidad={actualLaserCant} precioUnit={actualLaserPrecio} onCantidadChange={v => setLaserOverride(p => ({ ...p, cantidad: v }))} onPrecioChange={v => setLaserOverride(p => ({ ...p, precio: v }))} />
+                        )}
+                        {cfg.push_pedal && (
+                          <ExtraCostRow label="Push Pedal + Grifo + Canastilla" cantidad={actualPushCant} precioUnit={actualPushPrecio} onCantidadChange={v => setPushPedalOverride(p => ({ ...p, cantidad: v }))} onPrecioChange={v => setPushPedalOverride(p => ({ ...p, precio: v }))} />
+                        )}
+                        {cfg.poliza && (
+                          <ExtraCostRow label="Poliza cumplimiento (2%)" cantidad={actualPolizaCant} precioUnit={actualPolizaPrecio} onCantidadChange={v => setPolizaOverride(p => ({ ...p, cantidad: v }))} onPrecioChange={v => setPolizaOverride(p => ({ ...p, precio: v }))} />
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
