@@ -13,12 +13,13 @@ interface State {
 }
 
 type Action =
-  | { type: 'ADD_EMPRESA'; payload: Omit<Empresa, 'id' | 'created_at'> }
+  | { type: 'ADD_EMPRESA'; payload: Omit<Empresa, 'id' | 'created_at'> & { id?: string } }
   | { type: 'UPDATE_EMPRESA'; payload: Empresa }
-  | { type: 'ADD_CONTACTO'; payload: Omit<Contacto, 'id' | 'created_at'> }
+  | { type: 'ADD_CONTACTO'; payload: Omit<Contacto, 'id' | 'created_at'> & { id?: string } }
   | { type: 'UPDATE_CONTACTO'; payload: Contacto }
-  | { type: 'ADD_OPORTUNIDAD'; payload: Omit<Oportunidad, 'id' | 'created_at'> }
+  | { type: 'ADD_OPORTUNIDAD'; payload: Omit<Oportunidad, 'id' | 'created_at'> & { id?: string } }
   | { type: 'UPDATE_OPORTUNIDAD'; payload: Partial<Oportunidad> & { id: string } }
+  | { type: 'UPDATE_PRODUCTO'; payload: Partial<ProductoCliente> & { id: string } }
   | { type: 'MOVE_ETAPA'; payload: { oportunidadId: string; nuevaEtapa: Etapa; valor_adjudicado?: number; motivo_perdida?: string } }
   | { type: 'ADD_PRODUCTO'; payload: Omit<ProductoCliente, 'id'> }
   | { type: 'DELETE_PRODUCTO'; payload: { id: string } }
@@ -64,19 +65,22 @@ const initialState: State = loadState()
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'ADD_EMPRESA': {
-      const nuevo: Empresa = { ...action.payload, id: nextEmpresaId(), created_at: new Date().toISOString() }
+      const { id: explicitId, ...rest } = action.payload
+      const nuevo: Empresa = { ...rest, id: explicitId || nextEmpresaId(), created_at: new Date().toISOString() } as Empresa
       return { ...state, empresas: [...state.empresas, nuevo] }
     }
     case 'UPDATE_EMPRESA':
       return { ...state, empresas: state.empresas.map(e => e.id === action.payload.id ? action.payload : e) }
     case 'ADD_CONTACTO': {
-      const nuevo: Contacto = { ...action.payload, id: nextContactoId(), created_at: new Date().toISOString() }
+      const { id: explicitId, ...rest } = action.payload
+      const nuevo: Contacto = { ...rest, id: explicitId || nextContactoId(), created_at: new Date().toISOString() } as Contacto
       return { ...state, contactos: [...state.contactos, nuevo] }
     }
     case 'UPDATE_CONTACTO':
       return { ...state, contactos: state.contactos.map(c => c.id === action.payload.id ? action.payload : c) }
     case 'ADD_OPORTUNIDAD': {
-      const nuevo: Oportunidad = { ...action.payload, id: nextOportunidadId(), created_at: new Date().toISOString() }
+      const { id: explicitId, ...rest } = action.payload
+      const nuevo: Oportunidad = { ...rest, id: explicitId || nextOportunidadId(), created_at: new Date().toISOString() } as Oportunidad
       return { ...state, oportunidades: [...state.oportunidades, nuevo] }
     }
     case 'UPDATE_OPORTUNIDAD':
@@ -103,6 +107,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, productos: [...state.productos, { ...action.payload, id: String(Date.now()) }] }
     case 'DELETE_PRODUCTO':
       return { ...state, productos: state.productos.filter(p => p.id !== action.payload.id) }
+    case 'UPDATE_PRODUCTO':
+      return { ...state, productos: state.productos.map(p => p.id === action.payload.id ? { ...p, ...action.payload } : p) }
     case 'UPDATE_PRECIO':
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, precio: action.payload.precio, updated_at: new Date().toISOString().split('T')[0] } : p) }
     case 'UPDATE_PRECIO_PROVEEDOR':

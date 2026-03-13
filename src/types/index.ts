@@ -16,14 +16,14 @@ export const ETAPAS: { key: Etapa; label: string; color: string }[] = [
 // ==============================
 // CONSTANTS
 // ==============================
-export const SECTORES = ['Alimentos', 'Arquitectura', 'Salud', 'Industrial', 'Mobiliario Urbano', 'Otro'] as const
+export const SECTORES = ['Alimentos', 'Salud', 'Construcción', 'Industrial', 'Sector Público', 'Persona Natural', 'Otro'] as const
 export type Sector = typeof SECTORES[number]
 
 export const COTIZADORES = [
   { id: 'OC', nombre: 'Omar Cossio', iniciales: 'O.C' },
   { id: 'SA', nombre: 'Sebastián Aguirre', iniciales: 'S.A' },
   { id: 'JPR', nombre: 'Juan Pablo Ramírez', iniciales: 'J.R' },
-  { id: 'CA', nombre: 'Cristian Arango', iniciales: 'C.A' },
+  { id: 'CA', nombre: 'Camilo Araque', iniciales: 'C.A' },
 ] as const
 
 export const FUENTES_LEAD = ['WhatsApp', 'Correo', 'Llamada', 'Referido', 'Licitación', 'Web', 'Otro'] as const

@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado } from '../types'
+import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado, ApuLinea } from '../types'
 import { calcularApuMesa } from '../lib/calcular-apu'
 import { formatCOP } from '../lib/utils'
 import {
   ArrowLeft, ShoppingCart, ChevronDown, ChevronRight, Check,
   Ruler, Layers, Shield, Package, Circle, Droplets, SlidersHorizontal, Settings, Minus, LayoutGrid,
-  Wrench, Truck, AlertCircle
+  Wrench, Truck, AlertCircle, Edit3
 } from 'lucide-react'
 
 const sectionIcons: Record<string, any> = {
@@ -16,11 +16,11 @@ const sectionIcons: Record<string, any> = {
   'Refuerzos': Shield,
   'Salpicaderos': Minus,
   'Babero': Minus,
-  'Entrepa\u00f1os y soporte': LayoutGrid,
+  'Entrepaños y soporte': LayoutGrid,
   'Pozuelos': Circle,
   'Escabiladero': Package,
   'Vertedero': Droplets,
-  'Extras y par\u00e1metros comerciales': SlidersHorizontal,
+  'Extras y parametros comerciales': SlidersHorizontal,
   'Mano de obra': Wrench,
   'Transporte': Truck,
 }
@@ -94,6 +94,22 @@ function MOField({ label, suggested, value, onChange }: { label: string; suggest
   )
 }
 
+// Editable APU line row
+function ApuLineRow({ linea, onChange }: { linea: ApuLinea; onChange: (updated: ApuLinea) => void }) {
+  return (
+    <tr className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]">
+      <td className="px-2 py-1.5">
+        <input type="number" value={linea.cantidad} onChange={e => onChange({ ...linea, cantidad: Number(e.target.value), total: Number(e.target.value) * linea.precio_unitario * (1 + linea.desperdicio) })} step="0.01" className="w-16 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
+      </td>
+      <td className="px-2 py-1.5 text-xs truncate max-w-36" title={linea.descripcion}>{linea.descripcion}</td>
+      <td className="px-2 py-1.5">
+        <input type="number" value={linea.precio_unitario} onChange={e => onChange({ ...linea, precio_unitario: Number(e.target.value), total: linea.cantidad * Number(e.target.value) * (1 + linea.desperdicio) })} step="100" className="w-24 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
+      </td>
+      <td className="px-2 py-1.5 text-right font-mono text-xs font-medium">{formatCOP(linea.total)}</td>
+    </tr>
+  )
+}
+
 interface MOOverrides {
   acero: number | null
   pulido: number | null
@@ -109,18 +125,27 @@ interface TransporteOverrides {
 
 export default function ConfiguradorMesa() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const editProductoId = searchParams.get('editar')
   const navigate = useNavigate()
   const { state, dispatch } = useStore()
   const oportunidad = state.oportunidades.find(o => o.id === id)
   const empresa = oportunidad ? state.empresas.find(e => e.id === oportunidad.empresa_id) : null
-  const [cfg, setCfg] = useState<ConfigMesa>({ ...CONFIG_MESA_DEFAULT })
+
+  // If editing, load existing product config
+  const productoExistente = editProductoId ? state.productos.find(p => p.id === editProductoId) : null
+
+  const [cfg, setCfg] = useState<ConfigMesa>(productoExistente?.configuracion ? { ...productoExistente.configuracion } : { ...CONFIG_MESA_DEFAULT })
   const [resultado, setResultado] = useState<ApuResultado | null>(null)
-  const [cantidad, setCantidad] = useState(1)
-  const [showApu, setShowApu] = useState(false)
+  const [cantidad, setCantidad] = useState(productoExistente?.cantidad || 1)
+  const [showApu, setShowApu] = useState(true)
   const [added, setAdded] = useState(false)
   const [toast, setToast] = useState(false)
-  const [descripcionEdit, setDescripcionEdit] = useState('')
-  const [descOverridden, setDescOverridden] = useState(false)
+  const [descripcionEdit, setDescripcionEdit] = useState(productoExistente?.descripcion_comercial || '')
+  const [descOverridden, setDescOverridden] = useState(!!productoExistente?.descripcion_comercial)
+
+  // APU line overrides
+  const [lineaOverrides, setLineaOverrides] = useState<Record<number, Partial<ApuLinea>>>({})
 
   // MO overrides
   const [moOverrides, setMoOverrides] = useState<MOOverrides>({ acero: null, pulido: null, patas: null, instalacion: null })
@@ -161,12 +186,12 @@ export default function ConfiguradorMesa() {
         setResultado(null)
         return
       }
-      // Ensure pozuelo_dims matches pozuelos_rect count
       const dims = [...cfg.pozuelo_dims]
       while (dims.length < cfg.pozuelos_rect) dims.push({ largo: 0.50, ancho: 0.40, alto: 0.18 })
       const cfgFinal = { ...cfg, pozuelo_dims: dims.slice(0, cfg.pozuelos_rect) }
       const res = calcularApuMesa(cfgFinal, state.precios)
       setResultado(res)
+      setLineaOverrides({})
       if (!descOverridden) {
         setDescripcionEdit(res.descripcion_comercial)
       }
@@ -174,17 +199,34 @@ export default function ConfiguradorMesa() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [cfg, state.precios])
 
-  // Compute adjusted resultado with MO/transport overrides
+  // Compute adjusted resultado with overrides
   const adjustedResultado = resultado ? (() => {
+    // Apply line overrides
+    const adjustedLineas = resultado.lineas.map((l, i) => {
+      if (lineaOverrides[i]) {
+        const o = lineaOverrides[i]
+        const cant = o.cantidad ?? l.cantidad
+        const pu = o.precio_unitario ?? l.precio_unitario
+        return { ...l, cantidad: cant, precio_unitario: pu, total: cant * pu * (1 + l.desperdicio) }
+      }
+      return l
+    })
+    const costoInsumosAdj = adjustedLineas.reduce((s, l) => s + l.total, 0)
+
     const moOriginal = resultado.costo_mo
     const transOriginal = resultado.costo_transporte
     const moDiff = totalMoOverride - moOriginal
     const transDiff = totalTransOverride - transOriginal
-    const newCostoTotal = resultado.costo_total + moDiff + transDiff
+    const insDiff = costoInsumosAdj - resultado.costo_insumos
+    const newCostoTotal = resultado.costo_total + moDiff + transDiff + insDiff
     const newPrecioVenta = Math.round(newCostoTotal / (1 - resultado.margen))
-    const newPrecioComercial = Math.ceil(newPrecioVenta / 1000) * 1000
+    // Add push pedal extras BEFORE rounding
+    const extrasPush = cfg.push_pedal ? (348000 + 74000 + 24000) / (1 - 0.20) : 0
+    const newPrecioComercial = Math.ceil(newPrecioVenta / 1000) * 1000 + extrasPush
     return {
       ...resultado,
+      lineas: adjustedLineas,
+      costo_insumos: costoInsumosAdj,
       costo_mo: totalMoOverride,
       costo_transporte: totalTransOverride,
       costo_total: newCostoTotal,
@@ -193,23 +235,47 @@ export default function ConfiguradorMesa() {
     }
   })() : null
 
+  function handleLineaChange(index: number, updated: ApuLinea) {
+    setLineaOverrides(prev => ({
+      ...prev,
+      [index]: { cantidad: updated.cantidad, precio_unitario: updated.precio_unitario },
+    }))
+  }
+
   function agregarAlPedido() {
     if (!adjustedResultado || !id) return
     setAdded(true)
     setToast(true)
-    dispatch({
-      type: 'ADD_PRODUCTO',
-      payload: {
-        oportunidad_id: id,
-        categoria: 'Mesas',
-        subtipo: 'Mesa lisa con entrepa\u00f1o',
-        configuracion: cfg,
-        apu_resultado: adjustedResultado,
-        precio_calculado: adjustedResultado.precio_comercial,
-        descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
-        cantidad,
-      },
-    })
+
+    if (editProductoId && productoExistente) {
+      // Update existing product
+      dispatch({
+        type: 'UPDATE_PRODUCTO',
+        payload: {
+          id: editProductoId,
+          configuracion: cfg,
+          apu_resultado: adjustedResultado,
+          precio_calculado: adjustedResultado.precio_comercial,
+          descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
+          cantidad,
+        },
+      })
+    } else {
+      // Add new product
+      dispatch({
+        type: 'ADD_PRODUCTO',
+        payload: {
+          oportunidad_id: id,
+          categoria: 'Mesas',
+          subtipo: 'Mesa',
+          configuracion: cfg,
+          apu_resultado: adjustedResultado,
+          precio_calculado: adjustedResultado.precio_comercial,
+          descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
+          cantidad,
+        },
+      })
+    }
     setTimeout(() => setToast(false), 3000)
     setTimeout(() => navigate(`/oportunidades/${id}`), 1500)
   }
@@ -223,13 +289,15 @@ export default function ConfiguradorMesa() {
 
   const needsDimensions = cfg.largo <= 0 || cfg.ancho <= 0 || cfg.alto <= 0
 
+
+
   return (
     <div className="p-8 max-w-6xl animate-fade-in relative">
       {/* Toast notification */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in">
           <Check size={18} strokeWidth={3} />
-          <span className="text-sm font-semibold">Producto agregado al pedido</span>
+          <span className="text-sm font-semibold">{editProductoId ? 'Producto actualizado' : 'Producto agregado al pedido'}</span>
         </div>
       )}
 
@@ -239,10 +307,10 @@ export default function ConfiguradorMesa() {
 
       <div className="flex items-center gap-4 mb-6">
         <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center shrink-0">
-          <Settings size={24} className="text-[var(--color-accent-purple)]" />
+          {editProductoId ? <Edit3 size={24} className="text-amber-600" /> : <Settings size={24} className="text-[var(--color-accent-purple)]" />}
         </div>
         <div>
-          <h2 className="text-2xl font-bold">Configurar: Mesa lisa con entrepano</h2>
+          <h2 className="text-2xl font-bold">{editProductoId ? 'Editar: Mesa' : 'Configurar: Mesa'}</h2>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Empresa: {empresa?.nombre}</p>
         </div>
       </div>
@@ -303,7 +371,7 @@ export default function ConfiguradorMesa() {
 
           <Section title="Babero" defaultOpen={false}>
             <label className="flex items-center gap-2.5 text-sm cursor-pointer">
-              <input type="checkbox" checked={cfg.babero} onChange={e => upd('babero', e.target.checked)} className="rounded" /> {'\u00BF'}Tiene babero?
+              <input type="checkbox" checked={cfg.babero} onChange={e => upd('babero', e.target.checked)} className="rounded" /> Tiene babero?
             </label>
             {cfg.babero && (
               <div className="grid grid-cols-2 gap-3 mt-2">
@@ -313,13 +381,13 @@ export default function ConfiguradorMesa() {
             )}
           </Section>
 
-          <Section title="Entrepa\u00f1os y soporte">
+          <Section title={"Entrepaños y soporte"}>
             <div className="grid grid-cols-3 gap-3">
-              <Field label="Entrepanos"><NumInput value={cfg.entrepa\u00f1os} onChange={v => upd('entrepa\u00f1os', v)} step={1} min={0} /></Field>
+              <Field label="Entrepaños"><NumInput value={cfg.entrepaños} onChange={v => upd('entrepaños', v)} step={1} min={0} /></Field>
               <Field label="Patas"><NumInput value={cfg.patas} onChange={v => upd('patas', v)} step={2} min={2} /></Field>
             </div>
             <label className="flex items-center gap-2.5 text-sm cursor-pointer mt-2">
-              <input type="checkbox" checked={cfg.ruedas} onChange={e => { upd('ruedas', e.target.checked); if (e.target.checked) upd('cant_ruedas', cfg.patas) }} className="rounded" /> {'\u00BF'}Lleva ruedas?
+              <input type="checkbox" checked={cfg.ruedas} onChange={e => { upd('ruedas', e.target.checked); if (e.target.checked) upd('cant_ruedas', cfg.patas) }} className="rounded" /> Lleva ruedas?
             </label>
             {cfg.ruedas ? (
               <div className="grid grid-cols-2 gap-3 mt-2">
@@ -359,7 +427,7 @@ export default function ConfiguradorMesa() {
 
           <Section title="Escabiladero" defaultOpen={false}>
             <label className="flex items-center gap-2.5 text-sm cursor-pointer">
-              <input type="checkbox" checked={cfg.escabiladero} onChange={e => upd('escabiladero', e.target.checked)} className="rounded" /> {'\u00BF'}Tiene escabiladero?
+              <input type="checkbox" checked={cfg.escabiladero} onChange={e => upd('escabiladero', e.target.checked)} className="rounded" /> Tiene escabiladero?
             </label>
             {cfg.escabiladero && <div className="mt-2"><Field label="Bandejeros"><NumInput value={cfg.bandejeros} onChange={v => upd('bandejeros', v)} step={1} min={1} /></Field></div>}
           </Section>
@@ -374,7 +442,7 @@ export default function ConfiguradorMesa() {
             )}
           </Section>
 
-          <Section title="Extras y par\u00e1metros comerciales">
+          <Section title={"Extras y parametros comerciales"}>
             <div className="space-y-2.5">
               <label className="flex items-center gap-2.5 text-sm cursor-pointer">
                 <input type="checkbox" checked={cfg.push_pedal} onChange={e => upd('push_pedal', e.target.checked)} className="rounded" /> Push Pedal + Grifo + Canastilla
@@ -394,12 +462,12 @@ export default function ConfiguradorMesa() {
 
           {/* MO Section */}
           <Section title="Mano de obra" defaultOpen={false}>
-            <p className="text-[10px] text-[var(--color-text-muted)] mb-2">Valores sugeridos basados en la configuraci&oacute;n. Edita para ajustar.</p>
+            <p className="text-[10px] text-[var(--color-text-muted)] mb-2">Valores sugeridos basados en la configuracion. Edita para ajustar.</p>
             <div className="divide-y divide-[var(--color-border)]">
               <MOField label="MO Acero (metros lineales)" suggested={sugMoAcero} value={moOverrides.acero} onChange={v => setMoOverrides(p => ({ ...p, acero: v }))} />
               <MOField label="MO Pulido (metros lineales)" suggested={sugMoPulido} value={moOverrides.pulido} onChange={v => setMoOverrides(p => ({ ...p, pulido: v }))} />
               <MOField label="MO Patas" suggested={sugMoPatas} value={moOverrides.patas} onChange={v => setMoOverrides(p => ({ ...p, patas: v }))} />
-              {cfg.instalado && <MOField label="MO Instalaci&oacute;n" suggested={sugMoInstalacion} value={moOverrides.instalacion} onChange={v => setMoOverrides(p => ({ ...p, instalacion: v }))} />}
+              {cfg.instalado && <MOField label="MO Instalacion" suggested={sugMoInstalacion} value={moOverrides.instalacion} onChange={v => setMoOverrides(p => ({ ...p, instalacion: v }))} />}
             </div>
             <div className="flex justify-between items-center mt-3 pt-3 border-t border-[var(--color-border)]">
               <span className="text-xs font-semibold text-[var(--color-text)]">Total MO</span>
@@ -415,13 +483,13 @@ export default function ConfiguradorMesa() {
               <MOField label="Transporte personal" suggested={sugTransPersonal} value={transporteOverrides.personal} onChange={v => setTransporteOverrides(p => ({ ...p, personal: v }))} />
             </div>
             <div className="mt-3">
-              <Field label="Descripci&oacute;n transporte">
+              <Field label="Descripcion transporte">
                 <input
                   type="text"
                   value={transporteOverrides.descripcion}
                   onChange={e => setTransporteOverrides(p => ({ ...p, descripcion: e.target.value }))}
                   className="w-full px-3 py-2 rounded-xl text-xs"
-                  placeholder="Ej: Transporte Medell&iacute;n - Bogot&aacute;..."
+                  placeholder="Ej: Transporte Medellin - Bogota..."
                 />
               </Field>
             </div>
@@ -469,36 +537,81 @@ export default function ConfiguradorMesa() {
                 <div className="border-t border-[var(--color-border)] pt-3 mt-3 space-y-2 text-sm">
                   <div className="flex justify-between font-medium"><span>Costo total</span><span>{formatCOP(adjustedResultado.costo_total)}</span></div>
                   <div className="flex justify-between text-[var(--color-text-muted)]"><span>Margen {(adjustedResultado.margen * 100).toFixed(0)}%</span><span>{formatCOP(adjustedResultado.precio_venta - adjustedResultado.costo_total)}</span></div>
-                  <div className="flex justify-between font-bold text-base"><span>Precio venta</span><span className="text-[var(--color-accent-green)]">{formatCOP(adjustedResultado.precio_venta)}</span></div>
+                  {cfg.push_pedal && <div className="flex justify-between text-[var(--color-text-muted)]"><span>Push Pedal + Grifo + Canastilla</span><span>{formatCOP(Math.round((348000 + 74000 + 24000) / (1 - 0.20)))}</span></div>}
+                  <div className="flex justify-between font-bold text-base"><span>Precio venta</span><span className="text-[var(--color-accent-green)]">{formatCOP(adjustedResultado.precio_comercial)}</span></div>
                 </div>
               </div>
 
-              {/* APU toggle */}
-              <button onClick={() => setShowApu(!showApu)} className="w-full text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium text-center py-2 rounded-xl hover:bg-blue-500/5 transition-all duration-200">
-                {showApu ? 'Ocultar' : 'Ver'} APU detallado ({adjustedResultado.lineas.length} lineas)
-              </button>
+              {/* APU detallado - always visible, with all sections */}
+              <div className="bg-white rounded-2xl border border-[var(--color-border)] overflow-hidden">
+                <button onClick={() => setShowApu(!showApu)} className="w-full text-sm text-[var(--color-primary)] font-medium text-left px-5 py-3 hover:bg-blue-500/5 transition-all duration-200 flex items-center justify-between">
+                  <span>{showApu ? 'Ocultar' : 'Ver'} APU detallado</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">{adjustedResultado.lineas.length} lineas</span>
+                </button>
 
-              {showApu && (
-                <div className="bg-white rounded-2xl border border-[var(--color-border)] p-4 max-h-96 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-[var(--color-text-muted)] text-left">
-                        <th className="px-2 py-2 font-medium">Cant</th><th className="px-2 py-2 font-medium">Descripcion</th><th className="px-2 py-2 text-right font-medium">P.Unit</th><th className="px-2 py-2 text-right font-medium">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adjustedResultado.lineas.map((l, i) => (
-                        <tr key={i} className={`border-t border-[var(--color-border)] ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : ''}`}>
-                          <td className="px-2 py-2 font-mono">{l.cantidad.toFixed(2)}</td>
-                          <td className="px-2 py-2 truncate max-w-40">{l.descripcion}</td>
-                          <td className="px-2 py-2 text-right font-mono">{formatCOP(l.precio_unitario)}</td>
-                          <td className="px-2 py-2 text-right font-mono font-medium">{formatCOP(l.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                {showApu && (
+                  <div className="border-t border-[var(--color-border)]">
+                    {/* Insumos */}
+                    <div className="px-4 py-2 bg-blue-50/50">
+                      <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">Insumos</span>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[var(--color-text-muted)] text-left border-b border-[var(--color-border)]">
+                            <th className="px-2 py-1.5 font-medium w-16">Cant</th>
+                            <th className="px-2 py-1.5 font-medium">Descripcion</th>
+                            <th className="px-2 py-1.5 font-medium w-24 text-right">P.Unit</th>
+                            <th className="px-2 py-1.5 font-medium w-24 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adjustedResultado.lineas.map((l, i) => (
+                            <ApuLineRow key={i} linea={l} onChange={(updated) => handleLineaChange(i, updated)} />
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-[var(--color-border)] bg-blue-50/30">
+                            <td colSpan={3} className="px-2 py-2 text-xs font-semibold">Total Insumos</td>
+                            <td className="px-2 py-2 text-right font-bold text-xs">{formatCOP(adjustedResultado.costo_insumos)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    {/* Mano de obra */}
+                    <div className="px-4 py-2 bg-purple-50/50 border-t border-[var(--color-border)]">
+                      <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Mano de obra</span>
+                    </div>
+                    <div className="px-4 py-2 text-xs space-y-1">
+                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Acero</span><span className="font-medium">{formatCOP(actualMoAcero)}</span></div>
+                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Pulido</span><span className="font-medium">{formatCOP(actualMoPulido)}</span></div>
+                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Patas</span><span className="font-medium">{formatCOP(actualMoPatas)}</span></div>
+                      {cfg.instalado && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">MO Instalacion</span><span className="font-medium">{formatCOP(actualMoInstalacion)}</span></div>}
+                      <div className="flex justify-between font-semibold border-t border-[var(--color-border)] pt-1"><span>Total MO</span><span>{formatCOP(adjustedResultado.costo_mo)}</span></div>
+                    </div>
+
+                    {/* Transporte */}
+                    <div className="px-4 py-2 bg-orange-50/50 border-t border-[var(--color-border)]">
+                      <span className="text-[10px] font-bold text-orange-700 uppercase tracking-wide">Transporte</span>
+                    </div>
+                    <div className="px-4 py-2 text-xs space-y-1">
+                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Transporte elementos</span><span className="font-medium">{formatCOP(actualTransElementos)}</span></div>
+                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Transporte personal</span><span className="font-medium">{formatCOP(actualTransPersonal)}</span></div>
+                      <div className="flex justify-between font-semibold border-t border-[var(--color-border)] pt-1"><span>Total Transporte</span><span>{formatCOP(adjustedResultado.costo_transporte)}</span></div>
+                    </div>
+
+                    {/* Laser + Poliza */}
+                    <div className="px-4 py-2 bg-red-50/50 border-t border-[var(--color-border)]">
+                      <span className="text-[10px] font-bold text-red-700 uppercase tracking-wide">Otros costos</span>
+                    </div>
+                    <div className="px-4 py-2 text-xs space-y-1 border-b border-[var(--color-border)]">
+                      <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Corte laser</span><span className="font-medium">{formatCOP(adjustedResultado.costo_laser)}</span></div>
+                      {adjustedResultado.costo_poliza > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Poliza</span><span className="font-medium">{formatCOP(adjustedResultado.costo_poliza)}</span></div>}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Editable commercial description */}
               <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
@@ -514,13 +627,13 @@ export default function ConfiguradorMesa() {
                   className="w-full text-sm leading-relaxed px-3 py-2 rounded-xl border border-[var(--color-border)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                 />
                 {descOverridden && (
-                  <button onClick={() => { setDescripcionEdit(adjustedResultado.descripcion_comercial); setDescOverridden(false) }} className="text-[10px] text-[var(--color-primary)] hover:underline mt-1">
-                    Restaurar descripci&oacute;n original
+                  <button onClick={() => { if (adjustedResultado) { setDescripcionEdit(adjustedResultado.descripcion_comercial); setDescOverridden(false) } }} className="text-[10px] text-[var(--color-primary)] hover:underline mt-1">
+                    Restaurar descripcion original
                   </button>
                 )}
               </div>
 
-              {/* Add to order button with success animation */}
+              {/* Add to order button */}
               <button
                 onClick={agregarAlPedido}
                 disabled={added}
@@ -533,11 +646,12 @@ export default function ConfiguradorMesa() {
                 {added ? (
                   <>
                     <div className="animate-check-pop"><Check size={22} strokeWidth={3} /></div>
-                    Agregado al pedido
+                    {editProductoId ? 'Actualizado' : 'Agregado al pedido'}
                   </>
                 ) : (
                   <>
-                    <ShoppingCart size={20} /> AGREGAR AL PEDIDO
+                    {editProductoId ? <Edit3 size={20} /> : <ShoppingCart size={20} />}
+                    {editProductoId ? 'ACTUALIZAR PRODUCTO' : 'AGREGAR AL PEDIDO'}
                   </>
                 )}
               </button>

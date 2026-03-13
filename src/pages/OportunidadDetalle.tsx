@@ -4,7 +4,7 @@ import { useStore } from '../lib/store'
 import { ETAPAS, COTIZADORES } from '../types'
 import { formatDate, formatCOP } from '../lib/utils'
 import CotizacionModal from '../components/CotizacionModal'
-import { ArrowLeft, Plus, FileText, Package, Trash2, Building2, Target, User } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Package, Trash2, Building2, Target, User, Edit3 } from 'lucide-react'
 
 export default function OportunidadDetalle() {
   const { id } = useParams()
@@ -48,11 +48,20 @@ export default function OportunidadDetalle() {
         incluyeTransporte: data.incluyeTransporte,
         condicionesItems: data.condicionesItems,
         noIncluyeItems: data.noIncluyeItems,
-        productos_snapshot: productos.map(p => ({
-          descripcion: p.descripcion_comercial || p.subtipo,
-          cantidad: p.cantidad,
-          precio_unitario: p.precio_calculado || 0,
-        })),
+        productos_snapshot: productos.map(p => {
+          // Generate a short summary from the full description
+          const cfg = p.configuracion
+          let resumen = `Mesa inox ${cfg.tipo_acero} ${cfg.largo.toFixed(2)}x${cfg.ancho.toFixed(2)}m`
+          if (cfg.entrepaños > 0) resumen += `, ${cfg.entrepaños} entrepaño${cfg.entrepaños > 1 ? 's' : ''}`
+          if (cfg.pozuelos_rect > 0) resumen += `, ${cfg.pozuelos_rect} pozuelo${cfg.pozuelos_rect > 1 ? 's' : ''}`
+          if (cfg.escabiladero) resumen += ', escabiladero'
+          if (cfg.ruedas) resumen += ', con ruedas'
+          return {
+            descripcion: resumen,
+            cantidad: p.cantidad,
+            precio_unitario: p.precio_calculado || 0,
+          }
+        }),
       },
     })
     setShowCotModal(false)
@@ -191,6 +200,13 @@ export default function OportunidadDetalle() {
                       <div className="font-bold text-lg text-[var(--color-text)]">{formatCOP(p.precio_calculado || 0)}</div>
                       <div className="text-xs text-[var(--color-text-muted)]">{'\u00d7'} {p.cantidad} und</div>
                     </div>
+                    <button
+                      onClick={() => navigate(`/oportunidades/${id}/configurar?editar=${p.id}`)}
+                      className="p-2 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                      title="Editar producto"
+                    >
+                      <Edit3 size={16} />
+                    </button>
                     <button
                       onClick={() => { if (window.confirm('\u00bfEliminar este producto?')) dispatch({ type: 'DELETE_PRODUCTO', payload: { id: p.id } }) }}
                       className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"

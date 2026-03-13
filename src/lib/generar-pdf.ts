@@ -40,12 +40,19 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const cW = pageW - mL - mR
   let y = 0
 
-  const BLUE = { r: 26, g: 35, b: 50 } // #1a2332
+  const BLACK: [number, number, number] = [30, 30, 30]
+
+  function drawPageBorder() {
+    doc.setDrawColor(30, 30, 30)
+    doc.setLineWidth(0.5)
+    doc.rect(10, 10, pageW - 20, pageH - 20)
+  }
 
   function checkPage(needed: number) {
     if (y + needed > pageH - 22) {
       doc.addPage()
-      y = 15
+      drawPageBorder()
+      y = 18
     }
   }
 
@@ -61,68 +68,63 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     }
   }
 
-  // ================================================================
-  // ENCABEZADO - Fondo azul oscuro con logo
-  // ================================================================
-  const headerH = 40
-  doc.setFillColor(BLUE.r, BLUE.g, BLUE.b)
-  doc.rect(0, 0, pageW, headerH, 'F')
+  // Page border
+  drawPageBorder()
 
-  // Logo (proporcional, dentro del header)
+  // Header - logo smaller, no blue background
+  y = 18
+
   try {
-    doc.addImage(LOGO_DURATA_B64, 'PNG', mL, 8, 55, 24)
+    doc.addImage(LOGO_DURATA_B64, 'PNG', mL, y - 4, 36, 15)
   } catch {
-    // Fallback text si no carga
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(22)
-    doc.setTextColor(255, 255, 255)
-    doc.text('DURATA\u00ae S.A.S.', mL, 25)
+    doc.setFontSize(16)
+    doc.setTextColor(...BLACK)
+    doc.text('DURATA S.A.S.', mL, y + 6)
   }
 
-  y = headerH + 8
+  y += 20
 
-  // ================================================================
-  // DATOS DE COTIZACION
-  // ================================================================
-  // Izquierda: lugar y fecha
+  // Datos cotizacion
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(60, 60, 60)
-  doc.text(`Itag\u00fc\u00ed, ${fechaLarga(fecha)}`, mL, y)
+  doc.text(`Itagui, ${fechaLarga(fecha)}`, mL, y)
 
-  // Derecha: numero cotizacion
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
-  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
-  doc.text(`Cotizaci\u00f3n: ${numero}`, pageW - mR, y, { align: 'right' })
-  y += 8
+  doc.setTextColor(...BLACK)
+  doc.text(`Cotizacion: ${numero}`, pageW - mR, y, { align: 'right' })
+  y += 6
 
-  // Senor(a)(es)
+  // Separator
+  doc.setDrawColor(180, 180, 180)
+  doc.setLineWidth(0.3)
+  doc.line(mL, y, mL + cW, y)
+  y += 6
+
+  // Client info
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(60, 60, 60)
-  doc.text('Se\u00f1or(a)(es)', mL, y)
+  doc.text('Senor(a)(es)', mL, y)
   y += 5
 
-  // Empresa en MAYUSCULAS bold
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(30, 30, 30)
   doc.text((cliente.empresa || '').toUpperCase(), mL, y)
   y += 5
 
-  // Nombre contacto
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(60, 60, 60)
   doc.text(cliente.nombre, mL, y)
 
-  // Derecha: tel y email
   doc.text(`Tel: ${cliente.whatsapp || '-'}`, pageW - mR, y - 5, { align: 'right' })
   doc.text(`Email: ${cliente.correo || '-'}`, pageW - mR, y, { align: 'right' })
   y += 5
 
-  // PRODUCTO
   const subtipos = [...new Set(productos.map(p => p.subtipo))].join(', ')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
@@ -130,13 +132,11 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text(`PRODUCTO: ${subtipos}`, mL, y)
   y += 8
 
-  // ================================================================
-  // PARRAFO INSTITUCIONAL
-  // ================================================================
+  // Institutional paragraph
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
-  const parrafoInst = 'DURATA\u00ae S.A.S es una empresa antioque\u00f1a fundada desde 1985, dedicada a la fabricaci\u00f3n de art\u00edculos en Acero Inoxidable y estructura met\u00e1lica. Nos destacamos en el mercado por nuestra eficiencia y calidad. Nuestro personal est\u00e1 debidamente capacitado y cuenta con la experiencia para desarrollar proyectos a la medida de nuestros clientes.'
+  const parrafoInst = 'DURATA S.A.S es una empresa antioquena fundada desde 1985, dedicada a la fabricacion de articulos en Acero Inoxidable y estructura metalica. Nos destacamos en el mercado por nuestra eficiencia y calidad.'
   const instLines: string[] = doc.splitTextToSize(parrafoInst, cW)
   for (const line of instLines) {
     doc.text(line, mL, y)
@@ -146,22 +146,20 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(60, 60, 60)
-  doc.text('A continuaci\u00f3n presentamos la propuesta comercial de acuerdo a su solicitud.', mL, y)
+  doc.text('A continuacion presentamos la propuesta comercial de acuerdo a su solicitud.', mL, y)
   y += 8
 
-  // ================================================================
-  // TABLA DE PRODUCTOS
-  // ================================================================
+  // Products table
   const colCant = mL
   const colUnd = mL + 14
   const colDesc = mL + 28
-  const colVUnit = pageW - mR - 45
+  const colVUnit = pageW - mR - 52
   const colVTotal = pageW - mR
-  const descW = colVUnit - colDesc - 4
+  const descW = colVUnit - colDesc - 8
 
-  // Header
+  // Table header
   const thH = 7
-  doc.setFillColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.setFillColor(30, 30, 30)
   doc.rect(mL, y, cW, thH, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
@@ -169,9 +167,9 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const thY = y + 5
   doc.text('CANT', colCant + 2, thY)
   doc.text('UND', colUnd + 2, thY)
-  doc.text('DESCRIPCI\u00d3N', colDesc + 2, thY)
-  doc.text('VALOR UNIT', colVUnit - 2, thY, { align: 'right' })
-  doc.text('VALOR TOTAL', colVTotal - 2, thY, { align: 'right' })
+  doc.text('DESCRIPCION', colDesc + 2, thY)
+  doc.text('VR. UNIT', colVUnit, thY, { align: 'right' })
+  doc.text('VR. TOTAL', colVTotal - 2, thY, { align: 'right' })
   y += thH
 
   let subtotal = 0
@@ -183,48 +181,50 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     subtotal += totalLinea
 
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    const descLines: string[] = doc.splitTextToSize(p.descripcion_comercial || p.subtipo, descW)
-    const rowH = Math.max(descLines.length * 3.5 + 3, 7)
+    doc.setFontSize(7)
+    const descText = p.descripcion_comercial || p.subtipo
+    const descLines: string[] = doc.splitTextToSize(descText, descW)
+    const descHeight = descLines.length * 3.5
+    const rowH = Math.max(descHeight + 6, 10)
 
     checkPage(rowH + 2)
 
-    // Alternating row background
     if (idx % 2 === 0) {
       doc.setFillColor(245, 247, 250)
       doc.rect(mL, y, cW, rowH, 'F')
     }
 
-    // Row border bottom
     doc.setDrawColor(210, 215, 225)
     doc.setLineWidth(0.2)
     doc.line(mL, y + rowH, mL + cW, y + rowH)
 
-    const cellY = y + 4.5
+    // Quantity and unit at top
+    const topY = y + 5
+    doc.setFontSize(7.5)
     doc.setTextColor(40, 40, 40)
-    doc.text(String(p.cantidad), colCant + 2, cellY)
-    doc.text('UND', colUnd + 2, cellY)
+    doc.text(String(p.cantidad), colCant + 2, topY)
+    doc.text('UND', colUnd + 2, topY)
 
-    // Description multi-line
+    // Description starting at top
     doc.setFontSize(7)
     for (let li = 0; li < descLines.length; li++) {
-      doc.text(descLines[li], colDesc + 2, cellY + li * 3.5)
+      doc.text(descLines[li], colDesc + 2, topY + li * 3.5)
     }
 
-    // Prices
+    // Prices at top, right-aligned with clear separation from description
     doc.setFontSize(7.5)
-    doc.text(formatCOP(precioUnit), colVUnit - 2, cellY, { align: 'right' })
+    doc.setTextColor(40, 40, 40)
+    doc.setFont('helvetica', 'normal')
+    doc.text(formatCOP(precioUnit), colVUnit, topY, { align: 'right' })
     doc.setFont('helvetica', 'bold')
-    doc.text(formatCOP(totalLinea), colVTotal - 2, cellY, { align: 'right' })
+    doc.text(formatCOP(totalLinea), colVTotal - 2, topY, { align: 'right' })
 
     y += rowH
   }
 
   y += 4
 
-  // ================================================================
-  // TOTALES
-  // ================================================================
+  // Totals
   const iva = subtotal * 0.19
   const totalFinal = subtotal + iva
   const totX = pageW - mR - 80
@@ -246,8 +246,7 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text(formatCOP(iva), pageW - mR - 2, y, { align: 'right' })
   y += 6
 
-  // TOTAL grande con fondo
-  doc.setFillColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.setFillColor(30, 30, 30)
   doc.roundedRect(totX - 3, y - 4, pageW - mR - totX + 5, 10, 1.5, 1.5, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
@@ -256,19 +255,15 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text(formatCOP(totalFinal), pageW - mR - 2, y + 2.5, { align: 'right' })
   y += 16
 
-  // ================================================================
-  // NOTA
-  // ================================================================
+  // Note
   checkPage(10)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
-  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.setTextColor(...BLACK)
   doc.text('EN CASO DE ACEPTAR LA PROPUESTA, FAVOR DILIGENCIAR EL FORMATO Y ENVIAR POR CORREO PARA PODER INICIAR EL PROCESO.', mL, y)
   y += 8
 
-  // ================================================================
-  // CONDICIONES COMERCIALES
-  // ================================================================
+  // Commercial conditions
   checkPage(15)
   doc.setDrawColor(200, 200, 200)
   doc.setLineWidth(0.3)
@@ -277,7 +272,7 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.setTextColor(...BLACK)
   doc.text('CONDICIONES COMERCIALES', mL, y)
   y += 5
 
@@ -287,22 +282,18 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     y += 1.5
   }
 
-  // Transporte
   if (incluyeTransporte) {
     checkPage(10)
-    textBlock('\u2022 Transporte: Transporte de la totalidad de los elementos van incluidos en el valor del \u00edtem. Si var\u00eda la orden de compra, a menor cantidad los precios pueden variar.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+    textBlock('\u2022 Transporte: Transporte de la totalidad de los elementos van incluidos en el valor del item.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
     y += 1.5
   }
 
-  // ================================================================
-  // NO INCLUYE
-  // ================================================================
   if (noIncluyeItems.length > 0) {
     y += 2
     checkPage(12)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
-    doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+    doc.setTextColor(...BLACK)
     doc.text('NO INCLUYE:', mL, y)
     y += 4
 
@@ -313,41 +304,36 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     }
   }
 
-  // Forma de pago, cuentas, validez (siempre)
   y += 2
   checkPage(18)
   textBlock('\u2022 Forma de Pago: 50% ANTICIPO Y 50% contra entrega.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
   y += 1
   textBlock('\u2022 Cuentas Bancarias: Bancolombia Corriente 27250080764.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
   y += 1
-  textBlock('\u2022 Validez de la propuesta: 10 d\u00edas calendario.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+  textBlock('\u2022 Validez de la propuesta: 10 dias calendario.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
 
-  // ================================================================
-  // PIE DE FIRMA
-  // ================================================================
+  // Signature
   y += 10
   checkPage(20)
-  doc.setDrawColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.setDrawColor(...BLACK)
   doc.setLineWidth(0.4)
   doc.line(mL, y, mL + cW, y)
   y += 6
 
-  // Columna izquierda
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
-  doc.text('SEBASTI\u00c1N AGUIRRE', mL, y)
+  doc.setTextColor(...BLACK)
+  doc.text('SEBASTIAN AGUIRRE', mL, y)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
   doc.text('Director comercial', mL, y + 4)
   doc.text('CEL 317 666 8023', mL, y + 8)
 
-  // Columna derecha
   const colR = mL + cW / 2 + 10
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(BLUE.r, BLUE.g, BLUE.b)
+  doc.setTextColor(...BLACK)
   doc.text('OMAR COSSIO', colR, y)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
@@ -355,12 +341,12 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text('Comercial', colR, y + 4)
   doc.text('444 43 70 ext 108', colR, y + 8)
 
-  // ================================================================
-  // GUARDAR
-  // ================================================================
-  const empresaClean = (cliente.empresa || 'cliente').replace(/[^a-zA-Z0-9]/g, '_')
-  const subtipoClean = subtipos.replace(/[^a-zA-Z0-9]/g, '_')
-  doc.save(`Cotizacion_${numero}_${subtipoClean}_${empresaClean}.pdf`)
+  // Save - COTIZACION_[Numero]_[Producto]_[Cliente]_[Contacto].pdf
+  const clean = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').substring(0, 30)
+  const productoResumido = clean(subtipos || 'Mesa')
+  const empresaClean = clean(cliente.empresa)
+  const contactoClean = clean(cliente.nombre)
+  doc.save(`COTIZACION_${numero}_${productoResumido}_${empresaClean}_${contactoClean}.pdf`)
 
   return totalFinal
 }

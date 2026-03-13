@@ -47,7 +47,6 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   function handleSelectEmpresa(e: Empresa) {
     setSelectedEmpresaId(e.id)
     setEmpresaMode('search')
-    // Auto-select first contact if exists
     const contacts = state.contactos.filter(c => c.empresa_id === e.id)
     if (contacts.length > 0) {
       setSelectedContactoId(contacts[0].id)
@@ -58,25 +57,14 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   }
 
   function goToContacto() {
-    if (empresaMode === 'create') {
-      if (!newEmpresa.nombre.trim()) return
-      // Create the empresa first
-      const empresaId = String(Date.now())
-      dispatch({
-        type: 'ADD_EMPRESA',
-        payload: { ...newEmpresa },
-      })
-      // Since the store generates ID, find the latest
-      setSelectedEmpresaId(empresaId)
-      setContactoMode('create')
-    }
+    if (empresaMode === 'create' && !newEmpresa.nombre.trim()) return
+    if (empresaMode === 'search' && !selectedEmpresaId) return
     setStep('contacto')
   }
 
   function goToOportunidad() {
-    if (contactoMode === 'create') {
-      if (!newContacto.nombre.trim()) return
-    }
+    if (contactoMode === 'create' && !newContacto.nombre.trim()) return
+    if (contactoMode === 'select' && !selectedContactoId) return
     setStep('oportunidad')
   }
 
@@ -84,27 +72,32 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
     e.preventDefault()
     if (oportunidad.valor_estimado <= 0) return
 
+    const now = Date.now()
     let empresaId = selectedEmpresaId
-    // If creating new empresa
-    if (!empresaId && empresaMode === 'create') {
-      dispatch({ type: 'ADD_EMPRESA', payload: newEmpresa })
-      // Get the latest empresa
-      empresaId = String(state.empresas.length + 1)
+
+    // Create empresa if needed
+    if (empresaMode === 'create' && !empresaId) {
+      if (!newEmpresa.nombre.trim()) return
+      empresaId = `emp_${now}`
+      dispatch({ type: 'ADD_EMPRESA', payload: { ...newEmpresa, id: empresaId } })
     }
     if (!empresaId) return
 
+    // Create contacto if needed
     let contactoId = selectedContactoId
-    // If creating new contacto
     if (contactoMode === 'create' && !contactoId) {
-      dispatch({ type: 'ADD_CONTACTO', payload: { ...newContacto, empresa_id: empresaId } })
-      contactoId = String(state.contactos.length + 1)
+      if (!newContacto.nombre.trim()) return
+      contactoId = `con_${now + 1}`
+      dispatch({ type: 'ADD_CONTACTO', payload: { ...newContacto, empresa_id: empresaId, id: contactoId } })
     }
     if (!contactoId) return
 
-    const oportunidadId = String(Date.now())
+    // Create oportunidad
+    const oportunidadId = `opp_${now + 2}`
     dispatch({
       type: 'ADD_OPORTUNIDAD',
       payload: {
+        id: oportunidadId,
         empresa_id: empresaId,
         contacto_id: contactoId,
         etapa: 'nuevo_lead',
@@ -120,6 +113,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
         notas: oportunidad.notas,
       },
     })
+
     onCreated?.(oportunidadId)
     onClose()
   }
@@ -156,7 +150,6 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto">
           {step === 'empresa' && (
             <>
-              {/* Toggle search/create */}
               <div className="flex gap-2 mb-2">
                 <button type="button" onClick={() => setEmpresaMode('search')} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${empresaMode === 'search' ? 'bg-blue-500/15 text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'}`}>
                   Buscar existente
@@ -209,7 +202,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
                       </select>
                     </div>
                   </div>
-                  <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Direcci&oacute;n</label>
+                  <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Direccion</label>
                     <input value={newEmpresa.direccion} onChange={e => setNewEmpresa(p => ({ ...p, direccion: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />
                   </div>
                 </div>
@@ -287,7 +280,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
                   </select>
                 </div>
               </div>
-              <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Ubicaci&oacute;n del proyecto</label>
+              <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Ubicacion del proyecto</label>
                 <input value={oportunidad.ubicacion} onChange={e => setOportunidad(p => ({ ...p, ubicacion: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />
               </div>
               <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Notas</label>
@@ -300,7 +293,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[var(--color-border)] flex justify-between">
           <button type="button" onClick={step === 'empresa' ? onClose : () => setStep(step === 'contacto' ? 'empresa' : 'contacto')} className="px-5 py-2.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] rounded-xl hover:bg-[var(--color-surface-hover)] transition-all">
-            {step === 'empresa' ? 'Cancelar' : 'Atr\u00e1s'}
+            {step === 'empresa' ? 'Cancelar' : 'Atras'}
           </button>
           {step !== 'oportunidad' ? (
             <button type="button" onClick={step === 'empresa' ? goToContacto : goToOportunidad} disabled={step === 'empresa' && empresaMode === 'search' && !selectedEmpresaId} className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-50">
