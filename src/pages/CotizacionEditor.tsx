@@ -4,7 +4,7 @@ import { useStore } from '../lib/store'
 import { CotizacionProducto } from '../types'
 import { formatCOP, formatDate } from '../lib/utils'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
-import CotizacionModal from '../components/CotizacionModal'
+import PdfNameModal from '../components/PdfNameModal'
 import {
   ArrowLeft, FileText, Save, Download, Plus, Trash2, Check,
   Mail, Phone, MapPin, Hash, Building2
@@ -30,11 +30,12 @@ export default function CotizacionEditor() {
       descripcion: p.descripcion_comercial || p.subtipo,
       cantidad: p.cantidad,
       precio_unitario: p.precio_calculado || 0,
+      unidad: 'UND',
     }))
   }, [cotizacion?.id])
 
   const [productos, setProductos] = useState<CotizacionProducto[]>(initialProductos)
-  const [showCotModal, setShowCotModal] = useState(false)
+  const [showPdfModal, setShowPdfModal] = useState(false)
   const [saved, setSaved] = useState(false)
   const [tiempoEntrega, setTiempoEntrega] = useState(cotizacion?.tiempoEntrega || '25 d\u00edas h\u00e1biles o a convenir')
   const [incluyeTransporte, setIncluyeTransporte] = useState(cotizacion?.incluyeTransporte ?? true)
@@ -55,7 +56,7 @@ export default function CotizacionEditor() {
   }
 
   function addProducto() {
-    setProductos(prev => [...prev, { descripcion: 'Nuevo producto', cantidad: 1, precio_unitario: 0 }])
+    setProductos(prev => [...prev, { descripcion: 'Nuevo producto', cantidad: 1, precio_unitario: 0, unidad: 'UND' }])
   }
 
   function saveDraft() {
@@ -76,10 +77,14 @@ export default function CotizacionEditor() {
     setTimeout(() => setSaved(false), 3000)
   }
 
-  function handleGenerarPdf(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
-    if (!empresa || !contacto || productos.length === 0) return
-    const fecha = cotizacion?.fecha || new Date().toISOString().split('T')[0]
-    // Build ProductoCliente array for PDF generator
+  function handleGenerarPdf(nombreProducto: string) {
+    if (!empresa || !contacto || productos.length === 0 || !cotizacion) return
+    const fecha = cotizacion.fecha || new Date().toISOString().split('T')[0]
+    const numero = cotizacion.numero
+
+    const condicionesItems = condicionesText.split('\n').filter(l => l.trim())
+    const noIncluyeItems = noIncluyeText.split('\n').filter(l => l.trim())
+
     const productosForPdf = productos.map((p, i) => ({
       id: String(i),
       oportunidad_id: oportunidad?.id || '',
@@ -89,10 +94,16 @@ export default function CotizacionEditor() {
       precio_calculado: p.precio_unitario,
       descripcion_comercial: p.descripcion,
       cantidad: p.cantidad,
+      unidad: p.unidad || 'UND',
     }))
     const totalPdf = generarPdfCotizacion({
-      ...data,
+      numero,
       fecha,
+      nombreProducto,
+      tiempoEntrega,
+      incluyeTransporte,
+      condicionesItems,
+      noIncluyeItems,
       cliente: {
         empresa: empresa.nombre,
         nombre: contacto.nombre,
@@ -103,22 +114,20 @@ export default function CotizacionEditor() {
       },
       productos: productosForPdf,
     })
-    // Update cotizacion total with PDF total
-    if (cotizacion) {
-      dispatch({
-        type: 'UPDATE_COTIZACION',
-        payload: {
-          id: cotizacion.id,
-          total: totalPdf,
-          productos_snapshot: productos,
-          tiempoEntrega: data.tiempoEntrega,
-          incluyeTransporte: data.incluyeTransporte,
-          condicionesItems: data.condicionesItems,
-          noIncluyeItems: data.noIncluyeItems,
-        },
-      })
-    }
-    setShowCotModal(false)
+    // Update cotizacion total
+    dispatch({
+      type: 'UPDATE_COTIZACION',
+      payload: {
+        id: cotizacion.id,
+        total: totalPdf,
+        productos_snapshot: productos,
+        tiempoEntrega,
+        incluyeTransporte,
+        condicionesItems,
+        noIncluyeItems,
+      },
+    })
+    setShowPdfModal(false)
   }
 
   if (!cotizacion || !oportunidad || !empresa || !contacto) {
@@ -130,6 +139,11 @@ export default function CotizacionEditor() {
         </button>
       </div>
     )
+  }
+
+  function fmtQty(n: number): string {
+    if (Number.isInteger(n)) return String(n)
+    return n.toFixed(2).replace(/\.?0+$/, '')
   }
 
   return (
@@ -161,7 +175,7 @@ export default function CotizacionEditor() {
           <button onClick={saveDraft} className="flex items-center gap-2 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200">
             <Save size={14} /> Guardar borrador
           </button>
-          <button onClick={() => setShowCotModal(true)} className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200">
+          <button onClick={() => setShowPdfModal(true)} className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200">
             <Download size={14} /> Descargar PDF
           </button>
         </div>
@@ -200,7 +214,7 @@ export default function CotizacionEditor() {
           {/* Products table */}
           <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Productos</h3>
+              <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Lineas de cotizacion</h3>
               <button onClick={addProducto} className="flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium">
                 <Plus size={14} /> Agregar linea
               </button>
@@ -210,16 +224,35 @@ export default function CotizacionEditor() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F1F5F9] text-left text-[var(--color-text-muted)]">
+                    <th className="px-3 py-2.5 font-medium text-xs w-16 text-center">Cant</th>
+                    <th className="px-3 py-2.5 font-medium text-xs w-16 text-center">Und</th>
                     <th className="px-3 py-2.5 font-medium text-xs">Descripcion</th>
-                    <th className="px-3 py-2.5 font-medium text-xs w-20 text-center">Cant</th>
-                    <th className="px-3 py-2.5 font-medium text-xs w-32 text-right">Precio Unit.</th>
-                    <th className="px-3 py-2.5 font-medium text-xs w-32 text-right">Total</th>
+                    <th className="px-3 py-2.5 font-medium text-xs w-28 text-right">Precio Unit.</th>
+                    <th className="px-3 py-2.5 font-medium text-xs w-28 text-right">Total</th>
                     <th className="px-3 py-2.5 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {productos.map((p, i) => (
                     <tr key={i} className={`border-t border-[var(--color-border)] ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'}`}>
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="number"
+                          value={p.cantidad}
+                          onChange={e => updateProducto(i, 'cantidad', Number(e.target.value))}
+                          min={0}
+                          step="any"
+                          className="w-14 text-xs text-center px-1 py-1.5 rounded-lg border border-[var(--color-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="text"
+                          value={p.unidad || 'UND'}
+                          onChange={e => updateProducto(i, 'unidad', e.target.value)}
+                          className="w-12 text-xs text-center px-1 py-1.5 rounded-lg border border-[var(--color-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30"
+                        />
+                      </td>
                       <td className="px-3 py-2">
                         <textarea
                           value={p.descripcion}
@@ -228,22 +261,12 @@ export default function CotizacionEditor() {
                           className="w-full text-xs px-2 py-1.5 rounded-lg border border-[var(--color-border)] resize-none focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30"
                         />
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <input
-                          type="number"
-                          value={p.cantidad}
-                          onChange={e => updateProducto(i, 'cantidad', Number(e.target.value))}
-                          min={1}
-                          step={1}
-                          className="w-16 text-xs text-center px-2 py-1.5 rounded-lg border border-[var(--color-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30"
-                        />
-                      </td>
                       <td className="px-3 py-2 text-right">
                         <input
                           type="number"
                           value={p.precio_unitario}
                           onChange={e => updateProducto(i, 'precio_unitario', Number(e.target.value))}
-                          className="w-28 text-xs text-right px-2 py-1.5 rounded-lg border border-[var(--color-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30"
+                          className="w-24 text-xs text-right px-2 py-1.5 rounded-lg border border-[var(--color-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30"
                         />
                       </td>
                       <td className="px-3 py-2 text-right font-bold text-xs">{formatCOP(p.precio_unitario * p.cantidad)}</td>
@@ -320,7 +343,7 @@ export default function CotizacionEditor() {
             <div className="space-y-2 text-sm">
               {productos.map((p, i) => (
                 <div key={i} className="flex justify-between text-xs">
-                  <span className="text-[var(--color-text-muted)] truncate max-w-40">{p.descripcion}</span>
+                  <span className="text-[var(--color-text-muted)] truncate max-w-40">{fmtQty(p.cantidad)} {p.unidad || 'UND'} - {p.descripcion}</span>
                   <span className="font-medium whitespace-nowrap ml-2">{formatCOP(p.precio_unitario * p.cantidad)}</span>
                 </div>
               ))}
@@ -337,17 +360,17 @@ export default function CotizacionEditor() {
           <button onClick={saveDraft} className="w-full flex items-center justify-center gap-2.5 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] px-5 py-3 rounded-2xl text-sm font-semibold transition-all duration-200">
             <Save size={16} /> Guardar borrador
           </button>
-          <button onClick={() => setShowCotModal(true)} className="w-full flex items-center justify-center gap-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 py-3 rounded-2xl text-sm font-bold transition-all duration-200">
+          <button onClick={() => setShowPdfModal(true)} className="w-full flex items-center justify-center gap-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 py-3 rounded-2xl text-sm font-bold transition-all duration-200">
             <Download size={16} /> Descargar PDF
           </button>
         </div>
       </div>
 
-      {showCotModal && (
-        <CotizacionModal
+      {showPdfModal && (
+        <PdfNameModal
           defaultNumero={cotizacion.numero}
           onConfirm={handleGenerarPdf}
-          onClose={() => setShowCotModal(false)}
+          onClose={() => setShowPdfModal(false)}
         />
       )}
     </div>

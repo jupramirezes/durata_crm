@@ -15,8 +15,9 @@ export interface PdfClienteData {
 export interface PdfCotizacionData {
   numero: string
   fecha: string
+  nombreProducto: string
   cliente: PdfClienteData
-  productos: ProductoCliente[]
+  productos: (ProductoCliente & { unidad?: string })[]
   tiempoEntrega: string
   incluyeTransporte: boolean
   condicionesItems: string[]
@@ -30,8 +31,13 @@ function fechaLarga(isoDate: string): string {
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
 }
 
+function fmtQty(n: number): string {
+  if (Number.isInteger(n)) return String(n)
+  return n.toFixed(2).replace(/\.?0+$/, '')
+}
+
 export function generarPdfCotizacion(data: PdfCotizacionData) {
-  const { numero, fecha, cliente, productos, incluyeTransporte, condicionesItems, noIncluyeItems } = data
+  const { numero, fecha, nombreProducto, cliente, productos, incluyeTransporte, condicionesItems, noIncluyeItems } = data
   const doc = new jsPDF({ unit: 'mm', format: 'letter' })
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
@@ -125,11 +131,11 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text(`Email: ${cliente.correo || '-'}`, pageW - mR, y, { align: 'right' })
   y += 5
 
-  const subtipos = [...new Set(productos.map(p => p.subtipo))].join(', ')
+  // Product name as title
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(30, 30, 30)
-  doc.text(`PRODUCTO: ${subtipos}`, mL, y)
+  doc.text(`PRODUCTO: ${nombreProducto}`, mL, y)
   y += 8
 
   // Institutional paragraph
@@ -202,8 +208,8 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     const topY = y + 5
     doc.setFontSize(7.5)
     doc.setTextColor(40, 40, 40)
-    doc.text(String(p.cantidad), colCant + 2, topY)
-    doc.text('UND', colUnd + 2, topY)
+    doc.text(fmtQty(p.cantidad), colCant + 2, topY)
+    doc.text((p as any).unidad || 'UND', colUnd + 2, topY)
 
     // Description starting at top
     doc.setFontSize(7)
@@ -341,12 +347,11 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text('Comercial', colR, y + 4)
   doc.text('444 43 70 ext 108', colR, y + 8)
 
-  // Save - COTIZACION_[Numero]_[Producto]_[Cliente]_[Contacto].pdf
-  const clean = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').substring(0, 30)
-  const productoResumido = clean(subtipos || 'Mesa')
-  const empresaClean = clean(cliente.empresa)
-  const contactoClean = clean(cliente.nombre)
-  doc.save(`COTIZACION_${numero}_${productoResumido}_${empresaClean}_${contactoClean}.pdf`)
+  // Filename: Cotizacion_[NumeroCot]_[Nombre producto]_[Empresa].pdf
+  const clean = (s: string) => (s || '').replace(/[^a-zA-Z0-9\u00e0-\u00fc ]/gi, '').replace(/\s+/g, ' ').trim().substring(0, 40)
+  const nombreClean = clean(nombreProducto).replace(/ /g, '_')
+  const empresaClean = clean(cliente.empresa).replace(/ /g, '')
+  doc.save(`Cotizacion_${numero}_${nombreClean}_${empresaClean}.pdf`)
 
   return totalFinal
 }

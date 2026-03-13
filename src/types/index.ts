@@ -175,6 +175,7 @@ export interface CotizacionProducto {
   descripcion: string
   cantidad: number
   precio_unitario: number
+  unidad?: string
 }
 
 export interface Cotizacion {
