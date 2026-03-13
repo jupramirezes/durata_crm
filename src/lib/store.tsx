@@ -1,9 +1,11 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react'
-import { Cliente, Etapa, HistorialEtapa, ProductoCliente, Cotizacion, PrecioMaestro } from '../types'
-import { DEMO_CLIENTES, DEMO_PRECIOS, nextClienteId } from './demo-data'
+import { Empresa, Contacto, Oportunidad, Etapa, HistorialEtapa, ProductoCliente, Cotizacion, PrecioMaestro } from '../types'
+import { DEMO_EMPRESAS, DEMO_CONTACTOS, DEMO_OPORTUNIDADES, DEMO_PRECIOS, nextEmpresaId, nextContactoId, nextOportunidadId } from './demo-data'
 
 interface State {
-  clientes: Cliente[]
+  empresas: Empresa[]
+  contactos: Contacto[]
+  oportunidades: Oportunidad[]
   historial: HistorialEtapa[]
   productos: ProductoCliente[]
   cotizaciones: Cotizacion[]
@@ -11,9 +13,13 @@ interface State {
 }
 
 type Action =
-  | { type: 'ADD_CLIENTE'; payload: Omit<Cliente, 'id' | 'created_at'> }
-  | { type: 'UPDATE_CLIENTE'; payload: Cliente }
-  | { type: 'MOVE_ETAPA'; payload: { clienteId: string; nuevaEtapa: Etapa } }
+  | { type: 'ADD_EMPRESA'; payload: Omit<Empresa, 'id' | 'created_at'> }
+  | { type: 'UPDATE_EMPRESA'; payload: Empresa }
+  | { type: 'ADD_CONTACTO'; payload: Omit<Contacto, 'id' | 'created_at'> }
+  | { type: 'UPDATE_CONTACTO'; payload: Contacto }
+  | { type: 'ADD_OPORTUNIDAD'; payload: Omit<Oportunidad, 'id' | 'created_at'> }
+  | { type: 'UPDATE_OPORTUNIDAD'; payload: Partial<Oportunidad> & { id: string } }
+  | { type: 'MOVE_ETAPA'; payload: { oportunidadId: string; nuevaEtapa: Etapa; valor_adjudicado?: number; motivo_perdida?: string } }
   | { type: 'ADD_PRODUCTO'; payload: Omit<ProductoCliente, 'id'> }
   | { type: 'DELETE_PRODUCTO'; payload: { id: string } }
   | { type: 'UPDATE_PRECIO'; payload: { id: string; precio: number } }
@@ -27,7 +33,9 @@ type Action =
 const STORAGE_KEY = 'durata_crm_state'
 
 const defaultState: State = {
-  clientes: DEMO_CLIENTES,
+  empresas: DEMO_EMPRESAS,
+  contactos: DEMO_CONTACTOS,
+  oportunidades: DEMO_OPORTUNIDADES,
   historial: [],
   productos: [],
   cotizaciones: [],
@@ -37,9 +45,16 @@ const defaultState: State = {
 function loadState(): State {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) return JSON.parse(saved)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      // Migration: if old format has 'clientes', return defaults to force new model
+      if (parsed.clientes && !parsed.empresas) {
+        return defaultState
+      }
+      return parsed
+    }
   } catch {
-    // corrupted data – fall back to defaults
+    // corrupted data \u2013 fall back to defaults
   }
   return defaultState
 }
@@ -48,20 +63,39 @@ const initialState: State = loadState()
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'ADD_CLIENTE': {
-      const nuevo: Cliente = { ...action.payload, id: nextClienteId(), created_at: new Date().toISOString() }
-      return { ...state, clientes: [...state.clientes, nuevo] }
+    case 'ADD_EMPRESA': {
+      const nuevo: Empresa = { ...action.payload, id: nextEmpresaId(), created_at: new Date().toISOString() }
+      return { ...state, empresas: [...state.empresas, nuevo] }
     }
-    case 'UPDATE_CLIENTE':
-      return { ...state, clientes: state.clientes.map(c => c.id === action.payload.id ? action.payload : c) }
+    case 'UPDATE_EMPRESA':
+      return { ...state, empresas: state.empresas.map(e => e.id === action.payload.id ? action.payload : e) }
+    case 'ADD_CONTACTO': {
+      const nuevo: Contacto = { ...action.payload, id: nextContactoId(), created_at: new Date().toISOString() }
+      return { ...state, contactos: [...state.contactos, nuevo] }
+    }
+    case 'UPDATE_CONTACTO':
+      return { ...state, contactos: state.contactos.map(c => c.id === action.payload.id ? action.payload : c) }
+    case 'ADD_OPORTUNIDAD': {
+      const nuevo: Oportunidad = { ...action.payload, id: nextOportunidadId(), created_at: new Date().toISOString() }
+      return { ...state, oportunidades: [...state.oportunidades, nuevo] }
+    }
+    case 'UPDATE_OPORTUNIDAD':
+      return { ...state, oportunidades: state.oportunidades.map(o => o.id === action.payload.id ? { ...o, ...action.payload } : o) }
     case 'MOVE_ETAPA': {
-      const { clienteId, nuevaEtapa } = action.payload
-      const cliente = state.clientes.find(c => c.id === clienteId)
-      if (!cliente || cliente.etapa === nuevaEtapa) return state
-      const entry: HistorialEtapa = { id: String(Date.now()), cliente_id: clienteId, etapa_anterior: cliente.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }
+      const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida } = action.payload
+      const oportunidad = state.oportunidades.find(o => o.id === oportunidadId)
+      if (!oportunidad || oportunidad.etapa === nuevaEtapa) return state
+      const entry: HistorialEtapa = { id: String(Date.now()), oportunidad_id: oportunidadId, etapa_anterior: oportunidad.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }
+      const updates: Partial<Oportunidad> = { etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
+      if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) {
+        updates.valor_adjudicado = valor_adjudicado
+      }
+      if (nuevaEtapa === 'perdida' && motivo_perdida) {
+        updates.motivo_perdida = motivo_perdida
+      }
       return {
         ...state,
-        clientes: state.clientes.map(c => c.id === clienteId ? { ...c, etapa: nuevaEtapa } : c),
+        oportunidades: state.oportunidades.map(o => o.id === oportunidadId ? { ...o, ...updates } : o),
         historial: [...state.historial, entry],
       }
     }

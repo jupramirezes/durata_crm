@@ -1,39 +1,102 @@
-export type Etapa = 'lead_entrante' | 'en_cotizacion' | 'seguimiento' | 'en_negociacion' | 'cerrado' | 'perdido'
+// ==============================
+// ETAPAS (7 stages pipeline)
+// ==============================
+export type Etapa = 'nuevo_lead' | 'en_cotizacion' | 'cotizacion_enviada' | 'en_seguimiento' | 'en_negociacion' | 'adjudicada' | 'perdida'
 
 export const ETAPAS: { key: Etapa; label: string; color: string }[] = [
-  { key: 'lead_entrante', label: 'Lead Entrante', color: '#3b82f6' },
+  { key: 'nuevo_lead', label: 'Nuevo Lead', color: '#3b82f6' },
   { key: 'en_cotizacion', label: 'En Cotización', color: '#a855f7' },
-  { key: 'seguimiento', label: 'Seguimiento', color: '#eab308' },
+  { key: 'cotizacion_enviada', label: 'Cotización Enviada', color: '#06b6d4' },
+  { key: 'en_seguimiento', label: 'En Seguimiento', color: '#eab308' },
   { key: 'en_negociacion', label: 'En Negociación', color: '#f97316' },
-  { key: 'cerrado', label: 'Cerrado (Ganado)', color: '#22c55e' },
-  { key: 'perdido', label: 'Perdido', color: '#ef4444' },
+  { key: 'adjudicada', label: 'Adjudicada', color: '#22c55e' },
+  { key: 'perdida', label: 'Perdida', color: '#ef4444' },
 ]
 
-export interface Cliente {
+// ==============================
+// CONSTANTS
+// ==============================
+export const SECTORES = ['Alimentos', 'Arquitectura', 'Salud', 'Industrial', 'Mobiliario Urbano', 'Otro'] as const
+export type Sector = typeof SECTORES[number]
+
+export const COTIZADORES = [
+  { id: 'OC', nombre: 'Omar Cossio', iniciales: 'O.C' },
+  { id: 'SA', nombre: 'Sebastián Aguirre', iniciales: 'S.A' },
+  { id: 'JPR', nombre: 'Juan Pablo Ramírez', iniciales: 'J.R' },
+  { id: 'CA', nombre: 'Cristian Arango', iniciales: 'C.A' },
+] as const
+
+export const FUENTES_LEAD = ['WhatsApp', 'Correo', 'Llamada', 'Referido', 'Licitación', 'Web', 'Otro'] as const
+export type FuenteLead = typeof FUENTES_LEAD[number]
+
+export const MOTIVOS_PERDIDA = ['Precio', 'Tiempo de entrega', 'Eligió competencia', 'Cambió de alcance', 'Sin respuesta', 'Presupuesto cancelado', 'Otro'] as const
+export type MotivoPerdida = typeof MOTIVOS_PERDIDA[number]
+
+// ==============================
+// EMPRESA
+// ==============================
+export interface Empresa {
   id: string
   nombre: string
   nit: string
-  empresa: string
-  ubicacion: string
-  correo: string
-  whatsapp: string
-  etapa: Etapa
+  direccion: string
+  sector: Sector
   notas: string
-  fecha_ingreso: string
-  created_at?: string
+  created_at: string
 }
 
+// ==============================
+// CONTACTO
+// ==============================
+export interface Contacto {
+  id: string
+  empresa_id: string
+  nombre: string
+  cargo: string
+  correo: string
+  whatsapp: string
+  notas: string
+  created_at: string
+}
+
+// ==============================
+// OPORTUNIDAD (moves through pipeline)
+// ==============================
+export interface Oportunidad {
+  id: string
+  empresa_id: string
+  contacto_id: string
+  etapa: Etapa
+  valor_estimado: number
+  valor_cotizado: number
+  valor_adjudicado: number
+  cotizador_asignado: string
+  fuente_lead: FuenteLead
+  motivo_perdida: string
+  ubicacion: string
+  fecha_ingreso: string
+  fecha_ultimo_contacto: string
+  notas: string
+  created_at: string
+}
+
+// ==============================
+// HISTORIAL ETAPA
+// ==============================
 export interface HistorialEtapa {
   id: string
-  cliente_id: string
+  oportunidad_id: string
   etapa_anterior: string
   etapa_nueva: string
   created_at: string
 }
 
+// ==============================
+// PRODUCTO (linked to oportunidad)
+// ==============================
 export interface ProductoCliente {
   id: string
-  cliente_id: string
+  oportunidad_id: string
   categoria: string
   subtipo: string
   configuracion: ConfigMesa
@@ -43,6 +106,9 @@ export interface ProductoCliente {
   cantidad: number
 }
 
+// ==============================
+// MESA CONFIGURATION
+// ==============================
 export interface ConfigMesa {
   largo: number
   ancho: number
@@ -102,6 +168,9 @@ export interface ApuResultado {
   descripcion_comercial: string
 }
 
+// ==============================
+// COTIZACION
+// ==============================
 export interface CotizacionProducto {
   descripcion: string
   cantidad: number
@@ -110,12 +179,11 @@ export interface CotizacionProducto {
 
 export interface Cotizacion {
   id: string
-  cliente_id: string
+  oportunidad_id: string
   numero: string
   fecha: string
   estado: 'borrador' | 'enviada' | 'aprobada' | 'rechazada'
   total: number
-  cliente?: Cliente
   // Editor fields (optional, populated when editing)
   productos_snapshot?: CotizacionProducto[]
   tiempoEntrega?: string
@@ -124,6 +192,9 @@ export interface Cotizacion {
   noIncluyeItems?: string[]
 }
 
+// ==============================
+// PRECIOS MAESTROS
+// ==============================
 export interface PrecioMaestro {
   id: string
   grupo: string
@@ -135,6 +206,9 @@ export interface PrecioMaestro {
   updated_at: string
 }
 
+// ==============================
+// DEFAULTS
+// ==============================
 export const CONFIG_MESA_DEFAULT: ConfigMesa = {
   largo: 2.0, ancho: 0.7, alto: 0.9,
   tipo_acero: '304', acabado: 'mate', calibre: 'cal_18',

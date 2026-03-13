@@ -111,7 +111,8 @@ export default function ConfiguradorMesa() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { state, dispatch } = useStore()
-  const cliente = state.clientes.find(c => c.id === id)
+  const oportunidad = state.oportunidades.find(o => o.id === id)
+  const empresa = oportunidad ? state.empresas.find(e => e.id === oportunidad.empresa_id) : null
   const [cfg, setCfg] = useState<ConfigMesa>({ ...CONFIG_MESA_DEFAULT })
   const [resultado, setResultado] = useState<ApuResultado | null>(null)
   const [cantidad, setCantidad] = useState(1)
@@ -199,7 +200,7 @@ export default function ConfiguradorMesa() {
     dispatch({
       type: 'ADD_PRODUCTO',
       payload: {
-        cliente_id: id,
+        oportunidad_id: id,
         categoria: 'Mesas',
         subtipo: 'Mesa lisa con entrepa\u00f1o',
         configuracion: cfg,
@@ -210,7 +211,7 @@ export default function ConfiguradorMesa() {
       },
     })
     setTimeout(() => setToast(false), 3000)
-    setTimeout(() => navigate(`/clientes/${id}`), 1500)
+    setTimeout(() => navigate(`/oportunidades/${id}`), 1500)
   }
 
   function updPozDim(i: number, key: string, val: number) {
@@ -233,7 +234,7 @@ export default function ConfiguradorMesa() {
       )}
 
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-5 transition-colors duration-200">
-        <ArrowLeft size={16} /> Volver a {cliente?.nombre || 'cliente'}
+        <ArrowLeft size={16} /> Volver a {empresa?.nombre || 'oportunidad'}
       </button>
 
       <div className="flex items-center gap-4 mb-6">
@@ -242,7 +243,7 @@ export default function ConfiguradorMesa() {
         </div>
         <div>
           <h2 className="text-2xl font-bold">Configurar: Mesa lisa con entrepano</h2>
-          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Cliente: {cliente?.nombre} {'\u2014'} {cliente?.empresa}</p>
+          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Empresa: {empresa?.nombre}</p>
         </div>
       </div>
 

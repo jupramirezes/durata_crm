@@ -1,37 +1,28 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { ETAPAS } from '../types'
-import { formatDate, formatCOP, getInitials, getAvatarColor } from '../lib/utils'
+import { ETAPAS, COTIZADORES } from '../types'
+import { formatDate, formatCOP } from '../lib/utils'
 import CotizacionModal from '../components/CotizacionModal'
-import { ArrowLeft, Plus, FileText, Mail, Phone, MapPin, Calendar, Tag, Package, Hash, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Package, Trash2, Building2, Target, User } from 'lucide-react'
 
-function InfoItem({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-1.5">
-        <Icon size={14} className="text-[var(--color-text-muted)]" />
-        <span className="text-xs text-[var(--color-text-muted)] font-medium">{label}</span>
-      </div>
-      <span className="text-sm text-[var(--color-text)]">{value || '\u2014'}</span>
-    </div>
-  )
-}
-
-export default function ClienteDetalle() {
+export default function OportunidadDetalle() {
   const { id } = useParams()
   const { state, dispatch } = useStore()
   const navigate = useNavigate()
-  const cliente = state.clientes.find(c => c.id === id)
-  const historial = state.historial.filter(h => h.cliente_id === id).reverse()
-  const productos = state.productos.filter(p => p.cliente_id === id)
-  const cotizaciones = state.cotizaciones.filter(c => c.cliente_id === id)
+  const oportunidad = state.oportunidades.find(o => o.id === id)
+  const empresa = oportunidad ? state.empresas.find(e => e.id === oportunidad.empresa_id) : null
+  const contacto = oportunidad ? state.contactos.find(c => c.id === oportunidad.contacto_id) : null
+  const historial = state.historial.filter(h => h.oportunidad_id === id).reverse()
+  const productos = state.productos.filter(p => p.oportunidad_id === id)
+  const cotizaciones = state.cotizaciones.filter(c => c.oportunidad_id === id)
+  const cotizador = oportunidad ? COTIZADORES.find(c => c.id === oportunidad.cotizador_asignado) : null
 
   const [showCotModal, setShowCotModal] = useState(false)
 
-  if (!cliente) return <div className="p-8 text-[var(--color-text-muted)]">Cliente no encontrado</div>
+  if (!oportunidad || !empresa) return <div className="p-8 text-[var(--color-text-muted)]">Oportunidad no encontrada</div>
 
-  const etapa = ETAPAS.find(e => e.key === cliente.etapa)
+  const etapa = ETAPAS.find(e => e.key === oportunidad.etapa)
 
   function getDefaultNumero() {
     const year = new Date().getFullYear()
@@ -40,7 +31,7 @@ export default function ClienteDetalle() {
   }
 
   function handleCrearCotizacion(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
-    if (productos.length === 0 || !cliente) return
+    if (productos.length === 0 || !oportunidad) return
     const fecha = new Date().toISOString().split('T')[0]
     const subtotal = productos.reduce((s, p) => s + (p.precio_calculado || 0) * p.cantidad, 0)
     const total = subtotal + subtotal * 0.19
@@ -48,7 +39,7 @@ export default function ClienteDetalle() {
     dispatch({
       type: 'ADD_COTIZACION',
       payload: {
-        cliente_id: cliente.id,
+        oportunidad_id: oportunidad.id,
         numero: data.numero,
         fecha,
         estado: 'borrador',
@@ -65,7 +56,6 @@ export default function ClienteDetalle() {
       },
     })
     setShowCotModal(false)
-    // Navigate to editor with the new cotizacion
     setTimeout(() => navigate(`/cotizaciones/${cotId}/editar`), 100)
   }
 
@@ -77,41 +67,69 @@ export default function ClienteDetalle() {
 
       {/* Header */}
       <div className="flex items-center gap-5">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shrink-0 shadow-lg" style={{ background: getAvatarColor(cliente.nombre) }}>
-          {getInitials(cliente.nombre)}
+        <div className="w-16 h-16 rounded-2xl bg-cyan-50 flex items-center justify-center shrink-0 shadow-lg">
+          <Target size={28} className="text-[var(--color-primary)]" />
         </div>
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-[var(--color-text)]">{cliente.nombre}</h2>
-          <p className="text-[var(--color-text-muted)]">{cliente.empresa}</p>
+          <h2 className="text-2xl font-bold text-[var(--color-text)]">{empresa.nombre}</h2>
+          <p className="text-[var(--color-text-muted)]">{contacto?.nombre} &bull; {cotizador?.nombre}</p>
         </div>
         <span className="text-sm px-4 py-1.5 rounded-full font-medium border" style={{ background: etapa?.color + '15', color: etapa?.color, borderColor: etapa?.color + '30' }}>{etapa?.label}</span>
       </div>
 
-      {/* Info grid */}
-      <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6">
-        <div className="grid grid-cols-3 gap-6">
-          <InfoItem icon={Mail} label="Correo" value={cliente.correo} />
-          <InfoItem icon={Phone} label="WhatsApp" value={cliente.whatsapp} />
-          <InfoItem icon={MapPin} label="Ubicacion" value={cliente.ubicacion} />
-          <InfoItem icon={Hash} label="NIT" value={cliente.nit} />
-          <InfoItem icon={Calendar} label="Fecha ingreso" value={formatDate(cliente.fecha_ingreso)} />
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Tag size={14} className="text-[var(--color-text-muted)]" />
-              <span className="text-xs text-[var(--color-text-muted)] font-medium">Etapa</span>
-            </div>
-            <select value={cliente.etapa} onChange={e => dispatch({ type: 'MOVE_ETAPA', payload: { clienteId: cliente.id, nuevaEtapa: e.target.value as any } })} className="px-3 py-1.5 rounded-lg text-sm bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)]">
-              {ETAPAS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
-            </select>
+      {/* Info grid: Empresa + Contacto + Oportunidad */}
+      <div className="grid grid-cols-3 gap-5">
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Building2 size={14} className="text-[var(--color-primary)]" />
+            <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Empresa</span>
+          </div>
+          <div className="text-sm font-medium mb-1">{empresa.nombre}</div>
+          <div className="text-xs text-[var(--color-text-muted)] space-y-1">
+            <div>NIT: {empresa.nit || '\u2014'}</div>
+            <div>{empresa.direccion || '\u2014'}</div>
+            <div>{empresa.sector}</div>
+          </div>
+          <button onClick={() => navigate(`/empresas/${empresa.id}`)} className="text-xs text-[var(--color-primary)] hover:underline mt-2 block">
+            Ver todas las oportunidades
+          </button>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <User size={14} className="text-[var(--color-primary)]" />
+            <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Contacto</span>
+          </div>
+          <div className="text-sm font-medium mb-1">{contacto?.nombre}</div>
+          <div className="text-xs text-[var(--color-text-muted)] space-y-1">
+            <div>{contacto?.cargo || '\u2014'}</div>
+            <div>{contacto?.correo || '\u2014'}</div>
+            <div>{contacto?.whatsapp || '\u2014'}</div>
           </div>
         </div>
-        {cliente.notas && (
-          <div className="mt-5 pt-5 border-t border-[var(--color-border)]">
-            <span className="text-xs text-[var(--color-text-muted)] font-medium block mb-1.5">Notas</span>
-            <p className="text-sm leading-relaxed text-[var(--color-text)]">{cliente.notas}</p>
+
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Target size={14} className="text-[var(--color-primary)]" />
+            <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Oportunidad</span>
           </div>
-        )}
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Valor estimado</span><span className="font-bold text-[var(--color-text)]">{formatCOP(oportunidad.valor_estimado)}</span></div>
+            {oportunidad.valor_cotizado > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Valor cotizado</span><span className="font-medium">{formatCOP(oportunidad.valor_cotizado)}</span></div>}
+            {oportunidad.valor_adjudicado > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Valor adjudicado</span><span className="font-bold text-[var(--color-accent-green)]">{formatCOP(oportunidad.valor_adjudicado)}</span></div>}
+            <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Fuente</span><span>{oportunidad.fuente_lead}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Ingreso</span><span>{formatDate(oportunidad.fecha_ingreso)}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Cotizador</span><span>{cotizador?.nombre}</span></div>
+          </div>
+        </div>
       </div>
+
+      {oportunidad.notas && (
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5">
+          <span className="text-xs text-[var(--color-text-muted)] font-medium block mb-1.5">Notas</span>
+          <p className="text-sm leading-relaxed text-[var(--color-text)]">{oportunidad.notas}</p>
+        </div>
+      )}
 
       {/* Timeline */}
       {historial.length > 0 && (
@@ -145,7 +163,7 @@ export default function ClienteDetalle() {
       <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6">
         <div className="flex justify-between items-center mb-5">
           <h3 className="font-semibold text-[var(--color-text)]">Productos solicitados</h3>
-          <button onClick={() => navigate(`/clientes/${id}/configurar`)} className="flex items-center gap-2 bg-[var(--color-primary)] hover:opacity-90 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200">
+          <button onClick={() => navigate(`/oportunidades/${id}/configurar`)} className="flex items-center gap-2 bg-[var(--color-primary)] hover:opacity-90 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200">
             <Plus size={14} /> Agregar producto
           </button>
         </div>
@@ -153,7 +171,6 @@ export default function ClienteDetalle() {
           <div className="text-center py-8">
             <Package size={32} className="text-[var(--color-border)] mx-auto mb-3" />
             <p className="text-sm text-[var(--color-text-muted)]">Sin productos configurados.</p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">Haz clic en &quot;Agregar producto&quot; para comenzar.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -175,13 +192,8 @@ export default function ClienteDetalle() {
                       <div className="text-xs text-[var(--color-text-muted)]">{'\u00d7'} {p.cantidad} und</div>
                     </div>
                     <button
-                      onClick={() => {
-                        if (window.confirm('¿Eliminar este producto?')) {
-                          dispatch({ type: 'DELETE_PRODUCTO', payload: { id: p.id } })
-                        }
-                      }}
+                      onClick={() => { if (window.confirm('\u00bfEliminar este producto?')) dispatch({ type: 'DELETE_PRODUCTO', payload: { id: p.id } }) }}
                       className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
-                      title="Eliminar producto"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -206,7 +218,7 @@ export default function ClienteDetalle() {
         {cotizaciones.length === 0 ? (
           <div className="text-center py-8">
             <FileText size={32} className="text-[var(--color-border)] mx-auto mb-3" />
-            <p className="text-sm text-[var(--color-text-muted)]">No hay cotizaciones generadas para este cliente.</p>
+            <p className="text-sm text-[var(--color-text-muted)]">No hay cotizaciones generadas.</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-[var(--color-border)]">
@@ -223,30 +235,16 @@ export default function ClienteDetalle() {
               <tbody>
                 {cotizaciones.map((c, i) => (
                   <tr key={c.id} className={`border-t border-[var(--color-border)] ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'}`}>
-                    <td className="px-4 py-3 font-mono text-sm text-[var(--color-text)]">{c.numero}</td>
+                    <td className="px-4 py-3 font-mono text-sm">{c.numero}</td>
                     <td className="px-4 py-3 text-[var(--color-text-muted)]">{formatDate(c.fecha)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-[var(--color-text)]">{formatCOP(c.total)}</td>
+                    <td className="px-4 py-3 text-right font-bold">{formatCOP(c.total)}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-3 py-1 rounded-full font-medium border ${c.estado === 'aprobada' ? 'bg-green-50 text-green-700 border-green-200' : c.estado === 'rechazada' ? 'bg-red-50 text-red-700 border-red-200' : c.estado === 'enviada' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>{c.estado}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
-                          className="text-xs px-3 py-1.5 rounded-lg text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] font-medium transition-all duration-200"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm('¿Eliminar esta cotizacion?')) {
-                              dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } })
-                            }
-                          }}
-                          className="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 font-medium transition-all duration-200"
-                        >
-                          Eliminar
-                        </button>
+                        <button onClick={() => navigate(`/cotizaciones/${c.id}/editar`)} className="text-xs px-3 py-1.5 rounded-lg text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] font-medium transition-all">Editar</button>
+                        <button onClick={() => { if (window.confirm('\u00bfEliminar esta cotizacion?')) dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } }) }} className="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 font-medium transition-all">Eliminar</button>
                       </div>
                     </td>
                   </tr>

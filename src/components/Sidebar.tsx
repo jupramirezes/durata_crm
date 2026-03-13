@@ -7,7 +7,7 @@ const navGroups = [
     items: [
       { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
-      { to: '/clientes', icon: Users, label: 'Clientes' },
+      { to: '/empresas', icon: Users, label: 'Empresas' },
     ],
   },
   {

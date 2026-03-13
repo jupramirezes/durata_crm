@@ -3,8 +3,9 @@ import { StoreProvider } from './lib/store'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
 import Pipeline from './pages/Pipeline'
-import Clientes from './pages/Clientes'
-import ClienteDetalle from './pages/ClienteDetalle'
+import Empresas from './pages/Empresas'
+import EmpresaDetalle from './pages/EmpresaDetalle'
+import OportunidadDetalle from './pages/OportunidadDetalle'
 import ConfiguradorMesa from './pages/ConfiguradorMesa'
 import Cotizaciones from './pages/Cotizaciones'
 import CotizacionEditor from './pages/CotizacionEditor'
@@ -28,9 +29,10 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/clientes/:id" element={<ClienteDetalle />} />
-            <Route path="/clientes/:id/configurar" element={<ConfiguradorMesa />} />
+            <Route path="/empresas" element={<Empresas />} />
+            <Route path="/empresas/:id" element={<EmpresaDetalle />} />
+            <Route path="/oportunidades/:id" element={<OportunidadDetalle />} />
+            <Route path="/oportunidades/:id/configurar" element={<ConfiguradorMesa />} />
             <Route path="/cotizaciones" element={<Cotizaciones />} />
             <Route path="/cotizaciones/:id/editar" element={<CotizacionEditor />} />
             <Route path="/precios" element={<Precios />} />

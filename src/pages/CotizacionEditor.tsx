@@ -16,15 +16,17 @@ export default function CotizacionEditor() {
   const { state, dispatch } = useStore()
 
   const cotizacion = state.cotizaciones.find(c => c.id === id)
-  const cliente = cotizacion ? state.clientes.find(c => c.id === cotizacion.cliente_id) : null
-  const productosCliente = cotizacion ? state.productos.filter(p => p.cliente_id === cotizacion.cliente_id) : []
+  const oportunidad = cotizacion ? state.oportunidades.find(o => o.id === cotizacion.oportunidad_id) : null
+  const empresa = oportunidad ? state.empresas.find(e => e.id === oportunidad.empresa_id) : null
+  const contacto = oportunidad ? state.contactos.find(ct => ct.id === oportunidad.contacto_id) : null
+  const productosOportunidad = cotizacion ? state.productos.filter(p => p.oportunidad_id === cotizacion.oportunidad_id) : []
 
-  // Initialize editable products from snapshot or from client products
+  // Initialize editable products from snapshot or from oportunidad products
   const initialProductos: CotizacionProducto[] = useMemo(() => {
     if (cotizacion?.productos_snapshot && cotizacion.productos_snapshot.length > 0) {
       return cotizacion.productos_snapshot
     }
-    return productosCliente.map(p => ({
+    return productosOportunidad.map(p => ({
       descripcion: p.descripcion_comercial || p.subtipo,
       cantidad: p.cantidad,
       precio_unitario: p.precio_calculado || 0,
@@ -75,12 +77,12 @@ export default function CotizacionEditor() {
   }
 
   function handleGenerarPdf(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
-    if (!cliente || productos.length === 0) return
+    if (!empresa || !contacto || productos.length === 0) return
     const fecha = cotizacion?.fecha || new Date().toISOString().split('T')[0]
-    // Build fake ProductoCliente array for PDF generator
+    // Build ProductoCliente array for PDF generator
     const productosForPdf = productos.map((p, i) => ({
       id: String(i),
-      cliente_id: cliente.id,
+      oportunidad_id: oportunidad?.id || '',
       categoria: 'Mesas',
       subtipo: p.descripcion,
       configuracion: {} as any,
@@ -91,10 +93,17 @@ export default function CotizacionEditor() {
     const totalPdf = generarPdfCotizacion({
       ...data,
       fecha,
-      cliente,
+      cliente: {
+        empresa: empresa.nombre,
+        nombre: contacto.nombre,
+        whatsapp: contacto.whatsapp,
+        correo: contacto.correo,
+        nit: empresa.nit,
+        ubicacion: oportunidad?.ubicacion || empresa.direccion,
+      },
       productos: productosForPdf,
     })
-    // Update cotización total with PDF total
+    // Update cotizacion total with PDF total
     if (cotizacion) {
       dispatch({
         type: 'UPDATE_COTIZACION',
@@ -112,10 +121,10 @@ export default function CotizacionEditor() {
     setShowCotModal(false)
   }
 
-  if (!cotizacion || !cliente) {
+  if (!cotizacion || !oportunidad || !empresa || !contacto) {
     return (
       <div className="p-8 text-[var(--color-text-muted)]">
-        <p>Cotizaci&oacute;n no encontrada.</p>
+        <p>Cotizacion no encontrada.</p>
         <button onClick={() => navigate('/cotizaciones')} className="mt-4 text-[var(--color-primary)] hover:underline text-sm">
           Volver a cotizaciones
         </button>
@@ -144,7 +153,7 @@ export default function CotizacionEditor() {
             <FileText size={24} className="text-[var(--color-accent-green)]" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Editar Cotizaci&oacute;n <span className="font-mono text-[var(--color-primary)]">{cotizacion.numero}</span></h2>
+            <h2 className="text-2xl font-bold">Editar Cotizacion <span className="font-mono text-[var(--color-primary)]">{cotizacion.numero}</span></h2>
             <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Fecha: {formatDate(cotizacion.fecha)} &bull; Estado: {cotizacion.estado}</p>
           </div>
         </div>
@@ -167,23 +176,23 @@ export default function CotizacionEditor() {
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-sm">
                 <Building2 size={14} className="text-[var(--color-text-muted)]" />
-                <span className="font-medium">{cliente.empresa}</span>
+                <span className="font-medium">{empresa.nombre}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Mail size={14} className="text-[var(--color-text-muted)]" />
-                <span>{cliente.correo || '\u2014'}</span>
+                <span>{contacto.correo || '\u2014'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Phone size={14} className="text-[var(--color-text-muted)]" />
-                <span>{cliente.whatsapp || '\u2014'}</span>
+                <span>{contacto.whatsapp || '\u2014'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <MapPin size={14} className="text-[var(--color-text-muted)]" />
-                <span>{cliente.ubicacion || '\u2014'}</span>
+                <span>{oportunidad.ubicacion || empresa.direccion || '\u2014'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Hash size={14} className="text-[var(--color-text-muted)]" />
-                <span>NIT: {cliente.nit || '\u2014'}</span>
+                <span>NIT: {empresa.nit || '\u2014'}</span>
               </div>
             </div>
           </div>
@@ -193,7 +202,7 @@ export default function CotizacionEditor() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Productos</h3>
               <button onClick={addProducto} className="flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium">
-                <Plus size={14} /> Agregar l&iacute;nea
+                <Plus size={14} /> Agregar linea
               </button>
             </div>
 
@@ -201,7 +210,7 @@ export default function CotizacionEditor() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F1F5F9] text-left text-[var(--color-text-muted)]">
-                    <th className="px-3 py-2.5 font-medium text-xs">Descripci&oacute;n</th>
+                    <th className="px-3 py-2.5 font-medium text-xs">Descripcion</th>
                     <th className="px-3 py-2.5 font-medium text-xs w-20 text-center">Cant</th>
                     <th className="px-3 py-2.5 font-medium text-xs w-32 text-right">Precio Unit.</th>
                     <th className="px-3 py-2.5 font-medium text-xs w-32 text-right">Total</th>
@@ -276,7 +285,7 @@ export default function CotizacionEditor() {
               value={condicionesText}
               onChange={e => setCondicionesText(e.target.value)}
               rows={6}
-              placeholder="Una condici&oacute;n por l&iacute;nea..."
+              placeholder="Una condicion por linea..."
               className="w-full text-xs px-3 py-2 rounded-xl border border-[var(--color-border)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 leading-relaxed"
             />
           </div>
@@ -287,7 +296,7 @@ export default function CotizacionEditor() {
               value={noIncluyeText}
               onChange={e => setNoIncluyeText(e.target.value)}
               rows={4}
-              placeholder="Una cl&aacute;usula por l&iacute;nea..."
+              placeholder="Una clausula por linea..."
               className="w-full text-xs px-3 py-2 rounded-xl border border-[var(--color-border)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 leading-relaxed"
             />
           </div>

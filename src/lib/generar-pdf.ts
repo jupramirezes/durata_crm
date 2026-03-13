@@ -1,12 +1,21 @@
 import jsPDF from 'jspdf'
-import { Cliente, ProductoCliente } from '../types'
+import { ProductoCliente } from '../types'
 import { formatCOP } from './utils'
 import { LOGO_DURATA_B64 } from './logo-b64'
+
+export interface PdfClienteData {
+  empresa: string
+  nombre: string
+  whatsapp: string
+  correo: string
+  nit: string
+  ubicacion: string
+}
 
 export interface PdfCotizacionData {
   numero: string
   fecha: string
-  cliente: Cliente
+  cliente: PdfClienteData
   productos: ProductoCliente[]
   tiempoEntrega: string
   incluyeTransporte: boolean
