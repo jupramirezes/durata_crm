@@ -19,7 +19,7 @@ export default function Dashboard() {
   const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida').length
   const valorPipeline = oportunidades
     .filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida')
-    .reduce((s, o) => s + o.valor_estimado, 0)
+    .reduce((s, o) => s + o.valor_cotizado, 0)
   const adjudicadas = oportunidades.filter(o => o.etapa === 'adjudicada').length
   const perdidas = oportunidades.filter(o => o.etapa === 'perdida').length
   const tasaCierre = adjudicadas + perdidas > 0 ? Math.round((adjudicadas / (adjudicadas + perdidas)) * 100) : 0

@@ -37,7 +37,7 @@ export default function Pipeline() {
 
     if (etapa === 'adjudicada') {
       const op = state.oportunidades.find(o => o.id === oportunidadId)
-      setValorAdjudicado(op?.valor_estimado || 0)
+      setValorAdjudicado(op?.valor_cotizado || 0)
       setAdjudicadaModal(oportunidadId)
       return
     }
@@ -122,7 +122,7 @@ export default function Pipeline() {
                       <div className="font-semibold text-sm truncate text-[var(--color-text)] mb-0.5">{empresa?.nombre}</div>
                       <div className="text-xs text-[var(--color-text-muted)] truncate mb-2">{contacto?.nombre}</div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-[var(--color-accent-green)]">{formatCOP(o.valor_estimado)}</span>
+                        <span className="text-xs font-bold text-[var(--color-accent-green)]">{formatCOP(o.valor_cotizado)}</span>
                         {cotizador && (
                           <span
                             className="text-[9px] px-1.5 py-0.5 rounded font-bold text-white"
