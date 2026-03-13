@@ -72,13 +72,12 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    const now = Date.now()
     let empresaId = selectedEmpresaId
 
     // Create empresa if needed
     if (empresaMode === 'create' && !empresaId) {
       if (!newEmpresa.nombre.trim()) return
-      empresaId = `emp_${now}`
+      empresaId = crypto.randomUUID()
       dispatch({ type: 'ADD_EMPRESA', payload: { ...newEmpresa, id: empresaId } })
     }
     if (!empresaId) return
@@ -88,13 +87,13 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
     const effectiveContactoMode = contactosEmpresa.length === 0 ? 'create' : contactoMode
     if (effectiveContactoMode === 'create' && !contactoId) {
       if (!newContacto.nombre.trim()) return
-      contactoId = `con_${now + 1}`
+      contactoId = crypto.randomUUID()
       dispatch({ type: 'ADD_CONTACTO', payload: { ...newContacto, empresa_id: empresaId, id: contactoId } })
     }
     if (!contactoId) return
 
     // Create oportunidad
-    const oportunidadId = `opp_${now + 2}`
+    const oportunidadId = crypto.randomUUID()
     dispatch({
       type: 'ADD_OPORTUNIDAD',
       payload: {

@@ -255,29 +255,31 @@ function reducer(state: State, action: Action): State {
 function syncToSupabase(action: Action, stateBefore: State) {
   if (!isSupabaseReady) return
 
-  const log = (err: string | null) => { if (err) console.error('[Supabase sync]', err) }
+  const log = (label: string, result: { error?: string | null }) => {
+    if (result.error) console.error(`[Supabase] ${label}:`, result.error)
+  }
 
   switch (action.type) {
     case 'ADD_EMPRESA':
-      svcEmpresas.createEmpresa(action.payload).then(r => log(r.error))
+      svcEmpresas.createEmpresa(action.payload).then(r => log('ADD_EMPRESA', r))
       break
     case 'UPDATE_EMPRESA':
-      svcEmpresas.updateEmpresa(action.payload).then(r => log(r.error))
+      svcEmpresas.updateEmpresa(action.payload).then(r => log('UPDATE_EMPRESA', r))
       break
     case 'ADD_CONTACTO':
-      svcOportunidades.createContacto(action.payload).then(r => log(r.error))
+      svcOportunidades.createContacto(action.payload).then(r => log('ADD_CONTACTO', r))
       break
     case 'UPDATE_CONTACTO':
-      svcOportunidades.updateContacto(action.payload).then(r => log(r.error))
+      svcOportunidades.updateContacto(action.payload).then(r => log('UPDATE_CONTACTO', r))
       break
     case 'ADD_OPORTUNIDAD':
-      svcOportunidades.createOportunidad(action.payload).then(r => log(r.error))
+      svcOportunidades.createOportunidad(action.payload).then(r => log('ADD_OPORTUNIDAD', r))
       break
     case 'UPDATE_OPORTUNIDAD':
-      svcOportunidades.updateOportunidad(action.payload).then(r => log(r.error))
+      svcOportunidades.updateOportunidad(action.payload).then(r => log('UPDATE_OPORTUNIDAD', r))
       break
     case 'DELETE_OPORTUNIDAD':
-      svcOportunidades.removeOportunidad(action.payload.id).then(r => log(r.error))
+      svcOportunidades.removeOportunidad(action.payload.id).then(r => log('DELETE_OPORTUNIDAD', r))
       break
     case 'MOVE_ETAPA': {
       const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida } = action.payload
@@ -286,27 +288,27 @@ function syncToSupabase(action: Action, stateBefore: State) {
       const updates: Partial<Oportunidad> & { id: string } = { id: oportunidadId, etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
       if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) updates.valor_adjudicado = valor_adjudicado
       if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
-      svcOportunidades.updateOportunidad(updates).then(r => log(r.error))
-      svcOportunidades.createHistorial({ oportunidad_id: oportunidadId, etapa_anterior: opp.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }).then(r => log(r.error))
+      svcOportunidades.updateOportunidad(updates).then(r => log('MOVE_ETAPA', r))
+      svcOportunidades.createHistorial({ oportunidad_id: oportunidadId, etapa_anterior: opp.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }).then(r => log('MOVE_ETAPA historial', r))
       break
     }
     case 'ADD_PRODUCTO':
-      svcOportunidades.createProducto(action.payload).then(r => log(r.error))
+      svcOportunidades.createProducto(action.payload).then(r => log('ADD_PRODUCTO', r))
       break
     case 'DELETE_PRODUCTO':
-      svcOportunidades.removeProducto(action.payload.id).then(r => log(r.error))
+      svcOportunidades.removeProducto(action.payload.id).then(r => log('DELETE_PRODUCTO', r))
       break
     case 'UPDATE_PRODUCTO':
-      svcOportunidades.updateProducto(action.payload).then(r => log(r.error))
+      svcOportunidades.updateProducto(action.payload).then(r => log('UPDATE_PRODUCTO', r))
       break
     case 'UPDATE_PRECIO':
-      svcPrecios.updatePrecio(action.payload.id, action.payload.precio).then(r => log(r.error))
+      svcPrecios.updatePrecio(action.payload.id, action.payload.precio).then(r => log('UPDATE_PRECIO', r))
       break
     case 'UPDATE_PRECIO_PROVEEDOR':
-      svcPrecios.updatePrecioProveedor(action.payload.id, action.payload.proveedor).then(r => log(r.error))
+      svcPrecios.updatePrecioProveedor(action.payload.id, action.payload.proveedor).then(r => log('UPDATE_PRECIO_PROVEEDOR', r))
       break
     case 'ADD_COTIZACION':
-      svcCotizaciones.createCotizacion(action.payload).then(r => log(r.error))
+      svcCotizaciones.createCotizacion(action.payload).then(r => log('ADD_COTIZACION', r))
       break
     case 'UPDATE_COTIZACION_ESTADO': {
       const cot = stateBefore.cotizaciones.find(c => c.id === action.payload.id)
@@ -314,31 +316,29 @@ function syncToSupabase(action: Action, stateBefore: State) {
       if (cot?.estado === 'borrador' && action.payload.estado === 'enviada') {
         upd.fecha_envio = new Date().toISOString().split('T')[0]
       }
-      svcCotizaciones.updateCotizacion(upd).then(r => log(r.error))
+      svcCotizaciones.updateCotizacion(upd).then(r => log('UPDATE_COTIZACION_ESTADO', r))
       // Auto-move oportunidad
       if (cot?.estado === 'borrador' && action.payload.estado === 'enviada') {
         const oppCot = stateBefore.oportunidades.find(o => o.id === cot.oportunidad_id)
         if (oppCot && (oppCot.etapa === 'nuevo_lead' || oppCot.etapa === 'en_cotizacion')) {
-          svcOportunidades.updateOportunidad({ id: oppCot.id, etapa: 'cotizacion_enviada', fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }).then(r => log(r.error))
-          svcOportunidades.createHistorial({ oportunidad_id: oppCot.id, etapa_anterior: oppCot.etapa, etapa_nueva: 'cotizacion_enviada', created_at: new Date().toISOString() }).then(r => log(r.error))
+          svcOportunidades.updateOportunidad({ id: oppCot.id, etapa: 'cotizacion_enviada', fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }).then(r => log('UPDATE_COTIZACION_ESTADO move', r))
+          svcOportunidades.createHistorial({ oportunidad_id: oppCot.id, etapa_anterior: oppCot.etapa, etapa_nueva: 'cotizacion_enviada', created_at: new Date().toISOString() }).then(r => log('UPDATE_COTIZACION_ESTADO historial', r))
         }
       }
       break
     }
     case 'DELETE_COTIZACION':
-      svcCotizaciones.removeCotizacion(action.payload.id).then(r => log(r.error))
+      svcCotizaciones.removeCotizacion(action.payload.id).then(r => log('DELETE_COTIZACION', r))
       break
     case 'DUPLICATE_COTIZACION': {
       const original = stateBefore.cotizaciones.find(c => c.id === action.payload.originalId)
-      if (original) svcCotizaciones.duplicateCotizacion(original, action.payload.nuevoNumero).then(r => log(r.error))
+      if (original) svcCotizaciones.duplicateCotizacion(original, action.payload.nuevoNumero).then(r => log('DUPLICATE_COTIZACION', r))
       break
     }
     case 'UPDATE_COTIZACION':
-      svcCotizaciones.updateCotizacion(action.payload).then(r => log(r.error))
+      svcCotizaciones.updateCotizacion(action.payload).then(r => log('UPDATE_COTIZACION', r))
       break
     case 'BULK_UPSERT_PRECIOS':
-      // Sync handled by the import page directly
-      break
     case '_HYDRATE':
       break
   }
@@ -396,7 +396,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           rawDispatch({ type: '_HYDRATE', payload: patch })
         }
       } catch (err) {
-        console.error('[Supabase hydrate] Error:', err)
+        console.error('[Supabase hydrate]', err)
       } finally {
         setLoading(false)
       }

@@ -33,7 +33,7 @@ export default function OportunidadDetalle() {
   function handleCrearCotizacion(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
     if (productos.length === 0 || !oportunidad) return
     const fecha = new Date().toISOString().split('T')[0]
-    const cotId = String(Date.now())
+    const cotId = crypto.randomUUID()
 
     // Build snapshot lines: only the final products with their full price (already includes MO, transporte, etc.)
     const lines: { descripcion: string; cantidad: number; precio_unitario: number; unidad?: string }[] = productos.map(p => ({
