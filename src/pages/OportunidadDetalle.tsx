@@ -35,50 +35,13 @@ export default function OportunidadDetalle() {
     const fecha = new Date().toISOString().split('T')[0]
     const cotId = String(Date.now())
 
-    // Build snapshot lines: products + MO + transporte + extras
-    const lines: { descripcion: string; cantidad: number; precio_unitario: number; unidad?: string }[] = []
-
-    for (const p of productos) {
-      const cfg = p.configuracion
-      const apu = p.apu_resultado
-      // Product line with full commercial description
-      lines.push({
-        descripcion: p.descripcion_comercial || p.subtipo,
-        cantidad: p.cantidad,
-        precio_unitario: p.precio_calculado || 0,
-        unidad: 'UND',
-      })
-
-      if (apu) {
-        // MO lines
-        if (apu.costo_mo > 0) {
-          lines.push({ descripcion: 'MO Acero', cantidad: 1, precio_unitario: Math.round(apu.costo_mo * 0.7), unidad: 'GLB' })
-          lines.push({ descripcion: 'MO Pulido', cantidad: 1, precio_unitario: Math.round(apu.costo_mo * 0.2), unidad: 'GLB' })
-          lines.push({ descripcion: 'MO Patas', cantidad: 1, precio_unitario: Math.round(apu.costo_mo * 0.1), unidad: 'GLB' })
-        }
-        if (cfg.instalado) {
-          lines.push({ descripcion: 'MO Instalacion', cantidad: 1, precio_unitario: 120000, unidad: 'GLB' })
-        }
-        // Transporte lines
-        if (apu.costo_transporte > 0) {
-          lines.push({ descripcion: 'Transporte elementos', cantidad: 1, precio_unitario: 15000, unidad: 'GLB' })
-          lines.push({ descripcion: 'Transporte personal', cantidad: 1, precio_unitario: 5000, unidad: 'GLB' })
-        }
-        // Corte laser
-        if (apu.costo_laser > 0) {
-          const minutos = Math.round(apu.costo_laser / 6500)
-          lines.push({ descripcion: 'Corte laser', cantidad: minutos, precio_unitario: 6500, unidad: 'MIN' })
-        }
-        // Push pedal
-        if (cfg.push_pedal) {
-          lines.push({ descripcion: 'Push Pedal + Grifo + Canastilla', cantidad: 1, precio_unitario: 557500, unidad: 'UND' })
-        }
-        // Poliza
-        if (cfg.poliza && apu.costo_poliza > 0) {
-          lines.push({ descripcion: 'Poliza de cumplimiento (2%)', cantidad: 1, precio_unitario: Math.round(apu.costo_poliza), unidad: 'GLB' })
-        }
-      }
-    }
+    // Build snapshot lines: only the final products with their full price (already includes MO, transporte, etc.)
+    const lines: { descripcion: string; cantidad: number; precio_unitario: number; unidad?: string }[] = productos.map(p => ({
+      descripcion: p.descripcion_comercial || p.subtipo,
+      cantidad: p.cantidad,
+      precio_unitario: p.precio_calculado || 0,
+      unidad: 'UND',
+    }))
 
     const subtotal = lines.reduce((s, l) => s + l.precio_unitario * l.cantidad, 0)
     const total = subtotal + subtotal * 0.19
