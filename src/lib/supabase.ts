@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-// ⚠️ CONFIGURACIÓN: Reemplaza estos valores con los de tu proyecto Supabase
-// Los encuentras en: supabase.com → Tu proyecto → Settings → API
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://TU-PROYECTO.supabase.co'
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'TU-ANON-KEY'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ''
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// Flag para saber si Supabase está configurado
-export const isSupabaseConfigured = !SUPABASE_URL.includes('TU-PROYECTO')
+// Supabase está configurado si la URL termina en .supabase.co y la key no es placeholder
+export const isSupabaseReady =
+  SUPABASE_URL.includes('.supabase.co') &&
+  SUPABASE_ANON_KEY.length > 20 &&
+  !SUPABASE_ANON_KEY.includes('TU-ANON-KEY')

@@ -1,6 +1,17 @@
-import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useReducer, useEffect, useState, useCallback, ReactNode } from 'react'
 import { Empresa, Contacto, Oportunidad, Etapa, HistorialEtapa, ProductoCliente, Cotizacion, PrecioMaestro } from '../types'
-import { DEMO_EMPRESAS, DEMO_CONTACTOS, DEMO_OPORTUNIDADES, DEMO_PRECIOS, nextEmpresaId, nextContactoId, nextOportunidadId } from './demo-data'
+import { DEMO_EMPRESAS, DEMO_CONTACTOS, DEMO_OPORTUNIDADES, DEMO_PRECIOS } from './demo-data'
+import { isSupabaseReady } from './supabase'
+
+// ── Supabase service imports (fire-and-forget sync) ──
+import * as svcEmpresas from '../hooks/useEmpresas'
+import * as svcOportunidades from '../hooks/useOportunidades'
+import * as svcCotizaciones from '../hooks/useCotizaciones'
+import * as svcPrecios from '../hooks/usePrecios'
+
+/* ══════════════════════════════════════════════════════════
+   STATE & ACTION TYPES
+   ══════════════════════════════════════════════════════════ */
 
 interface State {
   empresas: Empresa[]
@@ -31,6 +42,16 @@ type Action =
   | { type: 'DELETE_COTIZACION'; payload: { id: string } }
   | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string } }
   | { type: 'UPDATE_COTIZACION'; payload: Partial<Cotizacion> & { id: string } }
+  | { type: 'BULK_UPSERT_PRECIOS'; payload: PrecioMaestro[] }
+  | { type: '_HYDRATE'; payload: Partial<State> }
+
+/* ══════════════════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════════════════ */
+
+function newId(): string {
+  return crypto.randomUUID()
+}
 
 const STORAGE_KEY = 'durata_crm_state'
 
@@ -49,39 +70,46 @@ function loadState(): State {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
-      // Migration: if old format has 'clientes', return defaults to force new model
-      if (parsed.clientes && !parsed.empresas) {
-        return defaultState
-      }
+      if (parsed.clientes && !parsed.empresas) return defaultState
       return parsed
     }
-  } catch {
-    // corrupted data \u2013 fall back to defaults
-  }
+  } catch { /* corrupted – fall back */ }
   return defaultState
 }
 
-const initialState: State = loadState()
+/* ══════════════════════════════════════════════════════════
+   REDUCER
+   ══════════════════════════════════════════════════════════ */
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    // ── Hydrate from Supabase ────────────────────────
+    case '_HYDRATE': {
+      return { ...state, ...action.payload }
+    }
+
+    // ── Empresas ─────────────────────────────────────
     case 'ADD_EMPRESA': {
       const { id: explicitId, ...rest } = action.payload
-      const nuevo: Empresa = { ...rest, id: explicitId || nextEmpresaId(), created_at: new Date().toISOString() } as Empresa
+      const nuevo: Empresa = { ...rest, id: explicitId || newId(), created_at: new Date().toISOString() } as Empresa
       return { ...state, empresas: [...state.empresas, nuevo] }
     }
     case 'UPDATE_EMPRESA':
       return { ...state, empresas: state.empresas.map(e => e.id === action.payload.id ? action.payload : e) }
+
+    // ── Contactos ────────────────────────────────────
     case 'ADD_CONTACTO': {
       const { id: explicitId, ...rest } = action.payload
-      const nuevo: Contacto = { ...rest, id: explicitId || nextContactoId(), created_at: new Date().toISOString() } as Contacto
+      const nuevo: Contacto = { ...rest, id: explicitId || newId(), created_at: new Date().toISOString() } as Contacto
       return { ...state, contactos: [...state.contactos, nuevo] }
     }
     case 'UPDATE_CONTACTO':
       return { ...state, contactos: state.contactos.map(c => c.id === action.payload.id ? action.payload : c) }
+
+    // ── Oportunidades ────────────────────────────────
     case 'ADD_OPORTUNIDAD': {
       const { id: explicitId, ...rest } = action.payload
-      const nuevo: Oportunidad = { ...rest, id: explicitId || nextOportunidadId(), created_at: new Date().toISOString() } as Oportunidad
+      const nuevo: Oportunidad = { ...rest, id: explicitId || newId(), created_at: new Date().toISOString() } as Oportunidad
       return { ...state, oportunidades: [...state.oportunidades, nuevo] }
     }
     case 'UPDATE_OPORTUNIDAD':
@@ -100,31 +128,28 @@ function reducer(state: State, action: Action): State {
       const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida } = action.payload
       const oportunidad = state.oportunidades.find(o => o.id === oportunidadId)
       if (!oportunidad || oportunidad.etapa === nuevaEtapa) return state
-      const entry: HistorialEtapa = { id: String(Date.now()), oportunidad_id: oportunidadId, etapa_anterior: oportunidad.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }
+      const entry: HistorialEtapa = { id: newId(), oportunidad_id: oportunidadId, etapa_anterior: oportunidad.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }
       const updates: Partial<Oportunidad> = { etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
-      if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) {
-        updates.valor_adjudicado = valor_adjudicado
-      }
-      if (nuevaEtapa === 'perdida' && motivo_perdida) {
-        updates.motivo_perdida = motivo_perdida
-      }
+      if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) updates.valor_adjudicado = valor_adjudicado
+      if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
       return {
         ...state,
         oportunidades: state.oportunidades.map(o => o.id === oportunidadId ? { ...o, ...updates } : o),
         historial: [...state.historial, entry],
       }
     }
+
+    // ── Productos ────────────────────────────────────
     case 'ADD_PRODUCTO': {
-      const newProducto = { ...action.payload, id: String(Date.now()) }
+      const newProducto = { ...action.payload, id: newId() }
       let newOportunidades = state.oportunidades
       let newHistorial = state.historial
-      // Auto-move: nuevo_lead → en_cotizacion when first product added
       const opp = state.oportunidades.find(o => o.id === newProducto.oportunidad_id)
       if (opp && opp.etapa === 'nuevo_lead') {
         newOportunidades = state.oportunidades.map(o =>
           o.id === opp.id ? { ...o, etapa: 'en_cotizacion' as const, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] } : o
         )
-        newHistorial = [...state.historial, { id: String(Date.now() + 1), oportunidad_id: opp.id, etapa_anterior: 'nuevo_lead', etapa_nueva: 'en_cotizacion', created_at: new Date().toISOString() }]
+        newHistorial = [...state.historial, { id: newId(), oportunidad_id: opp.id, etapa_anterior: 'nuevo_lead', etapa_nueva: 'en_cotizacion', created_at: new Date().toISOString() }]
       }
       return { ...state, productos: [...state.productos, newProducto], oportunidades: newOportunidades, historial: newHistorial }
     }
@@ -132,12 +157,31 @@ function reducer(state: State, action: Action): State {
       return { ...state, productos: state.productos.filter(p => p.id !== action.payload.id) }
     case 'UPDATE_PRODUCTO':
       return { ...state, productos: state.productos.map(p => p.id === action.payload.id ? { ...p, ...action.payload } : p) }
+
+    // ── Precios ──────────────────────────────────────
     case 'UPDATE_PRECIO':
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, precio: action.payload.precio, updated_at: new Date().toISOString().split('T')[0] } : p) }
     case 'UPDATE_PRECIO_PROVEEDOR':
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, proveedor: action.payload.proveedor, updated_at: new Date().toISOString().split('T')[0] } : p) }
+    case 'BULK_UPSERT_PRECIOS': {
+      const incoming = action.payload
+      const existingCodes = new Map(state.precios.map(p => [p.codigo, p]))
+      const merged = [...state.precios]
+      for (const row of incoming) {
+        const existing = existingCodes.get(row.codigo)
+        if (existing) {
+          const idx = merged.findIndex(p => p.id === existing.id)
+          if (idx >= 0) merged[idx] = { ...existing, ...row, id: existing.id }
+        } else {
+          merged.push({ ...row, id: row.id || newId() })
+        }
+      }
+      return { ...state, precios: merged }
+    }
+
+    // ── Cotizaciones ─────────────────────────────────
     case 'ADD_COTIZACION': {
-      const newCot = { ...action.payload, id: action.payload.id || String(Date.now()) }
+      const newCot = { ...action.payload, id: action.payload.id || newId() }
       const newCotizaciones = [...state.cotizaciones, newCot]
       const valorCot = newCotizaciones.filter(c => c.oportunidad_id === newCot.oportunidad_id).reduce((s, c) => s + (c.total || 0), 0)
       return {
@@ -151,20 +195,18 @@ function reducer(state: State, action: Action): State {
       const cot = state.cotizaciones.find(c => c.id === cotId)
       if (!cot) return state
       const updatedCot = { ...cot, estado: nuevoEstado } as typeof cot
-      // Register fecha_envio when changing borrador → enviada
       if (cot.estado === 'borrador' && nuevoEstado === 'enviada') {
         updatedCot.fecha_envio = new Date().toISOString().split('T')[0]
       }
       let updOportunidades = state.oportunidades
       let updHistorial = state.historial
-      // Auto-move oportunidad to cotizacion_enviada when cotizacion is sent
       if (cot.estado === 'borrador' && nuevoEstado === 'enviada') {
         const oppCot = state.oportunidades.find(o => o.id === cot.oportunidad_id)
         if (oppCot && (oppCot.etapa === 'nuevo_lead' || oppCot.etapa === 'en_cotizacion')) {
           updOportunidades = state.oportunidades.map(o =>
             o.id === oppCot.id ? { ...o, etapa: 'cotizacion_enviada' as const, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] } : o
           )
-          updHistorial = [...state.historial, { id: String(Date.now()), oportunidad_id: oppCot.id, etapa_anterior: oppCot.etapa, etapa_nueva: 'cotizacion_enviada', created_at: new Date().toISOString() }]
+          updHistorial = [...state.historial, { id: newId(), oportunidad_id: oppCot.id, etapa_anterior: oppCot.etapa, etapa_nueva: 'cotizacion_enviada', created_at: new Date().toISOString() }]
         }
       }
       return {
@@ -188,7 +230,7 @@ function reducer(state: State, action: Action): State {
     case 'DUPLICATE_COTIZACION': {
       const original = state.cotizaciones.find(c => c.id === action.payload.originalId)
       if (!original) return state
-      const duplicated: Cotizacion = { ...original, id: String(Date.now()), numero: action.payload.nuevoNumero, estado: 'borrador', fecha: new Date().toISOString().split('T')[0] }
+      const duplicated: Cotizacion = { ...original, id: newId(), numero: action.payload.nuevoNumero, estado: 'borrador', fecha: new Date().toISOString().split('T')[0] }
       return { ...state, cotizaciones: [...state.cotizaciones, duplicated] }
     }
     case 'UPDATE_COTIZACION': {
@@ -206,21 +248,180 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-const StoreContext = createContext<{ state: State; dispatch: React.Dispatch<Action>; resetState: () => void } | null>(null)
+/* ══════════════════════════════════════════════════════════
+   SUPABASE SYNC (fire-and-forget)
+   ══════════════════════════════════════════════════════════ */
+
+function syncToSupabase(action: Action, stateBefore: State) {
+  if (!isSupabaseReady) return
+
+  const log = (err: string | null) => { if (err) console.error('[Supabase sync]', err) }
+
+  switch (action.type) {
+    case 'ADD_EMPRESA':
+      svcEmpresas.createEmpresa(action.payload).then(r => log(r.error))
+      break
+    case 'UPDATE_EMPRESA':
+      svcEmpresas.updateEmpresa(action.payload).then(r => log(r.error))
+      break
+    case 'ADD_CONTACTO':
+      svcOportunidades.createContacto(action.payload).then(r => log(r.error))
+      break
+    case 'UPDATE_CONTACTO':
+      svcOportunidades.updateContacto(action.payload).then(r => log(r.error))
+      break
+    case 'ADD_OPORTUNIDAD':
+      svcOportunidades.createOportunidad(action.payload).then(r => log(r.error))
+      break
+    case 'UPDATE_OPORTUNIDAD':
+      svcOportunidades.updateOportunidad(action.payload).then(r => log(r.error))
+      break
+    case 'DELETE_OPORTUNIDAD':
+      svcOportunidades.removeOportunidad(action.payload.id).then(r => log(r.error))
+      break
+    case 'MOVE_ETAPA': {
+      const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida } = action.payload
+      const opp = stateBefore.oportunidades.find(o => o.id === oportunidadId)
+      if (!opp || opp.etapa === nuevaEtapa) break
+      const updates: Partial<Oportunidad> & { id: string } = { id: oportunidadId, etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
+      if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) updates.valor_adjudicado = valor_adjudicado
+      if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
+      svcOportunidades.updateOportunidad(updates).then(r => log(r.error))
+      svcOportunidades.createHistorial({ oportunidad_id: oportunidadId, etapa_anterior: opp.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }).then(r => log(r.error))
+      break
+    }
+    case 'ADD_PRODUCTO':
+      svcOportunidades.createProducto(action.payload).then(r => log(r.error))
+      break
+    case 'DELETE_PRODUCTO':
+      svcOportunidades.removeProducto(action.payload.id).then(r => log(r.error))
+      break
+    case 'UPDATE_PRODUCTO':
+      svcOportunidades.updateProducto(action.payload).then(r => log(r.error))
+      break
+    case 'UPDATE_PRECIO':
+      svcPrecios.updatePrecio(action.payload.id, action.payload.precio).then(r => log(r.error))
+      break
+    case 'UPDATE_PRECIO_PROVEEDOR':
+      svcPrecios.updatePrecioProveedor(action.payload.id, action.payload.proveedor).then(r => log(r.error))
+      break
+    case 'ADD_COTIZACION':
+      svcCotizaciones.createCotizacion(action.payload).then(r => log(r.error))
+      break
+    case 'UPDATE_COTIZACION_ESTADO': {
+      const cot = stateBefore.cotizaciones.find(c => c.id === action.payload.id)
+      const upd: Partial<Cotizacion> & { id: string } = { id: action.payload.id, estado: action.payload.estado }
+      if (cot?.estado === 'borrador' && action.payload.estado === 'enviada') {
+        upd.fecha_envio = new Date().toISOString().split('T')[0]
+      }
+      svcCotizaciones.updateCotizacion(upd).then(r => log(r.error))
+      // Auto-move oportunidad
+      if (cot?.estado === 'borrador' && action.payload.estado === 'enviada') {
+        const oppCot = stateBefore.oportunidades.find(o => o.id === cot.oportunidad_id)
+        if (oppCot && (oppCot.etapa === 'nuevo_lead' || oppCot.etapa === 'en_cotizacion')) {
+          svcOportunidades.updateOportunidad({ id: oppCot.id, etapa: 'cotizacion_enviada', fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }).then(r => log(r.error))
+          svcOportunidades.createHistorial({ oportunidad_id: oppCot.id, etapa_anterior: oppCot.etapa, etapa_nueva: 'cotizacion_enviada', created_at: new Date().toISOString() }).then(r => log(r.error))
+        }
+      }
+      break
+    }
+    case 'DELETE_COTIZACION':
+      svcCotizaciones.removeCotizacion(action.payload.id).then(r => log(r.error))
+      break
+    case 'DUPLICATE_COTIZACION': {
+      const original = stateBefore.cotizaciones.find(c => c.id === action.payload.originalId)
+      if (original) svcCotizaciones.duplicateCotizacion(original, action.payload.nuevoNumero).then(r => log(r.error))
+      break
+    }
+    case 'UPDATE_COTIZACION':
+      svcCotizaciones.updateCotizacion(action.payload).then(r => log(r.error))
+      break
+    case 'BULK_UPSERT_PRECIOS':
+      // Sync handled by the import page directly
+      break
+    case '_HYDRATE':
+      break
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   CONTEXT & PROVIDER
+   ══════════════════════════════════════════════════════════ */
+
+const StoreContext = createContext<{ state: State; dispatch: React.Dispatch<Action>; resetState: () => void; loading: boolean } | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  const [state, rawDispatch] = useReducer(reducer, undefined, loadState)
+  const [loading, setLoading] = useState(isSupabaseReady)
 
+  // Wrapped dispatch: reduce locally + sync to Supabase
+  const dispatch = useCallback((action: Action) => {
+    // Capture state before reduction for sync logic
+    syncToSupabase(action, state)
+    rawDispatch(action)
+  }, [state])
+
+  // Persist to localStorage (cache/fallback)
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
+
+  // Hydrate from Supabase on mount
+  useEffect(() => {
+    if (!isSupabaseReady) return
+
+    async function hydrate() {
+      try {
+        const [emp, con, opp, hist, prod, cot, prec] = await Promise.all([
+          svcEmpresas.fetchEmpresas(),
+          svcOportunidades.fetchContactos(),
+          svcOportunidades.fetchOportunidades(),
+          svcOportunidades.fetchHistorial(),
+          svcOportunidades.fetchProductos(),
+          svcCotizaciones.fetchCotizaciones(),
+          svcPrecios.fetchPrecios(),
+        ])
+
+        // Only hydrate collections that returned data (non-empty = Supabase has data)
+        const patch: Partial<State> = {}
+        if (!emp.error && emp.data.length > 0) patch.empresas = emp.data
+        if (!con.error && con.data.length > 0) patch.contactos = con.data
+        if (!opp.error && opp.data.length > 0) patch.oportunidades = opp.data
+        if (!hist.error) patch.historial = hist.data
+        if (!prod.error) patch.productos = prod.data
+        if (!cot.error) patch.cotizaciones = cot.data
+        if (!prec.error && prec.data.length > 0) patch.precios = prec.data
+
+        if (Object.keys(patch).length > 0) {
+          rawDispatch({ type: '_HYDRATE', payload: patch })
+        }
+      } catch (err) {
+        console.error('[Supabase hydrate] Error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    hydrate()
+  }, [])
 
   function resetState() {
     localStorage.removeItem(STORAGE_KEY)
     window.location.reload()
   }
 
-  return <StoreContext.Provider value={{ state, dispatch, resetState }}>{children}</StoreContext.Provider>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[var(--color-text-muted)]">Conectando con base de datos...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <StoreContext.Provider value={{ state, dispatch, resetState, loading }}>{children}</StoreContext.Provider>
 }
 
 export function useStore() {

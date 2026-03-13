@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { formatCOP } from '../lib/utils'
-import { Search, Save } from 'lucide-react'
+import { Search, Save, Upload } from 'lucide-react'
 
 const GRUPO_COLORS: Record<string, string> = {
   INOX: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -14,6 +15,7 @@ function getGrupoColor(grupo: string) {
 }
 
 export default function Precios() {
+  const navigate = useNavigate()
   const { state, dispatch } = useStore()
   const [search, setSearch] = useState('')
   const [filtroGrupo, setFiltroGrupo] = useState('TODOS')
@@ -64,9 +66,18 @@ export default function Precios() {
 
   return (
     <div className="p-8 space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-bold text-[var(--color-text)]">Precios Maestro</h2>
-        <p className="text-sm text-[var(--color-text-muted)] mt-1">{state.precios.length} materiales y accesorios. Haz clic en un precio o proveedor para editarlo.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-[var(--color-text)]">Precios Maestro</h2>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1">{state.precios.length} materiales y accesorios. Haz clic en un precio o proveedor para editarlo.</p>
+        </div>
+        <button
+          onClick={() => navigate('/precios/importar')}
+          className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary)] text-white rounded-xl text-sm font-medium hover:brightness-110 transition"
+        >
+          <Upload size={16} />
+          Importar CSV
+        </button>
       </div>
 
       {/* Search */}

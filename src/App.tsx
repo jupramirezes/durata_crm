@@ -10,6 +10,7 @@ import ConfiguradorMesa from './pages/ConfiguradorMesa'
 import Cotizaciones from './pages/Cotizaciones'
 import CotizacionEditor from './pages/CotizacionEditor'
 import Precios from './pages/Precios'
+import PreciosImportar from './pages/PreciosImportar'
 import Configuracion from './pages/Configuracion'
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/cotizaciones" element={<Cotizaciones />} />
             <Route path="/cotizaciones/:id/editar" element={<CotizacionEditor />} />
             <Route path="/precios" element={<Precios />} />
+            <Route path="/precios/importar" element={<PreciosImportar />} />
             <Route path="/config" element={<Configuracion />} />
           </Routes>
         </Layout>
