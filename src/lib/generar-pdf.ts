@@ -159,9 +159,9 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const colCant = mL
   const colUnd = mL + 14
   const colDesc = mL + 28
-  const colVUnit = pageW - mR - 52
+  const colVUnit = pageW - mR - 56
   const colVTotal = pageW - mR
-  const descW = colVUnit - colDesc - 8
+  const descW = colVUnit - colDesc - 18
 
   // Table header
   const thH = 7
