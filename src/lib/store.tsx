@@ -19,6 +19,7 @@ type Action =
   | { type: 'UPDATE_CONTACTO'; payload: Contacto }
   | { type: 'ADD_OPORTUNIDAD'; payload: Omit<Oportunidad, 'id' | 'created_at'> & { id?: string } }
   | { type: 'UPDATE_OPORTUNIDAD'; payload: Partial<Oportunidad> & { id: string } }
+  | { type: 'DELETE_OPORTUNIDAD'; payload: { id: string } }
   | { type: 'UPDATE_PRODUCTO'; payload: Partial<ProductoCliente> & { id: string } }
   | { type: 'MOVE_ETAPA'; payload: { oportunidadId: string; nuevaEtapa: Etapa; valor_adjudicado?: number; motivo_perdida?: string } }
   | { type: 'ADD_PRODUCTO'; payload: Omit<ProductoCliente, 'id'> }
@@ -85,6 +86,16 @@ function reducer(state: State, action: Action): State {
     }
     case 'UPDATE_OPORTUNIDAD':
       return { ...state, oportunidades: state.oportunidades.map(o => o.id === action.payload.id ? { ...o, ...action.payload } : o) }
+    case 'DELETE_OPORTUNIDAD': {
+      const oppId = action.payload.id
+      return {
+        ...state,
+        oportunidades: state.oportunidades.filter(o => o.id !== oppId),
+        productos: state.productos.filter(p => p.oportunidad_id !== oppId),
+        cotizaciones: state.cotizaciones.filter(c => c.oportunidad_id !== oppId),
+        historial: state.historial.filter(h => h.oportunidad_id !== oppId),
+      }
+    }
     case 'MOVE_ETAPA': {
       const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida } = action.payload
       const oportunidad = state.oportunidades.find(o => o.id === oportunidadId)
@@ -103,8 +114,20 @@ function reducer(state: State, action: Action): State {
         historial: [...state.historial, entry],
       }
     }
-    case 'ADD_PRODUCTO':
-      return { ...state, productos: [...state.productos, { ...action.payload, id: String(Date.now()) }] }
+    case 'ADD_PRODUCTO': {
+      const newProducto = { ...action.payload, id: String(Date.now()) }
+      let newOportunidades = state.oportunidades
+      let newHistorial = state.historial
+      // Auto-move: nuevo_lead → en_cotizacion when first product added
+      const opp = state.oportunidades.find(o => o.id === newProducto.oportunidad_id)
+      if (opp && opp.etapa === 'nuevo_lead') {
+        newOportunidades = state.oportunidades.map(o =>
+          o.id === opp.id ? { ...o, etapa: 'en_cotizacion' as const, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] } : o
+        )
+        newHistorial = [...state.historial, { id: String(Date.now() + 1), oportunidad_id: opp.id, etapa_anterior: 'nuevo_lead', etapa_nueva: 'en_cotizacion', created_at: new Date().toISOString() }]
+      }
+      return { ...state, productos: [...state.productos, newProducto], oportunidades: newOportunidades, historial: newHistorial }
+    }
     case 'DELETE_PRODUCTO':
       return { ...state, productos: state.productos.filter(p => p.id !== action.payload.id) }
     case 'UPDATE_PRODUCTO':
@@ -115,8 +138,34 @@ function reducer(state: State, action: Action): State {
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, proveedor: action.payload.proveedor, updated_at: new Date().toISOString().split('T')[0] } : p) }
     case 'ADD_COTIZACION':
       return { ...state, cotizaciones: [...state.cotizaciones, { ...action.payload, id: String(Date.now()) }] }
-    case 'UPDATE_COTIZACION_ESTADO':
-      return { ...state, cotizaciones: state.cotizaciones.map(c => c.id === action.payload.id ? { ...c, estado: action.payload.estado } : c) }
+    case 'UPDATE_COTIZACION_ESTADO': {
+      const { id: cotId, estado: nuevoEstado } = action.payload
+      const cot = state.cotizaciones.find(c => c.id === cotId)
+      if (!cot) return state
+      const updatedCot = { ...cot, estado: nuevoEstado } as typeof cot
+      // Register fecha_envio when changing borrador → enviada
+      if (cot.estado === 'borrador' && nuevoEstado === 'enviada') {
+        updatedCot.fecha_envio = new Date().toISOString().split('T')[0]
+      }
+      let updOportunidades = state.oportunidades
+      let updHistorial = state.historial
+      // Auto-move oportunidad to cotizacion_enviada when cotizacion is sent
+      if (cot.estado === 'borrador' && nuevoEstado === 'enviada') {
+        const oppCot = state.oportunidades.find(o => o.id === cot.oportunidad_id)
+        if (oppCot && (oppCot.etapa === 'nuevo_lead' || oppCot.etapa === 'en_cotizacion')) {
+          updOportunidades = state.oportunidades.map(o =>
+            o.id === oppCot.id ? { ...o, etapa: 'cotizacion_enviada' as const, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] } : o
+          )
+          updHistorial = [...state.historial, { id: String(Date.now()), oportunidad_id: oppCot.id, etapa_anterior: oppCot.etapa, etapa_nueva: 'cotizacion_enviada', created_at: new Date().toISOString() }]
+        }
+      }
+      return {
+        ...state,
+        cotizaciones: state.cotizaciones.map(c => c.id === cotId ? updatedCot : c),
+        oportunidades: updOportunidades,
+        historial: updHistorial,
+      }
+    }
     case 'DELETE_COTIZACION':
       return { ...state, cotizaciones: state.cotizaciones.filter(c => c.id !== action.payload.id) }
     case 'DUPLICATE_COTIZACION': {

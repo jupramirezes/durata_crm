@@ -83,7 +83,21 @@ export default function OportunidadDetalle() {
           <h2 className="text-2xl font-bold text-[var(--color-text)]">{empresa.nombre}</h2>
           <p className="text-[var(--color-text-muted)]">{contacto?.nombre} &bull; {cotizador?.nombre}</p>
         </div>
-        <span className="text-sm px-4 py-1.5 rounded-full font-medium border" style={{ background: etapa?.color + '15', color: etapa?.color, borderColor: etapa?.color + '30' }}>{etapa?.label}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm px-4 py-1.5 rounded-full font-medium border" style={{ background: etapa?.color + '15', color: etapa?.color, borderColor: etapa?.color + '30' }}>{etapa?.label}</span>
+          <button
+            onClick={() => {
+              if (window.confirm('¿Seguro que deseas eliminar esta oportunidad? Se eliminarán también sus productos y cotizaciones.')) {
+                dispatch({ type: 'DELETE_OPORTUNIDAD', payload: { id: oportunidad.id } })
+                navigate('/pipeline')
+              }
+            }}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 font-medium transition-all"
+            title="Eliminar oportunidad"
+          >
+            <Trash2 size={14} /> Eliminar
+          </button>
+        </div>
       </div>
 
       {/* Info grid: Empresa + Contacto + Oportunidad */}

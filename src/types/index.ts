@@ -184,6 +184,7 @@ export interface Cotizacion {
   fecha: string
   estado: 'borrador' | 'enviada' | 'aprobada' | 'rechazada'
   total: number
+  fecha_envio?: string
   // Editor fields (optional, populated when editing)
   productos_snapshot?: CotizacionProducto[]
   tiempoEntrega?: string

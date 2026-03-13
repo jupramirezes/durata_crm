@@ -2,12 +2,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, COTIZADORES } from '../types'
 import { formatCOP, formatDate, getAvatarColor } from '../lib/utils'
-import { ArrowLeft, Building2, MapPin, Hash, Target } from 'lucide-react'
+import { ArrowLeft, Building2, MapPin, Hash, Target, Trash2 } from 'lucide-react'
 
 export default function EmpresaDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const empresa = state.empresas.find(e => e.id === id)
   if (!empresa) return <div className="p-8 text-[var(--color-text-muted)]">Empresa no encontrada</div>
 
@@ -87,6 +87,7 @@ export default function EmpresaDetalle() {
               <th className="px-5 py-2.5 font-medium">Cotizador</th>
               <th className="px-5 py-2.5 font-medium text-right">Valor est.</th>
               <th className="px-5 py-2.5 font-medium">Fecha</th>
+              <th className="px-5 py-2.5 font-medium w-10"></th>
             </tr>
           </thead>
           <tbody>
@@ -107,6 +108,20 @@ export default function EmpresaDetalle() {
                   <td className="px-5 py-3 text-xs">{cotizador?.iniciales}</td>
                   <td className="px-5 py-3 text-right font-bold">{formatCOP(o.valor_estimado)}</td>
                   <td className="px-5 py-3 text-[var(--color-text-muted)]">{formatDate(o.fecha_ingreso)}</td>
+                  <td className="px-5 py-3">
+                    <button
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        if (window.confirm('¿Seguro que deseas eliminar esta oportunidad?')) {
+                          dispatch({ type: 'DELETE_OPORTUNIDAD', payload: { id: o.id } })
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                      title="Eliminar oportunidad"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
                 </tr>
               )
             })}

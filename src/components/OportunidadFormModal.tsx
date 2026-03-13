@@ -19,7 +19,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   const [newEmpresa, setNewEmpresa] = useState({ nombre: '', nit: '', direccion: '', sector: 'Alimentos' as Sector, notas: '' })
 
   // === Contacto state ===
-  const [contactoMode, setContactoMode] = useState<'select' | 'create'>('select')
+  const [contactoMode, setContactoMode] = useState<'select' | 'create'>('create')
   const [selectedContactoId, setSelectedContactoId] = useState<string | null>(null)
   const [newContacto, setNewContacto] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '+57', notas: '' })
 
@@ -63,14 +63,15 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   }
 
   function goToOportunidad() {
-    if (contactoMode === 'create' && !newContacto.nombre.trim()) return
-    if (contactoMode === 'select' && !selectedContactoId) return
+    // If no existing contacts for this empresa, we're always creating
+    const effectiveMode = contactosEmpresa.length === 0 ? 'create' : contactoMode
+    if (effectiveMode === 'create' && !newContacto.nombre.trim()) return
+    if (effectiveMode === 'select' && !selectedContactoId) return
     setStep('oportunidad')
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (oportunidad.valor_estimado <= 0) return
 
     const now = Date.now()
     let empresaId = selectedEmpresaId
@@ -85,7 +86,8 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
 
     // Create contacto if needed
     let contactoId = selectedContactoId
-    if (contactoMode === 'create' && !contactoId) {
+    const effectiveContactoMode = contactosEmpresa.length === 0 ? 'create' : contactoMode
+    if (effectiveContactoMode === 'create' && !contactoId) {
       if (!newContacto.nombre.trim()) return
       contactoId = `con_${now + 1}`
       dispatch({ type: 'ADD_CONTACTO', payload: { ...newContacto, empresa_id: empresaId, id: contactoId } })
@@ -264,8 +266,8 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
 
           {step === 'oportunidad' && (
             <div className="space-y-3">
-              <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Valor estimado (COP) *</label>
-                <input type="number" value={oportunidad.valor_estimado || ''} onChange={e => setOportunidad(p => ({ ...p, valor_estimado: Number(e.target.value) }))} className="w-full px-3 py-2.5 rounded-xl text-sm" required min={1} />
+              <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Valor estimado (COP)</label>
+                <input type="number" value={oportunidad.valor_estimado || ''} onChange={e => setOportunidad(p => ({ ...p, valor_estimado: Number(e.target.value) }))} className="w-full px-3 py-2.5 rounded-xl text-sm" min={0} />
                 {oportunidad.valor_estimado > 0 && <p className="text-xs text-[var(--color-text-muted)] mt-1">{formatCOP(oportunidad.valor_estimado)}</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
