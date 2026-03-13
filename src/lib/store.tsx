@@ -136,8 +136,16 @@ function reducer(state: State, action: Action): State {
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, precio: action.payload.precio, updated_at: new Date().toISOString().split('T')[0] } : p) }
     case 'UPDATE_PRECIO_PROVEEDOR':
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, proveedor: action.payload.proveedor, updated_at: new Date().toISOString().split('T')[0] } : p) }
-    case 'ADD_COTIZACION':
-      return { ...state, cotizaciones: [...state.cotizaciones, { ...action.payload, id: action.payload.id || String(Date.now()) }] }
+    case 'ADD_COTIZACION': {
+      const newCot = { ...action.payload, id: action.payload.id || String(Date.now()) }
+      const newCotizaciones = [...state.cotizaciones, newCot]
+      const valorCot = newCotizaciones.filter(c => c.oportunidad_id === newCot.oportunidad_id).reduce((s, c) => s + (c.total || 0), 0)
+      return {
+        ...state,
+        cotizaciones: newCotizaciones,
+        oportunidades: state.oportunidades.map(o => o.id === newCot.oportunidad_id ? { ...o, valor_cotizado: valorCot } : o),
+      }
+    }
     case 'UPDATE_COTIZACION_ESTADO': {
       const { id: cotId, estado: nuevoEstado } = action.payload
       const cot = state.cotizaciones.find(c => c.id === cotId)
@@ -166,16 +174,34 @@ function reducer(state: State, action: Action): State {
         historial: updHistorial,
       }
     }
-    case 'DELETE_COTIZACION':
-      return { ...state, cotizaciones: state.cotizaciones.filter(c => c.id !== action.payload.id) }
+    case 'DELETE_COTIZACION': {
+      const delCot = state.cotizaciones.find(c => c.id === action.payload.id)
+      const filteredCots = state.cotizaciones.filter(c => c.id !== action.payload.id)
+      if (!delCot) return { ...state, cotizaciones: filteredCots }
+      const valorCotDel = filteredCots.filter(c => c.oportunidad_id === delCot.oportunidad_id).reduce((s, c) => s + (c.total || 0), 0)
+      return {
+        ...state,
+        cotizaciones: filteredCots,
+        oportunidades: state.oportunidades.map(o => o.id === delCot.oportunidad_id ? { ...o, valor_cotizado: valorCotDel } : o),
+      }
+    }
     case 'DUPLICATE_COTIZACION': {
       const original = state.cotizaciones.find(c => c.id === action.payload.originalId)
       if (!original) return state
       const duplicated: Cotizacion = { ...original, id: String(Date.now()), numero: action.payload.nuevoNumero, estado: 'borrador', fecha: new Date().toISOString().split('T')[0] }
       return { ...state, cotizaciones: [...state.cotizaciones, duplicated] }
     }
-    case 'UPDATE_COTIZACION':
-      return { ...state, cotizaciones: state.cotizaciones.map(c => c.id === action.payload.id ? { ...c, ...action.payload } : c) }
+    case 'UPDATE_COTIZACION': {
+      const updCots = state.cotizaciones.map(c => c.id === action.payload.id ? { ...c, ...action.payload } : c)
+      const updCot = updCots.find(c => c.id === action.payload.id)
+      if (!updCot) return { ...state, cotizaciones: updCots }
+      const valorCotUpd = updCots.filter(c => c.oportunidad_id === updCot.oportunidad_id).reduce((s, c) => s + (c.total || 0), 0)
+      return {
+        ...state,
+        cotizaciones: updCots,
+        oportunidades: state.oportunidades.map(o => o.id === updCot.oportunidad_id ? { ...o, valor_cotizado: valorCotUpd } : o),
+      }
+    }
     default: return state
   }
 }
