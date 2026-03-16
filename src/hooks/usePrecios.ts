@@ -35,6 +35,7 @@ export async function upsertPrecios(rows: Omit<PrecioMaestro, 'id'>[]): Promise<
 
   const toUpsert = rows.map(r => ({
     grupo: r.grupo,
+    subgrupo: r.subgrupo || '',
     nombre: r.nombre,
     codigo: r.codigo,
     unidad: r.unidad,

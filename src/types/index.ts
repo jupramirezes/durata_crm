@@ -200,6 +200,7 @@ export interface Cotizacion {
 export interface PrecioMaestro {
   id: string
   grupo: string
+  subgrupo: string
   nombre: string
   codigo: string
   unidad: string

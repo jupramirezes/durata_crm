@@ -114,6 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_cotizaciones_numero ON cotizaciones (numero);
 CREATE TABLE IF NOT EXISTS precios_maestro (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   grupo       text DEFAULT 'OTROS',
+  subgrupo    text DEFAULT '',
   nombre      text NOT NULL,
   codigo      text UNIQUE NOT NULL,
   unidad      text DEFAULT 'und',

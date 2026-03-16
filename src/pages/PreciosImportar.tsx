@@ -6,10 +6,10 @@ import { upsertPrecios } from '../hooks/usePrecios'
 import type { PrecioMaestro } from '../types'
 import { Upload, ArrowLeft, Check, AlertTriangle, FileSpreadsheet } from 'lucide-react'
 
-type ColMap = { grupo: number; nombre: number; codigo: number; unidad: number; precio: number; proveedor: number }
+type ColMap = { grupo: number; subgrupo: number; nombre: number; codigo: number; unidad: number; precio: number; proveedor: number }
 
 const COL_LABELS: Record<keyof ColMap, string> = {
-  grupo: 'Grupo', nombre: 'Nombre', codigo: 'Código', unidad: 'Unidad', precio: 'Precio', proveedor: 'Proveedor',
+  grupo: 'Grupo', subgrupo: 'Subgrupo', nombre: 'Nombre', codigo: 'Código', unidad: 'Unidad', precio: 'Precio', proveedor: 'Proveedor',
 }
 
 function detectSeparator(line: string): string {
@@ -40,7 +40,7 @@ export default function PreciosImportar() {
 
   const [rawRows, setRawRows] = useState<string[][]>([])
   const [headers, setHeaders] = useState<string[]>([])
-  const [colMap, setColMap] = useState<ColMap>({ grupo: -1, nombre: -1, codigo: -1, unidad: -1, precio: -1, proveedor: -1 })
+  const [colMap, setColMap] = useState<ColMap>({ grupo: -1, subgrupo: -1, nombre: -1, codigo: -1, unidad: -1, precio: -1, proveedor: -1 })
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<{ inserted: number; updated: number; errors: string[] } | null>(null)
   const [fileName, setFileName] = useState('')
@@ -64,10 +64,11 @@ export default function PreciosImportar() {
       setRawRows(parsed.slice(1))
 
       // Auto-detect column mapping
-      const autoMap: ColMap = { grupo: -1, nombre: -1, codigo: -1, unidad: -1, precio: -1, proveedor: -1 }
+      const autoMap: ColMap = { grupo: -1, subgrupo: -1, nombre: -1, codigo: -1, unidad: -1, precio: -1, proveedor: -1 }
       hdrs.forEach((h, i) => {
         const hl = h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        if (hl.includes('grupo') || hl.includes('group')) autoMap.grupo = i
+        if (hl.includes('subgrupo') || hl.includes('subtipo') || hl.includes('subcategor')) autoMap.subgrupo = i
+        else if (hl.includes('grupo') || hl.includes('group')) autoMap.grupo = i
         else if (hl.includes('nombre') || hl.includes('name') || hl.includes('descripcion') || hl.includes('material')) autoMap.nombre = i
         else if (hl.includes('codigo') || hl.includes('code') || hl.includes('ref')) autoMap.codigo = i
         else if (hl.includes('unidad') || hl.includes('unit') || hl.includes('und')) autoMap.unidad = i
@@ -88,6 +89,7 @@ export default function PreciosImportar() {
         const precioStr = colMap.precio >= 0 ? row[colMap.precio].replace(/[^0-9.,]/g, '').replace(',', '.') : '0'
         return {
           grupo: colMap.grupo >= 0 ? row[colMap.grupo] : 'OTROS',
+          subgrupo: colMap.subgrupo >= 0 ? row[colMap.subgrupo] : '',
           nombre: nombre || codigo,
           codigo: codigo || nombre.replace(/\s+/g, '_').toUpperCase().slice(0, 20),
           unidad: colMap.unidad >= 0 ? row[colMap.unidad] : 'und',
