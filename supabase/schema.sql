@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS precios_maestro (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   grupo       text DEFAULT 'OTROS',
   nombre      text NOT NULL,
-  codigo      text UNIQUE NOT NULL,
+  codigo      text UNIQUE,          -- NULL for items without warehouse code
   unidad      text DEFAULT 'und',
   precio      numeric DEFAULT 0,
   proveedor   text DEFAULT '',

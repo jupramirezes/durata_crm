@@ -82,14 +82,14 @@ export default function PreciosImportar() {
   function buildRows(): Omit<PrecioMaestro, 'id'>[] {
     return rawRows
       .map(row => {
-        const codigo = colMap.codigo >= 0 ? row[colMap.codigo] : ''
-        const nombre = colMap.nombre >= 0 ? row[colMap.nombre] : ''
-        if (!codigo && !nombre) return null
+        const codigo = colMap.codigo >= 0 ? (row[colMap.codigo] || '').trim() : ''
+        const nombre = colMap.nombre >= 0 ? (row[colMap.nombre] || '').trim() : ''
+        if (!nombre && !codigo) return null  // skip rows without name AND code
         const precioStr = colMap.precio >= 0 ? row[colMap.precio].replace(/[^0-9.,]/g, '').replace(',', '.') : '0'
         return {
           grupo: colMap.grupo >= 0 ? row[colMap.grupo] : 'OTROS',
           nombre: nombre || codigo,
-          codigo: codigo || nombre.replace(/\s+/g, '_').toUpperCase().slice(0, 20),
+          codigo: codigo,  // empty string if no code — NO fake codes
           unidad: colMap.unidad >= 0 ? row[colMap.unidad] : 'und',
           precio: parseFloat(precioStr) || 0,
           proveedor: colMap.proveedor >= 0 ? row[colMap.proveedor] : '',
@@ -99,26 +99,32 @@ export default function PreciosImportar() {
       .filter(Boolean) as Omit<PrecioMaestro, 'id'>[]
   }
 
+  /** Find existing precio by codigo (if present) or by nombre */
+  function findExisting(r: Omit<PrecioMaestro, 'id'>): PrecioMaestro | undefined {
+    if (r.codigo) return state.precios.find(p => p.codigo === r.codigo)
+    return state.precios.find(p => p.nombre.toLowerCase().trim() === r.nombre.toLowerCase().trim())
+  }
+
   async function handleImport() {
     setImporting(true)
     setResult(null)
     const rows = buildRows()
 
     if (isSupabaseReady) {
-      // Supabase upsert
+      // Supabase upsert (handles both with/without codigo)
       const res = await upsertPrecios(rows)
       setResult(res)
       // Also sync to local store
       const withIds: PrecioMaestro[] = rows.map(r => ({
         ...r,
-        id: state.precios.find(p => p.codigo === r.codigo)?.id || crypto.randomUUID(),
+        id: findExisting(r)?.id || crypto.randomUUID(),
       }))
       dispatch({ type: 'BULK_UPSERT_PRECIOS', payload: withIds })
     } else {
       // Local-only
       let inserted = 0, updated = 0
       const withIds: PrecioMaestro[] = rows.map(r => {
-        const existing = state.precios.find(p => p.codigo === r.codigo)
+        const existing = findExisting(r)
         if (existing) { updated++; return { ...r, id: existing.id } }
         inserted++
         return { ...r, id: crypto.randomUUID() }

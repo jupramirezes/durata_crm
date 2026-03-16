@@ -21,39 +21,68 @@ export async function updatePrecioProveedor(id: string, proveedor: string): Prom
 }
 
 /**
- * Upsert batch de precios por código.
- * Si el código ya existe, actualiza precio/nombre/grupo/unidad/proveedor.
+ * Import precios handling two cases:
+ * - WITH codigo: upsert with ON CONFLICT (codigo)
+ * - WITHOUT codigo: match by nombre — update if exists, insert if not
  */
 export async function upsertPrecios(rows: Omit<PrecioMaestro, 'id'>[]): Promise<{ inserted: number; updated: number; errors: string[] }> {
   if (!isSupabaseReady) return { inserted: 0, updated: 0, errors: ['supabase_not_ready'] }
 
   const result = { inserted: 0, updated: 0, errors: [] as string[] }
+  const now = new Date().toISOString()
 
-  // Fetch existing codes to know which are inserts vs updates
-  const { data: existing } = await supabase.from('precios_maestro').select('codigo')
-  const existingCodes = new Set((existing || []).map(e => e.codigo))
+  // Split rows by whether they have a codigo
+  const withCodigo = rows.filter(r => r.codigo && r.codigo.trim())
+  const withoutCodigo = rows.filter(r => !r.codigo || !r.codigo.trim())
 
-  const toUpsert = rows.map(r => ({
-    grupo: r.grupo,
-    nombre: r.nombre,
-    codigo: r.codigo,
-    unidad: r.unidad,
-    precio: r.precio,
-    proveedor: r.proveedor,
-    updated_at: new Date().toISOString(),
-  }))
+  // ── 1. Rows WITH codigo: upsert by codigo ──
+  if (withCodigo.length > 0) {
+    const { data: existing } = await supabase.from('precios_maestro').select('codigo')
+    const existingCodes = new Set((existing || []).map(e => e.codigo).filter(Boolean))
 
-  // Upsert in batches of 50
-  for (let i = 0; i < toUpsert.length; i += 50) {
-    const batch = toUpsert.slice(i, i + 50)
-    const { error } = await supabase.from('precios_maestro').upsert(batch, { onConflict: 'codigo' })
-    if (error) {
-      result.errors.push(`Batch ${i}: ${error.message}`)
-    } else {
-      batch.forEach(r => {
-        if (existingCodes.has(r.codigo)) result.updated++
+    const toUpsert = withCodigo.map(r => ({
+      grupo: r.grupo, nombre: r.nombre, codigo: r.codigo,
+      unidad: r.unidad, precio: r.precio, proveedor: r.proveedor, updated_at: now,
+    }))
+
+    for (let i = 0; i < toUpsert.length; i += 50) {
+      const batch = toUpsert.slice(i, i + 50)
+      const { error } = await supabase.from('precios_maestro').upsert(batch, { onConflict: 'codigo' })
+      if (error) {
+        result.errors.push(`Batch codigo ${i}: ${error.message}`)
+      } else {
+        batch.forEach(r => {
+          if (existingCodes.has(r.codigo)) result.updated++
+          else result.inserted++
+        })
+      }
+    }
+  }
+
+  // ── 2. Rows WITHOUT codigo: match by nombre ──
+  if (withoutCodigo.length > 0) {
+    // Fetch all existing nombres to match by name
+    const { data: allExisting } = await supabase.from('precios_maestro').select('id, nombre')
+    const allNameMap = new Map((allExisting || []).map(e => [e.nombre.toLowerCase().trim(), e.id]))
+
+    for (const row of withoutCodigo) {
+      const key = row.nombre.toLowerCase().trim()
+      const existingId = allNameMap.get(key)
+
+      if (existingId) {
+        // UPDATE existing row by id
+        const { error } = await supabase.from('precios_maestro')
+          .update({ grupo: row.grupo, precio: row.precio, unidad: row.unidad, proveedor: row.proveedor, updated_at: now })
+          .eq('id', existingId)
+        if (error) result.errors.push(`Update "${row.nombre}": ${error.message}`)
+        else result.updated++
+      } else {
+        // INSERT new row (codigo stays null)
+        const { error } = await supabase.from('precios_maestro')
+          .insert({ grupo: row.grupo, nombre: row.nombre, codigo: null, unidad: row.unidad, precio: row.precio, proveedor: row.proveedor, updated_at: now })
+        if (error) result.errors.push(`Insert "${row.nombre}": ${error.message}`)
         else result.inserted++
-      })
+      }
     }
   }
 

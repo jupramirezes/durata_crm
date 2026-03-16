@@ -165,10 +165,12 @@ function reducer(state: State, action: Action): State {
       return { ...state, precios: state.precios.map(p => p.id === action.payload.id ? { ...p, proveedor: action.payload.proveedor, updated_at: new Date().toISOString().split('T')[0] } : p) }
     case 'BULK_UPSERT_PRECIOS': {
       const incoming = action.payload
-      const existingCodes = new Map(state.precios.map(p => [p.codigo, p]))
+      const byCode = new Map(state.precios.filter(p => p.codigo).map(p => [p.codigo, p]))
+      const byName = new Map(state.precios.map(p => [p.nombre.toLowerCase().trim(), p]))
       const merged = [...state.precios]
       for (const row of incoming) {
-        const existing = existingCodes.get(row.codigo)
+        // Match by codigo first, then by nombre
+        const existing = (row.codigo && byCode.get(row.codigo)) || byName.get(row.nombre.toLowerCase().trim())
         if (existing) {
           const idx = merged.findIndex(p => p.id === existing.id)
           if (idx >= 0) merged[idx] = { ...existing, ...row, id: existing.id }
