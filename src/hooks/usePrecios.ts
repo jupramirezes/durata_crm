@@ -3,9 +3,27 @@ import type { PrecioMaestro } from '../types'
 
 export async function fetchPrecios(): Promise<{ data: PrecioMaestro[]; error: string | null }> {
   if (!isSupabaseReady) return { data: [], error: 'supabase_not_ready' }
-  const { data, error } = await supabase.from('precios_maestro').select('*').order('grupo').order('nombre')
-  if (error) return { data: [], error: error.message }
-  return { data: data as PrecioMaestro[], error: null }
+
+  // Supabase limits SELECT to 1000 rows by default — paginate to fetch all
+  const PAGE = 1000
+  const all: PrecioMaestro[] = []
+  let from = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('precios_maestro')
+      .select('*')
+      .order('grupo')
+      .order('nombre')
+      .range(from, from + PAGE - 1)
+
+    if (error) return { data: all, error: error.message }
+    if (data) all.push(...(data as PrecioMaestro[]))
+    if (!data || data.length < PAGE) break
+    from += PAGE
+  }
+
+  return { data: all, error: null }
 }
 
 export async function updatePrecio(id: string, precio: number): Promise<{ error: string | null }> {
