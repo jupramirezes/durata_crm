@@ -41,7 +41,7 @@ export async function upsertPrecios(rows: Omit<PrecioMaestro, 'id'>[]): Promise<
     const existingCodes = new Set((existing || []).map(e => e.codigo).filter(Boolean))
 
     const toUpsert = withCodigo.map(r => ({
-      grupo: r.grupo, nombre: r.nombre, codigo: r.codigo,
+      grupo: r.grupo, subgrupo: r.subgrupo || '', nombre: r.nombre, codigo: r.codigo,
       unidad: r.unidad, precio: r.precio, proveedor: r.proveedor, updated_at: now,
     }))
 
@@ -72,14 +72,14 @@ export async function upsertPrecios(rows: Omit<PrecioMaestro, 'id'>[]): Promise<
       if (existingId) {
         // UPDATE existing row by id
         const { error } = await supabase.from('precios_maestro')
-          .update({ grupo: row.grupo, precio: row.precio, unidad: row.unidad, proveedor: row.proveedor, updated_at: now })
+          .update({ grupo: row.grupo, subgrupo: row.subgrupo || '', precio: row.precio, unidad: row.unidad, proveedor: row.proveedor, updated_at: now })
           .eq('id', existingId)
         if (error) result.errors.push(`Update "${row.nombre}": ${error.message}`)
         else result.updated++
       } else {
         // INSERT new row (codigo stays null)
         const { error } = await supabase.from('precios_maestro')
-          .insert({ grupo: row.grupo, nombre: row.nombre, codigo: null, unidad: row.unidad, precio: row.precio, proveedor: row.proveedor, updated_at: now })
+          .insert({ grupo: row.grupo, subgrupo: row.subgrupo || '', nombre: row.nombre, codigo: null, unidad: row.unidad, precio: row.precio, proveedor: row.proveedor, updated_at: now })
         if (error) result.errors.push(`Insert "${row.nombre}": ${error.message}`)
         else result.inserted++
       }
