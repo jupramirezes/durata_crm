@@ -32,19 +32,32 @@ export type FuenteLead = typeof FUENTES_LEAD[number]
 
 export const MOTIVOS_PERDIDA = ['Precio', 'Tiempo de entrega', 'Eligió competencia', 'Cambió de alcance', 'Sin respuesta', 'Presupuesto cancelado', 'Otro'] as const
 
-// Reverse lookup: resolves cotizador_asignado whether it's stored as id ('OC') or nombre ('Omar Cossio')
+// Reverse lookup: resolves cotizador_asignado whether it's stored as id ('OC'), iniciales ('O.C'), nombre, or legacy variants
 const _cotizadorIndex = new Map<string, typeof COTIZADORES[number]>()
+const _COTIZADOR_ALIASES: Record<string, string> = {
+  'O.C': 'OC', 'OC': 'OC',
+  'S.A': 'SA', 'SA': 'SA',
+  'J.R': 'JPR', 'J.R ': 'JPR', 'JPR': 'JPR',
+  'C.A': 'CA', 'CA': 'CA',
+  'D.G': 'DG', 'DG': 'DG',
+}
 for (const c of COTIZADORES) {
   _cotizadorIndex.set(c.id, c)
   _cotizadorIndex.set(c.nombre, c)
+  _cotizadorIndex.set(c.iniciales, c)
 }
-/** Find a COTIZADOR by id or nombre (handles mixed legacy data) */
+// Also register all aliases
+for (const [alias, id] of Object.entries(_COTIZADOR_ALIASES)) {
+  const cot = COTIZADORES.find(c => c.id === id)
+  if (cot) _cotizadorIndex.set(alias, cot)
+}
+/** Find a COTIZADOR by id, iniciales, nombre, or alias (handles mixed legacy data) */
 export function findCotizador(cotizadorAsignado: string) {
-  return _cotizadorIndex.get(cotizadorAsignado) ?? null
+  return _cotizadorIndex.get(cotizadorAsignado) ?? _cotizadorIndex.get(cotizadorAsignado.trim()) ?? null
 }
 /** Check if a cotizador_asignado value matches a given COTIZADOR id */
 export function matchCotizador(cotizadorAsignado: string, cotId: string) {
-  const resolved = _cotizadorIndex.get(cotizadorAsignado)
+  const resolved = findCotizador(cotizadorAsignado)
   return resolved ? resolved.id === cotId : false
 }
 export type MotivoPerdida = typeof MOTIVOS_PERDIDA[number]
@@ -92,6 +105,7 @@ export interface Oportunidad {
   motivo_perdida: string
   ubicacion: string
   fecha_ingreso: string
+  fecha_adjudicacion?: string
   fecha_ultimo_contacto: string
   notas: string
   created_at: string

@@ -17,11 +17,12 @@ export function EtapaBadge({ etapa, size = 'sm' }: { etapa: string; size?: 'sm' 
 
 /* ── KPICard ────────────────────────────────────────── */
 
-export function KPICard({ label, value, icon: Icon, small }: {
+export function KPICard({ label, value, icon: Icon, small, subtitle }: {
   label: string
   value: string
   icon: React.ElementType
   small?: boolean
+  subtitle?: string
 }) {
   return (
     <div className="bg-white border border-[var(--color-border)] rounded-lg p-4">
@@ -30,6 +31,7 @@ export function KPICard({ label, value, icon: Icon, small }: {
         <Icon size={15} className="text-[var(--color-text-muted)] opacity-50" />
       </div>
       <span className={`${small ? 'text-lg' : 'text-2xl'} font-semibold text-[var(--color-text)]`}>{value}</span>
+      {subtitle && <p className="text-[10px] text-[var(--color-text-muted)] mt-1">{subtitle}</p>}
     </div>
   )
 }

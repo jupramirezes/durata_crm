@@ -31,7 +31,12 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     <>
       <div className="px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <img src="/logo-durata.png" alt="DURATA" className="h-8 object-contain brightness-0 invert" />
+          <img
+            src="/logo-durata.png"
+            alt="DURATA"
+            className="h-8 object-contain brightness-0 invert"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
           <div>
             <span className="text-sm font-bold text-white tracking-tight">DURATA</span>
             <span className="text-sm font-bold text-[var(--color-primary-light)] ml-1">CRM</span>
