@@ -1,21 +1,39 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { SECTORES } from '../types'
 import { formatCOP, getInitials, getAvatarColor } from '../lib/utils'
 import { Search } from 'lucide-react'
 
+const PAGE_SIZE = 50
+
 export default function Empresas() {
   const { state } = useStore()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [filtroSector, setFiltroSector] = useState('')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  const filtered = state.empresas.filter(e => {
+  // Pre-compute empresa stats once (avoid O(empresas * oportunidades) per row)
+  const empresaStats = useMemo(() => {
+    const map = new Map<string, { opCount: number; valorCotizado: number; valorAdjudicado: number }>()
+    for (const o of state.oportunidades) {
+      let s = map.get(o.empresa_id)
+      if (!s) { s = { opCount: 0, valorCotizado: 0, valorAdjudicado: 0 }; map.set(o.empresa_id, s) }
+      s.opCount++
+      s.valorCotizado += o.valor_cotizado
+      s.valorAdjudicado += o.valor_adjudicado
+    }
+    return map
+  }, [state.oportunidades])
+
+  const filtered = useMemo(() => state.empresas.filter(e => {
     const matchSearch = !search || e.nombre.toLowerCase().includes(search.toLowerCase()) || e.nit.includes(search)
     const matchSector = !filtroSector || e.sector === filtroSector
     return matchSearch && matchSector
-  })
+  }), [state.empresas, search, filtroSector])
+
+  const visible = filtered.slice(0, visibleCount)
 
   return (
     <div className="p-8 space-y-6 animate-fade-in">
@@ -31,14 +49,14 @@ export default function Empresas() {
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setVisibleCount(PAGE_SIZE) }}
             placeholder="Buscar por nombre o NIT..."
             className="w-full pl-11 pr-4 py-2.5 rounded-xl text-sm border border-[var(--color-border)] bg-white focus:outline-none focus:border-[var(--color-primary)]"
           />
         </div>
         <select
           value={filtroSector}
-          onChange={e => setFiltroSector(e.target.value)}
+          onChange={e => { setFiltroSector(e.target.value); setVisibleCount(PAGE_SIZE) }}
           className="px-4 py-2.5 rounded-xl text-sm min-w-[180px] border border-[var(--color-border)] bg-white focus:outline-none focus:border-[var(--color-primary)]"
         >
           <option value="">Todos los sectores</option>
@@ -58,10 +76,8 @@ export default function Empresas() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((e, i) => {
-              const oportunidades = state.oportunidades.filter(o => o.empresa_id === e.id)
-              const valorCotizado = oportunidades.reduce((s, o) => s + o.valor_cotizado, 0)
-              const valorAdjudicado = oportunidades.reduce((s, o) => s + o.valor_adjudicado, 0)
+            {visible.map((e, i) => {
+              const stats = empresaStats.get(e.id)
               return (
                 <tr
                   key={e.id}
@@ -87,16 +103,26 @@ export default function Empresas() {
                   <td className="px-5 py-3.5">
                     <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface)] text-[var(--color-text-muted)] font-medium">{e.sector}</span>
                   </td>
-                  <td className="px-5 py-3.5 text-center font-medium text-[var(--color-text)]">{oportunidades.length}</td>
-                  <td className="px-5 py-3.5 text-right text-[var(--color-text)]">{formatCOP(valorCotizado)}</td>
-                  <td className="px-5 py-3.5 text-right font-bold text-[var(--color-accent-green)]">{formatCOP(valorAdjudicado)}</td>
+                  <td className="px-5 py-3.5 text-center font-medium text-[var(--color-text)]">{stats?.opCount ?? 0}</td>
+                  <td className="px-5 py-3.5 text-right text-[var(--color-text)]">{formatCOP(stats?.valorCotizado ?? 0)}</td>
+                  <td className="px-5 py-3.5 text-right font-bold text-[var(--color-accent-green)]">{formatCOP(stats?.valorAdjudicado ?? 0)}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
-        <div className="px-5 py-3 border-t border-[var(--color-border)] text-xs text-[var(--color-text-muted)]">
-          Mostrando {filtered.length} de {state.empresas.length} empresas
+        <div className="px-5 py-3 border-t border-[var(--color-border)] flex items-center justify-between">
+          <span className="text-xs text-[var(--color-text-muted)]">
+            Mostrando {visible.length} de {filtered.length} empresas
+          </span>
+          {visibleCount < filtered.length && (
+            <button
+              onClick={() => setVisibleCount(v => v + PAGE_SIZE)}
+              className="text-xs font-medium text-[var(--color-primary)] hover:underline"
+            >
+              Cargar más ({filtered.length - visibleCount} restantes)
+            </button>
+          )}
         </div>
       </div>
     </div>

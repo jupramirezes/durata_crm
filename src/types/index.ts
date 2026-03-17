@@ -24,6 +24,7 @@ export const COTIZADORES = [
   { id: 'SA', nombre: 'Sebastián Aguirre', iniciales: 'S.A' },
   { id: 'JPR', nombre: 'Juan Pablo Ramírez', iniciales: 'J.R' },
   { id: 'CA', nombre: 'Camilo Araque', iniciales: 'C.A' },
+  { id: 'DG', nombre: 'Daniela Galindo', iniciales: 'D.G' },
 ] as const
 
 export const FUENTES_LEAD = ['WhatsApp', 'Correo', 'Llamada', 'Referido', 'Licitación', 'Web', 'Otro'] as const

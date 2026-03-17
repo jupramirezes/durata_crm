@@ -45,12 +45,13 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 // ── Cotizador map ─────────────────────────────────────────────────
+// Map Excel initials → app COTIZADORES id (used in cotizador_asignado)
 const COTIZADOR: Record<string, string> = {
-  'O.C': 'Omar Cossio',
-  'S.A': 'Sebastián Aguirre',
-  'J.R': 'Juan Pablo Ramírez',
-  'C.A': 'Cristian Arango',
-  'D.G': 'Daniel Gómez',
+  'O.C': 'OC',
+  'S.A': 'SA',
+  'J.R': 'JPR',
+  'C.A': 'CA',
+  'D.G': 'DG',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
