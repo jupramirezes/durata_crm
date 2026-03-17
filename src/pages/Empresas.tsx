@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { SECTORES } from '../types'
 import { formatCOP, getInitials, getAvatarColor } from '../lib/utils'
+import { PageHeader } from '../components/ui'
 import { Search } from 'lucide-react'
 
 const PAGE_SIZE = 50
@@ -14,7 +15,6 @@ export default function Empresas() {
   const [filtroSector, setFiltroSector] = useState('')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  // Pre-compute empresa stats once (avoid O(empresas * oportunidades) per row)
   const empresaStats = useMemo(() => {
     const map = new Map<string, { opCount: number; valorCotizado: number; valorAdjudicado: number }>()
     for (const o of state.oportunidades) {
@@ -36,43 +36,41 @@ export default function Empresas() {
   const visible = filtered.slice(0, visibleCount)
 
   return (
-    <div className="p-8 space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-[var(--color-text)]">Empresas</h2>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">{state.empresas.length} empresas registradas</p>
-        </div>
-      </div>
+    <div className="p-6 space-y-4 animate-fade-in">
+      <PageHeader
+        title="Empresas"
+        subtitle={`${state.empresas.length} empresas registradas`}
+      />
 
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setVisibleCount(PAGE_SIZE) }}
             placeholder="Buscar por nombre o NIT..."
-            className="w-full pl-11 pr-4 py-2.5 rounded-xl text-sm border border-[var(--color-border)] bg-white focus:outline-none focus:border-[var(--color-primary)]"
+            className="w-full pl-9 pr-3 py-2 rounded-lg text-xs border border-[var(--color-border)] bg-white"
           />
         </div>
         <select
           value={filtroSector}
           onChange={e => { setFiltroSector(e.target.value); setVisibleCount(PAGE_SIZE) }}
-          className="px-4 py-2.5 rounded-xl text-sm min-w-[180px] border border-[var(--color-border)] bg-white focus:outline-none focus:border-[var(--color-primary)]"
+          className="px-3 py-2 rounded-lg text-xs min-w-[160px] border border-[var(--color-border)] bg-white"
         >
           <option value="">Todos los sectores</option>
           {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
-      <div className="bg-white rounded-2xl border border-[var(--color-border)] overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-lg border border-[var(--color-border)] overflow-hidden">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="bg-[#F1F5F9] text-[var(--color-text-muted)] text-left">
-              <th className="px-5 py-3.5 font-semibold">Empresa</th>
-              <th className="px-5 py-3.5 font-semibold">Sector</th>
-              <th className="px-5 py-3.5 font-semibold text-center">Oportunidades</th>
-              <th className="px-5 py-3.5 font-semibold text-right">Valor cotizado</th>
-              <th className="px-5 py-3.5 font-semibold text-right">Valor adjudicado</th>
+            <tr className="bg-[var(--color-surface)] text-[var(--color-text-muted)] text-left">
+              <th className="px-4 py-2.5 font-medium">Empresa</th>
+              <th className="px-4 py-2.5 font-medium">Sector</th>
+              <th className="px-4 py-2.5 font-medium text-center">Oportunidades</th>
+              <th className="px-4 py-2.5 font-medium text-right">Valor cotizado</th>
+              <th className="px-4 py-2.5 font-medium text-right">Valor adjudicado</th>
             </tr>
           </thead>
           <tbody>
@@ -86,39 +84,39 @@ export default function Empresas() {
                     i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'
                   }`}
                 >
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
                         style={{ background: getAvatarColor(e.nombre) }}
                       >
                         {getInitials(e.nombre)}
                       </div>
                       <div>
                         <span className="font-medium text-[var(--color-text)]">{e.nombre}</span>
-                        <div className="text-xs text-[var(--color-text-muted)]">{e.nit}</div>
+                        <div className="text-[10px] text-[var(--color-text-muted)]">{e.nit}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface)] text-[var(--color-text-muted)] font-medium">{e.sector}</span>
+                  <td className="px-4 py-2.5">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-surface)] text-[var(--color-text-muted)] font-medium">{e.sector}</span>
                   </td>
-                  <td className="px-5 py-3.5 text-center font-medium text-[var(--color-text)]">{stats?.opCount ?? 0}</td>
-                  <td className="px-5 py-3.5 text-right text-[var(--color-text)]">{formatCOP(stats?.valorCotizado ?? 0)}</td>
-                  <td className="px-5 py-3.5 text-right font-bold text-[var(--color-accent-green)]">{formatCOP(stats?.valorAdjudicado ?? 0)}</td>
+                  <td className="px-4 py-2.5 text-center font-medium text-[var(--color-text)]">{stats?.opCount ?? 0}</td>
+                  <td className="px-4 py-2.5 text-right text-[var(--color-text)] font-mono">{formatCOP(stats?.valorCotizado ?? 0)}</td>
+                  <td className="px-4 py-2.5 text-right font-bold text-[var(--color-accent-green)] font-mono">{formatCOP(stats?.valorAdjudicado ?? 0)}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
-        <div className="px-5 py-3 border-t border-[var(--color-border)] flex items-center justify-between">
-          <span className="text-xs text-[var(--color-text-muted)]">
+        <div className="px-4 py-2.5 border-t border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface)]">
+          <span className="text-[10px] text-[var(--color-text-muted)]">
             Mostrando {visible.length} de {filtered.length} empresas
           </span>
           {visibleCount < filtered.length && (
             <button
               onClick={() => setVisibleCount(v => v + PAGE_SIZE)}
-              className="text-xs font-medium text-[var(--color-primary)] hover:underline"
+              className="text-[10px] font-medium text-[var(--color-primary)] hover:underline"
             >
               Cargar más ({filtered.length - visibleCount} restantes)
             </button>

@@ -15,9 +15,9 @@ import Configuracion from './pages/Configuracion'
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[var(--color-bg)]">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto min-w-0">{children}</main>
     </div>
   )
 }
