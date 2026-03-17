@@ -54,6 +54,7 @@ function newId(): string {
 }
 
 const STORAGE_KEY = 'durata_crm_state'
+const STATE_VERSION = 2 // bump to invalidate old bloated caches
 
 const defaultState: State = {
   empresas: DEMO_EMPRESAS,
@@ -70,11 +71,42 @@ function loadState(): State {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
-      if (parsed.clientes && !parsed.empresas) return defaultState
+      // Invalidate old versions or legacy shapes
+      if (parsed._v !== STATE_VERSION || (parsed.clientes && !parsed.empresas)) {
+        localStorage.removeItem(STORAGE_KEY)
+        return defaultState
+      }
       return parsed
     }
   } catch { /* corrupted – fall back */ }
   return defaultState
+}
+
+/** Persist state to localStorage safely (quota-aware). */
+function saveState(state: State) {
+  try {
+    if (isSupabaseReady) {
+      // Supabase is the source of truth — only cache lightweight UI state
+      // Skip large arrays that will be hydrated from Supabase on next load
+      const lightweight = {
+        _v: STATE_VERSION,
+        empresas: [] as Empresa[],
+        contactos: [] as Contacto[],
+        oportunidades: [] as Oportunidad[],
+        historial: [] as HistorialEtapa[],
+        productos: [] as ProductoCliente[],
+        cotizaciones: [] as Cotizacion[],
+        precios: [] as PrecioMaestro[],
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweight))
+    } else {
+      // No Supabase — localStorage is the only persistence
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, _v: STATE_VERSION }))
+    }
+  } catch (err) {
+    // QuotaExceededError — silently fail, Supabase has the data
+    console.warn('[localStorage] Could not save state:', (err as Error).message)
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -363,9 +395,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     rawDispatch(action)
   }, [state])
 
-  // Persist to localStorage (cache/fallback)
+  // Persist to localStorage (cache/fallback, quota-safe)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    saveState(state)
   }, [state])
 
   // Hydrate from Supabase on mount
