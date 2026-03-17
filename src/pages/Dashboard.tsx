@@ -1,5 +1,5 @@
 import { useStore } from '../lib/store'
-import { ETAPAS, COTIZADORES, Etapa } from '../types'
+import { ETAPAS, COTIZADORES, Etapa, matchCotizador, findCotizador } from '../types'
 import { formatCOP, daysSince, getAvatarColor } from '../lib/utils'
 import { PageHeader, KPICard, EtapaBadge } from '../components/ui'
 import { Target, DollarSign, FileText, TrendingUp, Users, BarChart3, CalendarClock } from 'lucide-react'
@@ -83,8 +83,8 @@ export default function Dashboard() {
 
   /* ── SECCIÓN 3: Métricas por cotizador ─────────────── */
   const cotizadorRows = COTIZADORES.map(cot => {
-    const opsC = oportunidades.filter(o => o.cotizador_asignado === cot.id)
-    const cotsC = cotizaciones.filter(c => { const op = oportunidades.find(o => o.id === c.oportunidad_id); return op && op.cotizador_asignado === cot.id })
+    const opsC = oportunidades.filter(o => matchCotizador(o.cotizador_asignado, cot.id))
+    const cotsC = cotizaciones.filter(c => { const op = oportunidades.find(o => o.id === c.oportunidad_id); return op && matchCotizador(op.cotizador_asignado, cot.id) })
     const cotValor = cotsC.reduce((s, c) => s + c.total, 0)
     const adjOps = opsC.filter(o => o.etapa === 'adjudicada')
     const adjValor = adjOps.reduce((s, o) => s + o.valor_adjudicado, 0)
@@ -111,7 +111,7 @@ export default function Dashboard() {
       const empresa = empresas.find(e => e.id === o.empresa_id)
       const opCots = cotizaciones.filter(c => c.oportunidad_id === o.id)
       const lastEnviada = opCots.filter(c => c.fecha_envio).sort((a, b) => new Date(b.fecha_envio!).getTime() - new Date(a.fecha_envio!).getTime())[0]
-      const cotizador = COTIZADORES.find(c => c.id === o.cotizador_asignado)
+      const cotizador = findCotizador(o.cotizador_asignado)
       const diasEnvio = lastEnviada?.fecha_envio ? daysSince(lastEnviada.fecha_envio) : null
       return { id: o.id, empresa: empresa?.nombre ?? '—', etapa: o.etapa, fechaEnvio: lastEnviada?.fecha_envio ?? null, numeroCot: lastEnviada?.numero ?? (opCots[opCots.length - 1]?.numero ?? '—'), valorCotizado: o.valor_cotizado, diasDesdeEnvio: diasEnvio, cotizador: cotizador?.iniciales ?? '—', cotizadorNombre: cotizador?.nombre ?? '' }
     })

@@ -31,6 +31,22 @@ export const FUENTES_LEAD = ['WhatsApp', 'Correo', 'Llamada', 'Referido', 'Licit
 export type FuenteLead = typeof FUENTES_LEAD[number]
 
 export const MOTIVOS_PERDIDA = ['Precio', 'Tiempo de entrega', 'Eligió competencia', 'Cambió de alcance', 'Sin respuesta', 'Presupuesto cancelado', 'Otro'] as const
+
+// Reverse lookup: resolves cotizador_asignado whether it's stored as id ('OC') or nombre ('Omar Cossio')
+const _cotizadorIndex = new Map<string, typeof COTIZADORES[number]>()
+for (const c of COTIZADORES) {
+  _cotizadorIndex.set(c.id, c)
+  _cotizadorIndex.set(c.nombre, c)
+}
+/** Find a COTIZADOR by id or nombre (handles mixed legacy data) */
+export function findCotizador(cotizadorAsignado: string) {
+  return _cotizadorIndex.get(cotizadorAsignado) ?? null
+}
+/** Check if a cotizador_asignado value matches a given COTIZADOR id */
+export function matchCotizador(cotizadorAsignado: string, cotId: string) {
+  const resolved = _cotizadorIndex.get(cotizadorAsignado)
+  return resolved ? resolved.id === cotId : false
+}
 export type MotivoPerdida = typeof MOTIVOS_PERDIDA[number]
 
 // ==============================

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { COTIZADORES } from '../types'
+import { findCotizador } from '../types'
 import { formatCOP, formatDate, getAvatarColor } from '../lib/utils'
 import { EtapaBadge } from '../components/ui'
 import { ArrowLeft, Building2, MapPin, Hash, Target, Trash2 } from 'lucide-react'
@@ -94,7 +94,7 @@ export default function EmpresaDetalle() {
           <tbody>
             {oportunidades.map(o => {
               const contacto = state.contactos.find(c => c.id === o.contacto_id)
-              const cotizador = COTIZADORES.find(c => c.id === o.cotizador_asignado)
+              const cotizador = findCotizador(o.cotizador_asignado)
               return (
                 <tr
                   key={o.id}

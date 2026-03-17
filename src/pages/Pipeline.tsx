@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { ETAPAS, Etapa, COTIZADORES, MOTIVOS_PERDIDA } from '../types'
+import { ETAPAS, Etapa, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, matchCotizador } from '../types'
 import { daysSince, formatCOP, getAvatarColor } from '../lib/utils'
 import { Plus, Clock, X, History } from 'lucide-react'
 import OportunidadFormModal from '../components/OportunidadFormModal'
@@ -31,7 +31,7 @@ export default function Pipeline() {
 
   const filtered = useMemo(() => {
     let ops = showHistoricas ? state.oportunidades : state.oportunidades.filter(isActive)
-    if (filtroCotizador) ops = ops.filter(o => o.cotizador_asignado === filtroCotizador)
+    if (filtroCotizador) ops = ops.filter(o => matchCotizador(o.cotizador_asignado, filtroCotizador))
     return ops
   }, [state.oportunidades, showHistoricas, filtroCotizador])
 
@@ -145,7 +145,7 @@ export default function Pipeline() {
               <div className="flex-1 px-1.5 pb-1.5 space-y-1.5 overflow-y-auto">
                 {oportunidades.map(o => {
                   const empresa = state.empresas.find(e => e.id === o.empresa_id)
-                  const cotizador = COTIZADORES.find(c => c.id === o.cotizador_asignado)
+                  const cotizador = findCotizador(o.cotizador_asignado)
                   const dias = daysSince(o.fecha_ingreso)
                   return (
                     <div

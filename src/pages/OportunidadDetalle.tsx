@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { ETAPAS, COTIZADORES } from '../types'
+import { ETAPAS, findCotizador } from '../types'
 import { formatDate, formatCOP } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
@@ -17,7 +17,7 @@ export default function OportunidadDetalle() {
   const historial = state.historial.filter(h => h.oportunidad_id === id).reverse()
   const productos = state.productos.filter(p => p.oportunidad_id === id)
   const cotizaciones = state.cotizaciones.filter(c => c.oportunidad_id === id)
-  const cotizador = oportunidad ? COTIZADORES.find(c => c.id === oportunidad.cotizador_asignado) : null
+  const cotizador = oportunidad ? findCotizador(oportunidad.cotizador_asignado) : null
 
   const [showCotModal, setShowCotModal] = useState(false)
 
