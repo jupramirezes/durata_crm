@@ -137,6 +137,16 @@ CREATE TABLE IF NOT EXISTS tarifas_mo (
 );
 
 -- ============================================================
+-- 9. CONFIGURACIÓN DEL SISTEMA
+-- ============================================================
+CREATE TABLE IF NOT EXISTS configuracion_sistema (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clave       text UNIQUE NOT NULL,
+  valor       jsonb DEFAULT '{}',
+  updated_at  timestamptz DEFAULT now()
+);
+
+-- ============================================================
 -- ROW LEVEL SECURITY — Permisivo para anon (sin auth por ahora)
 -- ============================================================
 
@@ -147,7 +157,8 @@ ALTER TABLE historial_etapas     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE productos_oportunidad ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cotizaciones         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE precios_maestro      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tarifas_mo           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tarifas_mo              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE configuracion_sistema   ENABLE ROW LEVEL SECURITY;
 
 -- Policies: permitir todo para anon y authenticated
 CREATE POLICY "Allow all for anon" ON empresas              FOR ALL USING (true) WITH CHECK (true);
@@ -157,4 +168,5 @@ CREATE POLICY "Allow all for anon" ON historial_etapas       FOR ALL USING (true
 CREATE POLICY "Allow all for anon" ON productos_oportunidad  FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON cotizaciones           FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON precios_maestro        FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for anon" ON tarifas_mo             FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON tarifas_mo              FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON configuracion_sistema   FOR ALL USING (true) WITH CHECK (true);
