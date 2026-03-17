@@ -1,10 +1,21 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, Etapa, COTIZADORES, MOTIVOS_PERDIDA } from '../types'
 import { daysSince, formatCOP, getAvatarColor } from '../lib/utils'
-import { Plus, Clock, X } from 'lucide-react'
+import { Plus, Clock, X, History } from 'lucide-react'
 import OportunidadFormModal from '../components/OportunidadFormModal'
+
+const ETAPAS_ACTIVAS: Set<string> = new Set([
+  'nuevo_lead', 'en_cotizacion', 'cotizacion_enviada', 'en_seguimiento', 'en_negociacion',
+])
+
+function isActive(op: { etapa: string; fecha_ingreso?: string }): boolean {
+  if (ETAPAS_ACTIVAS.has(op.etapa)) return true
+  // 2026+ oportunidades siempre se muestran
+  const year = op.fecha_ingreso ? new Date(op.fecha_ingreso).getFullYear() : 0
+  return year >= 2026
+}
 
 export default function Pipeline() {
   const { state, dispatch } = useStore()
@@ -12,10 +23,21 @@ export default function Pipeline() {
   const [dragging, setDragging] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [showHistoricas, setShowHistoricas] = useState(false)
   const [adjudicadaModal, setAdjudicadaModal] = useState<string | null>(null)
   const [perdidaModal, setPerdidaModal] = useState<string | null>(null)
   const [valorAdjudicado, setValorAdjudicado] = useState(0)
   const [motivoPerdida, setMotivoPerdida] = useState<string>(MOTIVOS_PERDIDA[0])
+
+  const filtered = useMemo(
+    () => showHistoricas ? state.oportunidades : state.oportunidades.filter(isActive),
+    [state.oportunidades, showHistoricas],
+  )
+
+  const activeCount = useMemo(
+    () => state.oportunidades.filter(isActive).length,
+    [state.oportunidades],
+  )
 
   function onDragStart(e: React.DragEvent, oportunidadId: string) {
     e.dataTransfer.setData('text/plain', oportunidadId)
@@ -67,19 +89,35 @@ export default function Pipeline() {
       <div className="flex justify-between items-center mb-5">
         <div>
           <h2 className="text-2xl font-bold text-[var(--color-text)]">Pipeline</h2>
-          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{state.oportunidades.length} oportunidades en total</p>
+          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
+            {activeCount} oportunidades activas
+            {showHistoricas && ` (${state.oportunidades.length} total)`}
+          </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-        >
-          <Plus size={16} /> Nueva oportunidad
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowHistoricas(!showHistoricas)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+              showHistoricas
+                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
+            }`}
+          >
+            <History size={14} />
+            {showHistoricas ? 'Ocultando históricas' : 'Mostrar históricas'}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+          >
+            <Plus size={16} /> Nueva oportunidad
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 flex gap-3 overflow-x-auto pb-4">
         {ETAPAS.map(etapa => {
-          const oportunidades = state.oportunidades.filter(o => o.etapa === etapa.key)
+          const oportunidades = filtered.filter(o => o.etapa === etapa.key)
           const isOver = dragOverCol === etapa.key
           return (
             <div
