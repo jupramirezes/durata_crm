@@ -22,3 +22,20 @@ export async function updateEmpresa(emp: Empresa): Promise<{ error: string | nul
   }).eq('id', emp.id)
   return { error: error?.message ?? null }
 }
+
+export async function deleteEmpresa(id: string): Promise<{ error: string | null }> {
+  if (!isSupabaseReady) return { error: 'supabase_not_ready' }
+  // Cascade: delete cotizaciones, productos, historial, oportunidades, contactos tied to this empresa
+  // Get related oportunidad IDs first
+  const { data: ops } = await supabase.from('oportunidades').select('id').eq('empresa_id', id)
+  const opIds = (ops || []).map((o: { id: string }) => o.id)
+  if (opIds.length > 0) {
+    await supabase.from('cotizaciones').delete().in('oportunidad_id', opIds)
+    await supabase.from('productos_cliente').delete().in('oportunidad_id', opIds)
+    await supabase.from('historial_etapas').delete().in('oportunidad_id', opIds)
+    await supabase.from('oportunidades').delete().eq('empresa_id', id)
+  }
+  await supabase.from('contactos').delete().eq('empresa_id', id)
+  const { error } = await supabase.from('empresas').delete().eq('id', id)
+  return { error: error?.message ?? null }
+}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, Etapa, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, matchCotizador } from '../types'
 import { daysSince, formatCOP, getAvatarColor } from '../lib/utils'
-import { Plus, Clock, X, History } from 'lucide-react'
+import { Plus, Clock, X, History, Search } from 'lucide-react'
 import OportunidadFormModal from '../components/OportunidadFormModal'
 
 const ETAPAS_ACTIVAS: Set<string> = new Set([
@@ -16,6 +16,16 @@ function isActive(op: { etapa: string; fecha_ingreso?: string }): boolean {
   return year >= 2026
 }
 
+const VALOR_PRESETS = [
+  { label: 'Todos', min: 0 },
+  { label: '>$20M', min: 20_000_000 },
+  { label: '>$50M', min: 50_000_000 },
+  { label: '>$100M', min: 100_000_000 },
+]
+
+const YEARS = [2021, 2022, 2023, 2024, 2025, 2026]
+const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
 export default function Pipeline() {
   const { state, dispatch } = useStore()
   const navigate = useNavigate()
@@ -24,16 +34,42 @@ export default function Pipeline() {
   const [showModal, setShowModal] = useState(false)
   const [showHistoricas, setShowHistoricas] = useState(false)
   const [filtroCotizador, setFiltroCotizador] = useState<string>('')
+  const [filtroYear, setFiltroYear] = useState<string>('')
+  const [filtroMonth, setFiltroMonth] = useState<string>('')
+  const [filtroValorMin, setFiltroValorMin] = useState(0)
+  const [searchEmpresa, setSearchEmpresa] = useState('')
   const [adjudicadaModal, setAdjudicadaModal] = useState<string | null>(null)
   const [perdidaModal, setPerdidaModal] = useState<string | null>(null)
   const [valorAdjudicado, setValorAdjudicado] = useState(0)
   const [motivoPerdida, setMotivoPerdida] = useState<string>(MOTIVOS_PERDIDA[0])
 
+  // Build empresa name lookup for search
+  const empresaMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const e of state.empresas) m.set(e.id, e.nombre.toLowerCase())
+    return m
+  }, [state.empresas])
+
   const filtered = useMemo(() => {
     let ops = showHistoricas ? state.oportunidades : state.oportunidades.filter(isActive)
     if (filtroCotizador) ops = ops.filter(o => matchCotizador(o.cotizador_asignado, filtroCotizador))
+    if (filtroYear) {
+      const y = Number(filtroYear)
+      ops = ops.filter(o => new Date(o.fecha_ingreso).getFullYear() === y)
+    }
+    if (filtroMonth) {
+      const m = Number(filtroMonth)
+      ops = ops.filter(o => new Date(o.fecha_ingreso).getMonth() === m)
+    }
+    if (filtroValorMin > 0) {
+      ops = ops.filter(o => o.valor_cotizado >= filtroValorMin)
+    }
+    if (searchEmpresa.trim()) {
+      const q = searchEmpresa.trim().toLowerCase()
+      ops = ops.filter(o => (empresaMap.get(o.empresa_id) || '').includes(q))
+    }
     return ops
-  }, [state.oportunidades, showHistoricas, filtroCotizador])
+  }, [state.oportunidades, showHistoricas, filtroCotizador, filtroYear, filtroMonth, filtroValorMin, searchEmpresa, empresaMap])
 
   const activeCount = useMemo(
     () => state.oportunidades.filter(isActive).length,
@@ -71,13 +107,16 @@ export default function Pipeline() {
     setPerdidaModal(null)
   }
 
+  const hasFilters = filtroCotizador || filtroYear || filtroMonth || filtroValorMin > 0 || searchEmpresa.trim()
+
   return (
     <div className="p-5 h-screen flex flex-col animate-fade-in">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-2">
         <div>
           <h1 className="text-xl font-semibold text-[var(--color-text)]">Pipeline</h1>
           <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
             {activeCount} activas{showHistoricas && ` (${state.oportunidades.length} total)`}
+            {hasFilters && ` — ${filtered.length} filtradas`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -114,9 +153,56 @@ export default function Pipeline() {
         </div>
       </div>
 
+      {/* Fix 10: Additional filters row */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <div className="relative">
+          <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+          <input
+            value={searchEmpresa}
+            onChange={e => setSearchEmpresa(e.target.value)}
+            placeholder="Buscar empresa..."
+            className="pl-7 pr-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white w-36"
+          />
+        </div>
+        <select
+          value={filtroYear}
+          onChange={e => setFiltroYear(e.target.value)}
+          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+        >
+          <option value="">Año: Todos</option>
+          {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select
+          value={filtroMonth}
+          onChange={e => setFiltroMonth(e.target.value)}
+          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+        >
+          <option value="">Mes: Todos</option>
+          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        <div className="flex items-center gap-1">
+          {VALOR_PRESETS.map(p => (
+            <button
+              key={p.label}
+              onClick={() => setFiltroValorMin(filtroValorMin === p.min ? 0 : p.min)}
+              className={`text-[10px] px-2 py-1 rounded font-medium transition-colors ${filtroValorMin === p.min ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'}`}
+            >{p.label}</button>
+          ))}
+        </div>
+        {hasFilters && (
+          <button
+            onClick={() => { setFiltroCotizador(''); setFiltroYear(''); setFiltroMonth(''); setFiltroValorMin(0); setSearchEmpresa('') }}
+            className="text-[10px] px-2 py-1 rounded font-medium text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
+          >Limpiar filtros</button>
+        )}
+      </div>
+
       <div className="flex-1 flex gap-2 overflow-x-auto pb-3">
         {ETAPAS.map(etapa => {
-          const oportunidades = filtered.filter(o => o.etapa === etapa.key)
+          // Fix 9: Sort cards by valor_cotizado descending
+          const oportunidades = filtered
+            .filter(o => o.etapa === etapa.key)
+            .sort((a, b) => b.valor_cotizado - a.valor_cotizado)
           const valorTotal = oportunidades.reduce((s, o) => s + o.valor_cotizado, 0)
           const isOver = dragOverCol === etapa.key
           return (

@@ -49,8 +49,8 @@ export const CONFIG_DEFAULTS: ConfigSistema = {
     { id: 'OC', nombre: 'Omar Cossio', iniciales: 'O.C', correo: '', activo: true },
     { id: 'SA', nombre: 'Sebastián Aguirre', iniciales: 'S.A', correo: '', activo: true },
     { id: 'JPR', nombre: 'Juan Pablo Ramírez', iniciales: 'J.R', correo: '', activo: true },
-    { id: 'CA', nombre: 'Camilo Araque', iniciales: 'C.A', correo: '', activo: true },
-    { id: 'DG', nombre: 'Daniela Galindo', iniciales: 'D.G', correo: '', activo: true },
+    { id: 'CA', nombre: 'Cristian Arango', iniciales: 'C.A', correo: '', activo: true },
+    { id: 'DG', nombre: 'Daniel Gómez', iniciales: 'D.G', correo: '', activo: true },
   ],
   defaults_cotizacion: {
     tiempo_entrega: '15 días hábiles',

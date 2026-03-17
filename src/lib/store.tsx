@@ -26,6 +26,7 @@ interface State {
 type Action =
   | { type: 'ADD_EMPRESA'; payload: Omit<Empresa, 'id' | 'created_at'> & { id?: string } }
   | { type: 'UPDATE_EMPRESA'; payload: Empresa }
+  | { type: 'DELETE_EMPRESA'; payload: { id: string } }
   | { type: 'ADD_CONTACTO'; payload: Omit<Contacto, 'id' | 'created_at'> & { id?: string } }
   | { type: 'UPDATE_CONTACTO'; payload: Contacto }
   | { type: 'ADD_OPORTUNIDAD'; payload: Omit<Oportunidad, 'id' | 'created_at'> & { id?: string } }
@@ -128,6 +129,20 @@ function reducer(state: State, action: Action): State {
     }
     case 'UPDATE_EMPRESA':
       return { ...state, empresas: state.empresas.map(e => e.id === action.payload.id ? action.payload : e) }
+    case 'DELETE_EMPRESA': {
+      const empId = action.payload.id
+      const relOps = state.oportunidades.filter(o => o.empresa_id === empId)
+      const relOpIds = new Set(relOps.map(o => o.id))
+      return {
+        ...state,
+        empresas: state.empresas.filter(e => e.id !== empId),
+        contactos: state.contactos.filter(c => c.empresa_id !== empId),
+        oportunidades: state.oportunidades.filter(o => o.empresa_id !== empId),
+        historial: state.historial.filter(h => !relOpIds.has(h.oportunidad_id)),
+        productos: state.productos.filter(p => !relOpIds.has(p.oportunidad_id)),
+        cotizaciones: state.cotizaciones.filter(c => !relOpIds.has(c.oportunidad_id)),
+      }
+    }
 
     // ── Contactos ────────────────────────────────────
     case 'ADD_CONTACTO': {
@@ -300,6 +315,9 @@ function syncToSupabase(action: Action, stateBefore: State) {
     case 'UPDATE_EMPRESA':
       svcEmpresas.updateEmpresa(action.payload).then(r => log('UPDATE_EMPRESA', r))
       break
+    case 'DELETE_EMPRESA':
+      svcEmpresas.deleteEmpresa(action.payload.id).then(r => log('DELETE_EMPRESA', r))
+      break
     case 'ADD_CONTACTO':
       svcOportunidades.createContacto(action.payload).then(r => log('ADD_CONTACTO', r))
       break
@@ -428,6 +446,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (Object.keys(patch).length > 0) {
           rawDispatch({ type: '_HYDRATE', payload: patch })
+        }
+
+        // Fix 15: One-time normalization of legacy cotizador values with trailing spaces
+        if (opp.data.length > 0) {
+          const toFix = opp.data.filter(o => o.cotizador_asignado !== o.cotizador_asignado.trim() || o.cotizador_asignado === '0')
+          for (const o of toFix) {
+            const trimmed = o.cotizador_asignado.trim()
+            if (trimmed && trimmed !== '0') {
+              svcOportunidades.updateOportunidad({ id: o.id, cotizador_asignado: trimmed } as any)
+            }
+          }
+          if (toFix.length > 0) console.log(`[Normalize] Fixed ${toFix.length} legacy cotizador values`)
         }
       } catch (err) {
         console.error('[Supabase hydrate]', err)

@@ -4,16 +4,22 @@ import { useStore } from '../lib/store'
 import { SECTORES } from '../types'
 import { formatCOP, getInitials, getAvatarColor } from '../lib/utils'
 import { PageHeader } from '../components/ui'
-import { Search } from 'lucide-react'
+import { Search, ChevronUp, ChevronDown, Trash2, AlertTriangle } from 'lucide-react'
 
 const PAGE_SIZE = 50
 
+type SortKey = 'nombre' | 'opCount' | 'valorCotizado' | 'valorAdjudicado'
+type SortDir = 'asc' | 'desc'
+
 export default function Empresas() {
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [filtroSector, setFiltroSector] = useState('')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [sortKey, setSortKey] = useState<SortKey>('valorCotizado')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [deleteModal, setDeleteModal] = useState<string | null>(null)
 
   const empresaStats = useMemo(() => {
     const map = new Map<string, { opCount: number; valorCotizado: number; valorAdjudicado: number }>()
@@ -27,13 +33,72 @@ export default function Empresas() {
     return map
   }, [state.oportunidades])
 
-  const filtered = useMemo(() => state.empresas.filter(e => {
-    const matchSearch = !search || e.nombre.toLowerCase().includes(search.toLowerCase()) || e.nit.includes(search)
-    const matchSector = !filtroSector || e.sector === filtroSector
-    return matchSearch && matchSector
-  }), [state.empresas, search, filtroSector])
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronDown size={10} className="opacity-30" />
+    return sortDir === 'desc'
+      ? <ChevronDown size={10} className="text-[var(--color-primary)]" />
+      : <ChevronUp size={10} className="text-[var(--color-primary)]" />
+  }
+
+  const filtered = useMemo(() => {
+    let result = state.empresas.filter(e => {
+      const matchSearch = !search || e.nombre.toLowerCase().includes(search.toLowerCase()) || e.nit.includes(search)
+      const matchSector = !filtroSector || e.sector === filtroSector
+      return matchSearch && matchSector
+    })
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      const statsA = empresaStats.get(a.id)
+      const statsB = empresaStats.get(b.id)
+      let cmp = 0
+      switch (sortKey) {
+        case 'nombre':
+          cmp = a.nombre.localeCompare(b.nombre)
+          break
+        case 'opCount':
+          cmp = (statsA?.opCount ?? 0) - (statsB?.opCount ?? 0)
+          break
+        case 'valorCotizado':
+          cmp = (statsA?.valorCotizado ?? 0) - (statsB?.valorCotizado ?? 0)
+          break
+        case 'valorAdjudicado':
+          cmp = (statsA?.valorAdjudicado ?? 0) - (statsB?.valorAdjudicado ?? 0)
+          break
+      }
+      return sortDir === 'desc' ? -cmp : cmp
+    })
+
+    return result
+  }, [state.empresas, search, filtroSector, sortKey, sortDir, empresaStats])
 
   const visible = filtered.slice(0, visibleCount)
+
+  // Delete modal data
+  const deleteEmpresa = deleteModal ? state.empresas.find(e => e.id === deleteModal) : null
+  const deleteContactos = deleteModal ? state.contactos.filter(c => c.empresa_id === deleteModal).length : 0
+  const deleteOportunidades = deleteModal ? state.oportunidades.filter(o => o.empresa_id === deleteModal).length : 0
+  const deleteCotizaciones = deleteModal ? state.cotizaciones.filter(c => {
+    const op = state.oportunidades.find(o => o.id === c.oportunidad_id)
+    return op && op.empresa_id === deleteModal
+  }).length : 0
+
+  function confirmDelete() {
+    if (!deleteModal) return
+    dispatch({ type: 'DELETE_EMPRESA', payload: { id: deleteModal } })
+    setDeleteModal(null)
+  }
+
+  const thBtn = 'flex items-center gap-1 cursor-pointer select-none hover:text-[var(--color-primary)] transition-colors'
 
   return (
     <div className="p-6 space-y-4 animate-fade-in">
@@ -66,11 +131,28 @@ export default function Empresas() {
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-[var(--color-surface)] text-[var(--color-text-muted)] text-left">
-              <th className="px-4 py-2.5 font-medium">Empresa</th>
+              <th className="px-4 py-2.5 font-medium">
+                <button onClick={() => toggleSort('nombre')} className={thBtn}>
+                  Empresa <SortIcon col="nombre" />
+                </button>
+              </th>
               <th className="px-4 py-2.5 font-medium">Sector</th>
-              <th className="px-4 py-2.5 font-medium text-center">Oportunidades</th>
-              <th className="px-4 py-2.5 font-medium text-right">Valor cotizado</th>
-              <th className="px-4 py-2.5 font-medium text-right">Valor adjudicado</th>
+              <th className="px-4 py-2.5 font-medium text-center">
+                <button onClick={() => toggleSort('opCount')} className={`${thBtn} justify-center`}>
+                  Oportunidades <SortIcon col="opCount" />
+                </button>
+              </th>
+              <th className="px-4 py-2.5 font-medium text-right">
+                <button onClick={() => toggleSort('valorCotizado')} className={`${thBtn} justify-end ml-auto`}>
+                  Valor cotizado <SortIcon col="valorCotizado" />
+                </button>
+              </th>
+              <th className="px-4 py-2.5 font-medium text-right">
+                <button onClick={() => toggleSort('valorAdjudicado')} className={`${thBtn} justify-end ml-auto`}>
+                  Valor adjudicado <SortIcon col="valorAdjudicado" />
+                </button>
+              </th>
+              <th className="px-4 py-2.5 font-medium text-center w-12"></th>
             </tr>
           </thead>
           <tbody>
@@ -79,12 +161,11 @@ export default function Empresas() {
               return (
                 <tr
                   key={e.id}
-                  onClick={() => navigate(`/empresas/${e.id}`)}
-                  className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] cursor-pointer transition-colors ${
+                  className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors ${
                     i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'
                   }`}
                 >
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5 cursor-pointer" onClick={() => navigate(`/empresas/${e.id}`)}>
                     <div className="flex items-center gap-2.5">
                       <div
                         className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
@@ -93,7 +174,7 @@ export default function Empresas() {
                         {getInitials(e.nombre)}
                       </div>
                       <div>
-                        <span className="font-medium text-[var(--color-text)]">{e.nombre}</span>
+                        <span className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]">{e.nombre}</span>
                         <div className="text-[10px] text-[var(--color-text-muted)]">{e.nit}</div>
                       </div>
                     </div>
@@ -104,6 +185,15 @@ export default function Empresas() {
                   <td className="px-4 py-2.5 text-center font-medium text-[var(--color-text)]">{stats?.opCount ?? 0}</td>
                   <td className="px-4 py-2.5 text-right text-[var(--color-text)] font-mono">{formatCOP(stats?.valorCotizado ?? 0)}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-[var(--color-accent-green)] font-mono">{formatCOP(stats?.valorAdjudicado ?? 0)}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <button
+                      onClick={(ev) => { ev.stopPropagation(); setDeleteModal(e.id) }}
+                      className="p-1 rounded text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="Eliminar empresa"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
                 </tr>
               )
             })}
@@ -123,6 +213,35 @@ export default function Empresas() {
           )}
         </div>
       </div>
+
+      {/* Fix 13: Delete confirmation modal */}
+      {deleteModal && deleteEmpresa && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white rounded-lg border border-[var(--color-border)] w-full max-w-md p-5 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                <AlertTriangle size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm text-[var(--color-text)]">Eliminar {deleteEmpresa.nombre}?</h3>
+                <p className="text-xs text-[var(--color-text-muted)]">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+            <div className="bg-red-50 rounded-md p-3 mb-4 text-xs text-red-700 space-y-1">
+              <p>Se eliminarán también:</p>
+              <ul className="list-disc list-inside ml-2">
+                <li>{deleteContactos} contacto{deleteContactos !== 1 ? 's' : ''}</li>
+                <li>{deleteOportunidades} oportunidad{deleteOportunidades !== 1 ? 'es' : ''}</li>
+                <li>{deleteCotizaciones} cotizaci{deleteCotizaciones !== 1 ? 'ones' : 'ón'}</li>
+              </ul>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteModal(null)} className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] rounded-md">Cancelar</button>
+              <button onClick={confirmDelete} className="px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-md hover:bg-red-600 transition-colors">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

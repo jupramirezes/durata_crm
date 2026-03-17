@@ -23,8 +23,8 @@ export const COTIZADORES = [
   { id: 'OC', nombre: 'Omar Cossio', iniciales: 'O.C' },
   { id: 'SA', nombre: 'Sebastián Aguirre', iniciales: 'S.A' },
   { id: 'JPR', nombre: 'Juan Pablo Ramírez', iniciales: 'J.R' },
-  { id: 'CA', nombre: 'Camilo Araque', iniciales: 'C.A' },
-  { id: 'DG', nombre: 'Daniela Galindo', iniciales: 'D.G' },
+  { id: 'CA', nombre: 'Cristian Arango', iniciales: 'C.A' },
+  { id: 'DG', nombre: 'Daniel Gómez', iniciales: 'D.G' },
 ] as const
 
 export const FUENTES_LEAD = ['WhatsApp', 'Correo', 'Llamada', 'Referido', 'Licitación', 'Web', 'Otro'] as const
@@ -35,11 +35,12 @@ export const MOTIVOS_PERDIDA = ['Precio', 'Tiempo de entrega', 'Eligió competen
 // Reverse lookup: resolves cotizador_asignado whether it's stored as id ('OC'), iniciales ('O.C'), nombre, or legacy variants
 const _cotizadorIndex = new Map<string, typeof COTIZADORES[number]>()
 const _COTIZADOR_ALIASES: Record<string, string> = {
-  'O.C': 'OC', 'OC': 'OC',
-  'S.A': 'SA', 'SA': 'SA',
-  'J.R': 'JPR', 'J.R ': 'JPR', 'JPR': 'JPR',
-  'C.A': 'CA', 'CA': 'CA',
-  'D.G': 'DG', 'DG': 'DG',
+  // Initials with dots (Excel format)
+  'O.C': 'OC', 'S.A': 'SA', 'J.R': 'JPR', 'J.R ': 'JPR', 'C.A': 'CA', 'D.G': 'DG',
+  // Short IDs
+  'OC': 'OC', 'SA': 'SA', 'JPR': 'JPR', 'CA': 'CA', 'DG': 'DG',
+  // Legacy name variants (in case some records have old names)
+  'Camilo Araque': 'CA', 'Daniela Galindo': 'DG',
 }
 for (const c of COTIZADORES) {
   _cotizadorIndex.set(c.id, c)
