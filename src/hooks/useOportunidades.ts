@@ -1,13 +1,11 @@
-import { supabase, isSupabaseReady } from './useSupabase'
+import { supabase, isSupabaseReady, fetchAllRows } from './useSupabase'
 import type { Oportunidad, HistorialEtapa, ProductoCliente, Contacto } from '../types'
 
 // ── Oportunidades ──────────────────────────────────────
 
 export async function fetchOportunidades(): Promise<{ data: Oportunidad[]; error: string | null }> {
   if (!isSupabaseReady) return { data: [], error: 'supabase_not_ready' }
-  const { data, error } = await supabase.from('oportunidades').select('*').order('created_at', { ascending: true })
-  if (error) return { data: [], error: error.message }
-  return { data: data as Oportunidad[], error: null }
+  return fetchAllRows<Oportunidad>(supabase.from('oportunidades').select('*').order('created_at', { ascending: true }))
 }
 
 export async function createOportunidad(op: Omit<Oportunidad, 'id' | 'created_at'> & { id?: string }): Promise<{ data: Oportunidad | null; error: string | null }> {
@@ -29,7 +27,6 @@ export async function updateOportunidad(updates: Partial<Oportunidad> & { id: st
 
 export async function removeOportunidad(id: string): Promise<{ error: string | null }> {
   if (!isSupabaseReady) return { error: 'supabase_not_ready' }
-  // CASCADE deletes historial, productos, cotizaciones
   const { error } = await supabase.from('oportunidades').delete().eq('id', id)
   return { error: error?.message ?? null }
 }
@@ -38,9 +35,7 @@ export async function removeOportunidad(id: string): Promise<{ error: string | n
 
 export async function fetchHistorial(): Promise<{ data: HistorialEtapa[]; error: string | null }> {
   if (!isSupabaseReady) return { data: [], error: 'supabase_not_ready' }
-  const { data, error } = await supabase.from('historial_etapas').select('*').order('created_at', { ascending: true })
-  if (error) return { data: [], error: error.message }
-  return { data: data as HistorialEtapa[], error: null }
+  return fetchAllRows<HistorialEtapa>(supabase.from('historial_etapas').select('*').order('created_at', { ascending: true }))
 }
 
 export async function createHistorial(entry: Omit<HistorialEtapa, 'id'> & { id?: string }): Promise<{ error: string | null }> {
@@ -56,9 +51,7 @@ export async function createHistorial(entry: Omit<HistorialEtapa, 'id'> & { id?:
 
 export async function fetchContactos(): Promise<{ data: Contacto[]; error: string | null }> {
   if (!isSupabaseReady) return { data: [], error: 'supabase_not_ready' }
-  const { data, error } = await supabase.from('contactos').select('*').order('created_at', { ascending: true })
-  if (error) return { data: [], error: error.message }
-  return { data: data as Contacto[], error: null }
+  return fetchAllRows<Contacto>(supabase.from('contactos').select('*').order('created_at', { ascending: true }))
 }
 
 export async function createContacto(c: Omit<Contacto, 'id' | 'created_at'> & { id?: string }): Promise<{ data: Contacto | null; error: string | null }> {
@@ -82,9 +75,7 @@ export async function updateContacto(c: Contacto): Promise<{ error: string | nul
 
 export async function fetchProductos(): Promise<{ data: ProductoCliente[]; error: string | null }> {
   if (!isSupabaseReady) return { data: [], error: 'supabase_not_ready' }
-  const { data, error } = await supabase.from('productos_oportunidad').select('*').order('created_at', { ascending: true })
-  if (error) return { data: [], error: error.message }
-  return { data: data as ProductoCliente[], error: null }
+  return fetchAllRows<ProductoCliente>(supabase.from('productos_oportunidad').select('*').order('created_at', { ascending: true }))
 }
 
 export async function createProducto(p: Omit<ProductoCliente, 'id'> & { id?: string }): Promise<{ error: string | null }> {

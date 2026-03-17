@@ -1,11 +1,9 @@
-import { supabase, isSupabaseReady } from './useSupabase'
+import { supabase, isSupabaseReady, fetchAllRows } from './useSupabase'
 import type { Cotizacion } from '../types'
 
 export async function fetchCotizaciones(): Promise<{ data: Cotizacion[]; error: string | null }> {
   if (!isSupabaseReady) return { data: [], error: 'supabase_not_ready' }
-  const { data, error } = await supabase.from('cotizaciones').select('*').order('created_at', { ascending: true })
-  if (error) return { data: [], error: error.message }
-  return { data: data as Cotizacion[], error: null }
+  return fetchAllRows<Cotizacion>(supabase.from('cotizaciones').select('*').order('created_at', { ascending: true }))
 }
 
 export async function createCotizacion(cot: Omit<Cotizacion, 'id'> & { id?: string }): Promise<{ error: string | null }> {

@@ -1,11 +1,9 @@
-import { supabase, isSupabaseReady } from './useSupabase'
+import { supabase, isSupabaseReady, fetchAllRows } from './useSupabase'
 import type { Empresa } from '../types'
 
 export async function fetchEmpresas(): Promise<{ data: Empresa[]; error: string | null }> {
   if (!isSupabaseReady) return { data: [], error: 'supabase_not_ready' }
-  const { data, error } = await supabase.from('empresas').select('*').order('created_at', { ascending: true })
-  if (error) return { data: [], error: error.message }
-  return { data: data as Empresa[], error: null }
+  return fetchAllRows<Empresa>(supabase.from('empresas').select('*').order('created_at', { ascending: true }))
 }
 
 export async function createEmpresa(emp: Omit<Empresa, 'id' | 'created_at'> & { id?: string }): Promise<{ data: Empresa | null; error: string | null }> {
