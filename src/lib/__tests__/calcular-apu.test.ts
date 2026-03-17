@@ -131,11 +131,11 @@ describe('types consistency', () => {
     expect(SECTORES).toContain('Otro')
   })
 
-  it('COTIZADORES C.A es Cristian Arango', async () => {
+  it('COTIZADORES C.A es Camilo Araque', async () => {
     const { COTIZADORES } = await import('../../types')
     const ca = COTIZADORES.find(c => c.id === 'CA')
     expect(ca).toBeDefined()
-    expect(ca!.nombre).toBe('Cristian Arango')
+    expect(ca!.nombre).toBe('Camilo Araque')
   })
 
   it('ETAPAS tiene 7 etapas', async () => {
