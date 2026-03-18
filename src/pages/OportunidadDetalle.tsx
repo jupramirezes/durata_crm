@@ -5,7 +5,7 @@ import { ETAPAS, findCotizador } from '../types'
 import { formatDate, formatCOP } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
-import { ArrowLeft, Plus, FileText, Package, Trash2, Building2, Target, User, Edit3 } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Package, Trash2, Building2, Target, User, Edit3, StickyNote, Send } from 'lucide-react'
 
 export default function OportunidadDetalle() {
   const { id } = useParams()
@@ -20,6 +20,7 @@ export default function OportunidadDetalle() {
   const cotizador = oportunidad ? findCotizador(oportunidad.cotizador_asignado) : null
 
   const [showCotModal, setShowCotModal] = useState(false)
+  const [notaTexto, setNotaTexto] = useState('')
 
   if (!oportunidad || !empresa) return <div className="p-6 text-[var(--color-text-muted)]">Oportunidad no encontrada</div>
 
@@ -63,6 +64,37 @@ export default function OportunidadDetalle() {
     setShowCotModal(false)
     setTimeout(() => navigate(`/cotizaciones/${cotId}/editar`), 100)
   }
+
+  // Parse notas into entries (newest first)
+  function parseNotas(notas: string): { timestamp: string; text: string }[] {
+    if (!notas || !notas.trim()) return []
+    const lines = notas.split('\n').filter(l => l.trim())
+    const entries: { timestamp: string; text: string }[] = []
+    for (const line of lines) {
+      const match = line.match(/^\[(.+?)\]\s*(.*)$/)
+      if (match) {
+        entries.push({ timestamp: match[1], text: match[2] })
+      } else {
+        entries.push({ timestamp: '', text: line })
+      }
+    }
+    return entries.reverse() // newest first
+  }
+
+  function handleAddNota() {
+    if (!notaTexto.trim() || !oportunidad) return
+    const now = new Date()
+    const ts = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+      ' ' + now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+    const newEntry = `[${ts}] ${notaTexto.trim()}`
+    const updatedNotas = oportunidad.notas
+      ? oportunidad.notas + '\n' + newEntry
+      : newEntry
+    dispatch({ type: 'UPDATE_OPORTUNIDAD', payload: { id: oportunidad.id, notas: updatedNotas } })
+    setNotaTexto('')
+  }
+
+  const notasEntries = parseNotas(oportunidad.notas || '')
 
   return (
     <div className="p-6 space-y-4 max-w-5xl animate-fade-in">
@@ -141,12 +173,53 @@ export default function OportunidadDetalle() {
         </div>
       </div>
 
-      {oportunidad.notas && (
-        <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-          <span className="text-[10px] text-[var(--color-text-muted)] font-medium block mb-1">Notas</span>
-          <p className="text-xs leading-relaxed text-[var(--color-text)]">{oportunidad.notas}</p>
+      {/* ─── NOTAS Y ACTIVIDAD ──────────────────────── */}
+      <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
+        <div className="flex items-center gap-1.5 mb-3">
+          <StickyNote size={12} className="text-amber-500" />
+          <h3 className="font-semibold text-xs text-[var(--color-text)]">Notas y actividad</h3>
+          {notasEntries.length > 0 && (
+            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{notasEntries.length}</span>
+          )}
         </div>
-      )}
+
+        {/* Add note input */}
+        <div className="flex gap-2 mb-3">
+          <input
+            value={notaTexto}
+            onChange={e => setNotaTexto(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNota() } }}
+            placeholder="Escribir una nota..."
+            className="flex-1 px-3 py-2 rounded-md text-xs border border-[var(--color-border)] bg-[var(--color-bg)] focus:border-[var(--color-primary)] focus:outline-none transition-colors"
+          />
+          <button
+            onClick={handleAddNota}
+            disabled={!notaTexto.trim()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Send size={12} /> Agregar
+          </button>
+        </div>
+
+        {/* Notes feed */}
+        {notasEntries.length === 0 ? (
+          <p className="text-[10px] text-[var(--color-text-muted)] text-center py-3">Sin notas registradas. Agrega la primera nota arriba.</p>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {notasEntries.map((entry, i) => (
+              <div key={i} className="flex gap-2.5 px-2 py-2 rounded-md bg-amber-50/50 border border-amber-100">
+                <div className="w-1 rounded-full bg-amber-300 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  {entry.timestamp && (
+                    <p className="text-[9px] text-amber-600 font-medium mb-0.5">{entry.timestamp}</p>
+                  )}
+                  <p className="text-xs text-[var(--color-text)] leading-relaxed">{entry.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Timeline */}
       {historial.length > 0 && (

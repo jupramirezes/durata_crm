@@ -30,17 +30,12 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   return (
     <>
       <div className="px-5 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img
-            src="/logo-durata.png"
-            alt="DURATA"
-            className="h-8 object-contain brightness-0 invert"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-          />
-          <div>
-            <span className="text-sm font-bold text-white tracking-tight">DURATA</span>
-            <span className="text-sm font-bold text-[var(--color-primary-light)] ml-1">CRM</span>
+        <div>
+          <div className="flex items-baseline">
+            <span className="text-lg font-extrabold text-white tracking-tight">DURATA</span>
+            <span className="text-lg font-extrabold text-[#3b82f6] ml-1.5">CRM</span>
           </div>
+          <p className="text-[9px] text-slate-400 -mt-0.5 tracking-wide">Sistema de Cotización</p>
         </div>
         {onClose && (
           <button onClick={onClose} className="text-slate-400 hover:text-white md:hidden p-1">

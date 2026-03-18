@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, Etapa, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, matchCotizador } from '../types'
 import { daysSince, formatCOP, getAvatarColor } from '../lib/utils'
-import { Plus, Clock, X, History, Search } from 'lucide-react'
+import { Plus, Clock, X, History, Search, StickyNote } from 'lucide-react'
 import OportunidadFormModal from '../components/OportunidadFormModal'
 
 const ETAPAS_ACTIVAS: Set<string> = new Set([
@@ -49,6 +49,13 @@ export default function Pipeline() {
     for (const e of state.empresas) m.set(e.id, e.nombre.toLowerCase())
     return m
   }, [state.empresas])
+
+  // Build contacto lookup
+  const contactoMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of state.contactos) m.set(c.id, c.nombre)
+    return m
+  }, [state.contactos])
 
   const filtered = useMemo(() => {
     let ops = showHistoricas ? state.oportunidades : state.oportunidades.filter(isActive)
@@ -211,28 +218,30 @@ export default function Pipeline() {
               onDragOver={e => onDragOver(e, etapa.key)}
               onDragLeave={onDragLeave}
               onDrop={e => onDrop(e, etapa.key)}
-              className={`flex-shrink-0 w-[210px] rounded-lg border flex flex-col transition-all duration-150 ${
-                isOver ? 'bg-blue-50 border-blue-300' : 'bg-white border-[var(--color-border)]'
+              className={`flex-shrink-0 w-[220px] rounded-lg border flex flex-col transition-all duration-150 ${
+                isOver ? 'bg-blue-50 border-blue-300 shadow-md' : 'bg-white border-[var(--color-border)]'
               }`}
             >
               {/* Column header with color bar */}
               <div className="rounded-t-lg overflow-hidden">
-                <div className="h-1" style={{ background: etapa.color }} />
+                <div className="h-1.5" style={{ background: etapa.color }} />
                 <div className="px-3 py-2.5 flex items-center gap-2">
                   <span className="text-[11px] font-semibold flex-1 text-[var(--color-text)] truncate">{etapa.label}</span>
                   <span className="text-[9px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface)] px-1.5 py-0.5 rounded">{oportunidades.length}</span>
                 </div>
                 {valorTotal > 0 && (
                   <div className="px-3 pb-2 -mt-1">
-                    <span className="text-[9px] text-[var(--color-text-muted)] font-mono">{formatCOP(valorTotal)}</span>
+                    <span className="text-[9px] text-[var(--color-text-muted)] font-mono font-semibold">{formatCOP(valorTotal)}</span>
                   </div>
                 )}
               </div>
               <div className="flex-1 px-1.5 pb-1.5 space-y-1.5 overflow-y-auto">
                 {oportunidades.map(o => {
                   const empresa = state.empresas.find(e => e.id === o.empresa_id)
+                  const contactoNombre = contactoMap.get(o.contacto_id)
                   const cotizador = findCotizador(o.cotizador_asignado)
                   const dias = daysSince(o.fecha_ingreso)
+                  const hasNotas = o.notas && o.notas.trim().length > 0
                   return (
                     <div
                       key={o.id}
@@ -240,15 +249,21 @@ export default function Pipeline() {
                       onDragStart={e => onDragStart(e, o.id)}
                       onDragEnd={onDragEnd}
                       onClick={() => navigate(`/oportunidades/${o.id}`)}
-                      className={`bg-[var(--color-bg)] rounded-md p-2.5 border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-border-light)] transition-all duration-150 ${
-                        dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-sm'
+                      className={`bg-[var(--color-bg)] rounded-md p-2.5 border border-[var(--color-border)] cursor-pointer transition-all duration-150 ${
+                        dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-md hover:border-slate-300 hover:-translate-y-px'
                       }`}
                     >
-                      <div className="font-medium text-[11px] truncate text-[var(--color-text)] mb-0.5">{empresa?.nombre}</div>
+                      <div className="font-semibold text-[11px] truncate text-[var(--color-text)] mb-0.5">{empresa?.nombre}</div>
+                      {contactoNombre && (
+                        <div className="text-[10px] text-slate-400 truncate mb-1">{contactoNombre}</div>
+                      )}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-semibold text-[var(--color-accent-green)]">{formatCOP(o.valor_cotizado)}</span>
+                        <span className="text-[10px] font-bold" style={{ color: etapa.color }}>{formatCOP(o.valor_cotizado)}</span>
                         {cotizador && (
-                          <span className="text-[8px] w-4 h-4 rounded-full font-bold text-white flex items-center justify-center" style={{ background: getAvatarColor(cotizador.nombre) }}>{cotizador.iniciales}</span>
+                          <span className="text-[8px] w-4 h-4 rounded-full font-bold text-white flex items-center justify-center" style={{ background: getAvatarColor(cotizador.nombre) }} title={cotizador.nombre}>{cotizador.iniciales}</span>
+                        )}
+                        {hasNotas && (
+                          <span title="Tiene notas"><StickyNote size={10} className="text-amber-400" /></span>
                         )}
                         <span className="flex items-center gap-0.5 text-[9px] text-[var(--color-text-muted)] ml-auto">
                           <Clock size={8} /> {dias}d
@@ -274,7 +289,7 @@ export default function Pipeline() {
               <button onClick={() => setAdjudicadaModal(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={16} /></button>
             </div>
             <label className="text-[10px] font-medium text-[var(--color-text-muted)] mb-1 block">Valor adjudicado (COP)</label>
-            <input type="number" value={valorAdjudicado || ''} onChange={e => setValorAdjudicado(Number(e.target.value))} className="w-full px-3 py-2 rounded-md text-sm mb-1" />
+            <input type="number" value={valorAdjudicado || ''} onChange={e => setValorAdjudicado(Number(e.target.value))} className="w-full px-3 py-2 rounded-md text-sm mb-1 border border-[var(--color-border)]" />
             {valorAdjudicado > 0 && <p className="text-xs text-[var(--color-text-muted)] mb-3">{formatCOP(valorAdjudicado)}</p>}
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setAdjudicadaModal(null)} className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] rounded-md">Cancelar</button>
@@ -293,7 +308,7 @@ export default function Pipeline() {
               <button onClick={() => setPerdidaModal(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={16} /></button>
             </div>
             <label className="text-[10px] font-medium text-[var(--color-text-muted)] mb-1 block">Motivo</label>
-            <select value={motivoPerdida} onChange={e => setMotivoPerdida(e.target.value)} className="w-full px-3 py-2 rounded-md text-sm mb-4">
+            <select value={motivoPerdida} onChange={e => setMotivoPerdida(e.target.value)} className="w-full px-3 py-2 rounded-md text-sm mb-4 border border-[var(--color-border)]">
               {MOTIVOS_PERDIDA.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
             <div className="flex justify-end gap-2">
