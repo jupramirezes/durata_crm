@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { ETAPAS, findCotizador } from '../types'
+import { ETAPAS, findCotizador, CONFIG_MESA_DEFAULT } from '../types'
 import { formatDate, formatCOP } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
-import { ArrowLeft, Plus, FileText, Package, Trash2, Building2, Target, User, Edit3, StickyNote, Send } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Package, Trash2, Building2, Target, User, Edit3, StickyNote, Send, Wrench, X } from 'lucide-react'
+
+const CATEGORIAS_PRODUCTO = [
+  'Mesas', 'Pozuelos', 'Pasamanos', 'Baños', 'Muebles',
+  'Repisas', 'Autoservicios', 'Campanas', 'Cárcamos', 'Passthrough',
+  'Estanterías', 'BBQ', 'Otro',
+]
 
 export default function OportunidadDetalle() {
   const { id } = useParams()
@@ -21,6 +27,15 @@ export default function OportunidadDetalle() {
 
   const [showCotModal, setShowCotModal] = useState(false)
   const [notaTexto, setNotaTexto] = useState('')
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [manualForm, setManualForm] = useState({
+    categoria: 'Mesas',
+    descripcion: '',
+    cantidad: 1,
+    precio_unitario: 0,
+    notas: '',
+  })
 
   if (!oportunidad || !empresa) return <div className="p-6 text-[var(--color-text-muted)]">Oportunidad no encontrada</div>
 
@@ -253,9 +268,27 @@ export default function OportunidadDetalle() {
       <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
         <div className="flex justify-between items-center mb-3">
           <h3 className="font-semibold text-xs text-[var(--color-text)]">Productos solicitados</h3>
-          <button onClick={() => navigate(`/oportunidades/${id}/configurar`)} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold transition-all">
-            <Plus size={12} /> Agregar producto
-          </button>
+          <div className="relative">
+            <button onClick={() => setShowAddMenu(!showAddMenu)} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold transition-all">
+              <Plus size={12} /> Agregar producto
+            </button>
+            {showAddMenu && (
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-[var(--color-border)] z-20 overflow-hidden">
+                <button
+                  onClick={() => { setShowAddMenu(false); navigate(`/oportunidades/${id}/configurar`) }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-[var(--color-surface)] transition-colors text-left"
+                >
+                  <Wrench size={14} className="text-[var(--color-primary)]" /> Configurar Mesa
+                </button>
+                <button
+                  onClick={() => { setShowAddMenu(false); setShowManualForm(true) }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-[var(--color-surface)] transition-colors text-left border-t border-[var(--color-border)]"
+                >
+                  <Package size={14} className="text-purple-500" /> Producto manual
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         {productos.length === 0 ? (
           <div className="text-center py-6">
@@ -356,6 +389,78 @@ export default function OportunidadDetalle() {
           onConfirm={handleCrearCotizacion}
           onClose={() => setShowCotModal(false)}
         />
+      )}
+
+      {/* Manual product modal */}
+      {showManualForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowManualForm(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
+              <h3 className="font-semibold text-sm text-[var(--color-text)]">Producto manual</h3>
+              <button onClick={() => setShowManualForm(false)} className="p-1 rounded hover:bg-[var(--color-surface)]"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Categoría</label>
+                <select value={manualForm.categoria} onChange={e => setManualForm(f => ({ ...f, categoria: e.target.value }))} className="w-full px-3 py-2 rounded-lg text-xs border border-[var(--color-border)] bg-white">
+                  {CATEGORIAS_PRODUCTO.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Descripción comercial</label>
+                <textarea value={manualForm.descripcion} onChange={e => setManualForm(f => ({ ...f, descripcion: e.target.value }))} rows={3} placeholder="Descripción del producto para la cotización..." className="w-full px-3 py-2 rounded-lg text-xs border border-[var(--color-border)] resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Cantidad</label>
+                  <input type="number" value={manualForm.cantidad} onChange={e => setManualForm(f => ({ ...f, cantidad: Math.max(1, Number(e.target.value)) }))} min={1} className="w-full px-3 py-2 rounded-lg text-xs border border-[var(--color-border)]" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Precio unitario (COP)</label>
+                  <input type="number" value={manualForm.precio_unitario} onChange={e => setManualForm(f => ({ ...f, precio_unitario: Math.max(0, Number(e.target.value)) }))} min={0} step={1000} className="w-full px-3 py-2 rounded-lg text-xs border border-[var(--color-border)]" />
+                </div>
+              </div>
+              {manualForm.precio_unitario > 0 && manualForm.cantidad > 0 && (
+                <div className="text-right text-xs text-[var(--color-text-muted)]">
+                  Total: <span className="font-bold text-[var(--color-text)] font-mono">{formatCOP(manualForm.precio_unitario * manualForm.cantidad)}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Notas internas (opcional)</label>
+                <textarea value={manualForm.notas} onChange={e => setManualForm(f => ({ ...f, notas: e.target.value }))} rows={2} placeholder="Notas para referencia del cotizador..." className="w-full px-3 py-2 rounded-lg text-xs border border-[var(--color-border)] resize-none" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
+              <button onClick={() => setShowManualForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-white border border-[var(--color-border)] transition-colors">Cancelar</button>
+              <button
+                disabled={!manualForm.descripcion.trim() || manualForm.precio_unitario <= 0}
+                onClick={() => {
+                  if (!oportunidad) return
+                  const descFull = manualForm.notas.trim()
+                    ? `${manualForm.descripcion}\n[Nota: ${manualForm.notas.trim()}]`
+                    : manualForm.descripcion
+                  dispatch({
+                    type: 'ADD_PRODUCTO',
+                    payload: {
+                      oportunidad_id: oportunidad.id,
+                      categoria: manualForm.categoria,
+                      subtipo: `${manualForm.categoria} (manual)`,
+                      configuracion: CONFIG_MESA_DEFAULT,
+                      precio_calculado: manualForm.precio_unitario,
+                      descripcion_comercial: descFull,
+                      cantidad: manualForm.cantidad,
+                    },
+                  })
+                  setShowManualForm(false)
+                  setManualForm({ categoria: 'Mesas', descripcion: '', cantidad: 1, precio_unitario: 0, notas: '' })
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-primary)] hover:opacity-90 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Guardar producto
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
