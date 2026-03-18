@@ -166,7 +166,7 @@ export default function Dashboard() {
 
     const opsThisMonth = new Set(cotsM.map(c => c.oportunidad_id))
     const diasArr = calcDiasElaboracion(
-      [...opsThisMonth].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x !== null)
+      [...opsThisMonth].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x != null)
     )
 
     return { label: monthLabel(year, month), cotQty: cotsM.length, cotValor, adjQty: adjOps.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
@@ -232,7 +232,7 @@ export default function Dashboard() {
 
     const opsThisYear = new Set(cotsY.map(c => c.oportunidad_id))
     const diasArr = calcDiasElaboracion(
-      [...opsThisYear].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x !== null)
+      [...opsThisYear].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x != null)
     )
 
     return { label: String(year), cotQty: cotsY.length, cotValor, adjQty: adjOpsY.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
@@ -279,7 +279,7 @@ export default function Dashboard() {
 
     const opsIds = new Set(periodCots.map(c => c.oportunidad_id))
     const diasArr = calcDiasElaboracion(
-      [...opsIds].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x !== null)
+      [...opsIds].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x != null)
     )
     const dias = avgDias(diasArr)
 
