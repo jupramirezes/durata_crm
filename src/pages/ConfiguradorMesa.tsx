@@ -98,13 +98,19 @@ function MOField({ label, suggested, value, onChange }: { label: string; suggest
 }
 
 // Editable APU line row
+function fmtCant(n: number, unidad: string): string {
+  const u = (unidad || '').toLowerCase()
+  if (u === 'und' || u === 'un') return Math.round(n).toString()
+  return n.toFixed(2)
+}
+
 function ApuLineRow({ linea, onChange }: { linea: ApuLinea; onChange: (updated: ApuLinea) => void }) {
   return (
     <tr className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]">
       <td className="px-2 py-1.5">
-        <input type="number" value={linea.cantidad} onChange={e => onChange({ ...linea, cantidad: Number(e.target.value), total: Number(e.target.value) * linea.precio_unitario * (1 + linea.desperdicio) })} step="0.01" className="w-16 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
+        <input type="number" value={fmtCant(linea.cantidad, linea.unidad)} onChange={e => onChange({ ...linea, cantidad: Number(e.target.value), total: Number(e.target.value) * linea.precio_unitario * (1 + linea.desperdicio) })} step="0.01" className="w-16 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
       </td>
-      <td className="px-2 py-1.5 text-xs truncate max-w-36" title={linea.descripcion}>
+      <td className="px-2 py-1.5 text-xs min-w-[200px] whitespace-normal break-words" title={linea.descripcion}>
         {linea.descripcion}
         {linea.unidad && <span className="text-[9px] text-[var(--color-text-muted)] ml-1">{linea.unidad}</span>}
       </td>
@@ -134,11 +140,29 @@ function ExtraCostRow({ label, cantidad, precioUnit, onCantidadChange, onPrecioC
   )
 }
 
+interface MOLineOverride {
+  cantidad: number | null
+  precio: number | null
+}
+
 interface MOOverrides {
   acero: number | null
   pulido: number | null
   patas: number | null
   instalacion: number | null
+}
+
+interface MOOverridesV2 {
+  acero: MOLineOverride
+  pulido: MOLineOverride
+  patas: MOLineOverride
+  instalacion: MOLineOverride
+}
+
+interface TransporteOverridesV2 {
+  elementos: MOLineOverride
+  personal: MOLineOverride
+  descripcion: string
 }
 
 interface TransporteOverrides {
@@ -178,10 +202,21 @@ export default function ConfiguradorMesa() {
   // Custom extra lines added by user
   const [customLineas, setCustomLineas] = useState<ApuLinea[]>([])
 
-  // MO overrides
+  // MO overrides (v2: separate qty and price)
   const [moOverrides, setMoOverrides] = useState<MOOverrides>({ acero: null, pulido: null, patas: null, instalacion: null })
-  // Transporte overrides
+  const [moV2, setMoV2] = useState<MOOverridesV2>({
+    acero: { cantidad: null, precio: null },
+    pulido: { cantidad: null, precio: null },
+    patas: { cantidad: null, precio: null },
+    instalacion: { cantidad: null, precio: null },
+  })
+  // Transporte overrides (v2: separate qty and price)
   const [transporteOverrides, setTransporteOverrides] = useState<TransporteOverrides>({ elementos: null, personal: null, descripcion: '' })
+  const [transV2, setTransV2] = useState<TransporteOverridesV2>({
+    elementos: { cantidad: null, precio: null },
+    personal: { cantidad: null, precio: null },
+    descripcion: '',
+  })
   // Extra cost overrides (laser, push pedal, poliza)
   const [laserOverride, setLaserOverride] = useState<ExtraCostOverride>({ cantidad: null, precio: null })
   const [pushPedalOverride, setPushPedalOverride] = useState<ExtraCostOverride>({ cantidad: null, precio: null })
@@ -199,20 +234,36 @@ export default function ConfiguradorMesa() {
   const sugMoPatas = cfg.patas * 10000
   const sugMoInstalacion = cfg.instalado ? Math.round(cfg.largo * 22200) : 0
 
+  // MO qty × price (v2)
+  const moQtyAcero = moV2.acero.cantidad ?? parseFloat(mlMO.toFixed(2))
+  const moPriceAcero = moV2.acero.precio ?? 30000
+  const moQtyPulido = moV2.pulido.cantidad ?? parseFloat(mlMO.toFixed(2))
+  const moPricePulido = moV2.pulido.precio ?? 23000
+  const moQtyPatas = moV2.patas.cantidad ?? cfg.patas
+  const moPricePatas = moV2.patas.precio ?? 10000
+  const moQtyInstalacion = moV2.instalacion.cantidad ?? parseFloat(cfg.largo.toFixed(2))
+  const moPriceInstalacion = moV2.instalacion.precio ?? 22200
+
   // Suggested transporte values — Excel: IF(L<1,1,L) * price
   const tteUnidades = cfg.largo < 1 ? 1 : cfg.largo
   const sugTransElementos = Math.round(tteUnidades * 15000)
   const sugTransPersonal = Math.round(tteUnidades * 5000)
 
+  // Transport qty × price (v2)
+  const transQtyElementos = transV2.elementos.cantidad ?? parseFloat(tteUnidades.toFixed(2))
+  const transPriceElementos = transV2.elementos.precio ?? 15000
+  const transQtyPersonal = transV2.personal.cantidad ?? parseFloat(tteUnidades.toFixed(2))
+  const transPricePersonal = transV2.personal.precio ?? 5000
+
   // Actual MO and transport values (override or suggested)
-  const actualMoAcero = moOverrides.acero ?? sugMoAcero
-  const actualMoPulido = moOverrides.pulido ?? sugMoPulido
-  const actualMoPatas = moOverrides.patas ?? sugMoPatas
-  const actualMoInstalacion = moOverrides.instalacion ?? sugMoInstalacion
+  const actualMoAcero = moOverrides.acero ?? Math.round(moQtyAcero * moPriceAcero)
+  const actualMoPulido = moOverrides.pulido ?? Math.round(moQtyPulido * moPricePulido)
+  const actualMoPatas = moOverrides.patas ?? Math.round(moQtyPatas * moPricePatas)
+  const actualMoInstalacion = moOverrides.instalacion ?? (cfg.instalado ? Math.round(moQtyInstalacion * moPriceInstalacion) : 0)
   const totalMoOverride = actualMoAcero + actualMoPulido + actualMoPatas + actualMoInstalacion
 
-  const actualTransElementos = transporteOverrides.elementos ?? sugTransElementos
-  const actualTransPersonal = transporteOverrides.personal ?? sugTransPersonal
+  const actualTransElementos = transporteOverrides.elementos ?? Math.round(transQtyElementos * transPriceElementos)
+  const actualTransPersonal = transporteOverrides.personal ?? Math.round(transQtyPersonal * transPricePersonal)
   const totalTransOverride = actualTransElementos + actualTransPersonal
 
   // Laser: suggested from APU result, override from state
@@ -623,7 +674,7 @@ export default function ConfiguradorMesa() {
                     <div className="px-4 py-2 bg-blue-50/50">
                       <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">Insumos</span>
                     </div>
-                    <div className="max-h-64 overflow-y-auto">
+                    <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-[var(--color-text-muted)] text-left border-b border-[var(--color-border)]">
@@ -674,10 +725,10 @@ export default function ConfiguradorMesa() {
                     </div>
                     <table className="w-full text-xs">
                       <tbody>
-                        <ExtraCostRow label="MO Acero" cantidad={1} precioUnit={actualMoAcero} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, acero: v }))} />
-                        <ExtraCostRow label="MO Pulido" cantidad={1} precioUnit={actualMoPulido} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, pulido: v }))} />
-                        <ExtraCostRow label="MO Patas" cantidad={1} precioUnit={actualMoPatas} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, patas: v }))} />
-                        {cfg.instalado && <ExtraCostRow label="MO Instalacion" cantidad={1} precioUnit={actualMoInstalacion} onCantidadChange={() => {}} onPrecioChange={v => setMoOverrides(p => ({ ...p, instalacion: v }))} />}
+                        <ExtraCostRow label="MO Acero (ml)" cantidad={moQtyAcero} precioUnit={moPriceAcero} onCantidadChange={v => { setMoV2(p => ({ ...p, acero: { ...p.acero, cantidad: v } })); setMoOverrides(p => ({ ...p, acero: null })) }} onPrecioChange={v => { setMoV2(p => ({ ...p, acero: { ...p.acero, precio: v } })); setMoOverrides(p => ({ ...p, acero: null })) }} />
+                        <ExtraCostRow label="MO Pulido (ml)" cantidad={moQtyPulido} precioUnit={moPricePulido} onCantidadChange={v => { setMoV2(p => ({ ...p, pulido: { ...p.pulido, cantidad: v } })); setMoOverrides(p => ({ ...p, pulido: null })) }} onPrecioChange={v => { setMoV2(p => ({ ...p, pulido: { ...p.pulido, precio: v } })); setMoOverrides(p => ({ ...p, pulido: null })) }} />
+                        <ExtraCostRow label="MO Patas (und)" cantidad={moQtyPatas} precioUnit={moPricePatas} onCantidadChange={v => { setMoV2(p => ({ ...p, patas: { ...p.patas, cantidad: v } })); setMoOverrides(p => ({ ...p, patas: null })) }} onPrecioChange={v => { setMoV2(p => ({ ...p, patas: { ...p.patas, precio: v } })); setMoOverrides(p => ({ ...p, patas: null })) }} />
+                        {cfg.instalado && <ExtraCostRow label="MO Instalacion (ml)" cantidad={moQtyInstalacion} precioUnit={moPriceInstalacion} onCantidadChange={v => { setMoV2(p => ({ ...p, instalacion: { ...p.instalacion, cantidad: v } })); setMoOverrides(p => ({ ...p, instalacion: null })) }} onPrecioChange={v => { setMoV2(p => ({ ...p, instalacion: { ...p.instalacion, precio: v } })); setMoOverrides(p => ({ ...p, instalacion: null })) }} />}
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-[var(--color-border)] bg-purple-50/30">
@@ -693,8 +744,8 @@ export default function ConfiguradorMesa() {
                     </div>
                     <table className="w-full text-xs">
                       <tbody>
-                        <ExtraCostRow label="Transporte elementos" cantidad={1} precioUnit={actualTransElementos} onCantidadChange={() => {}} onPrecioChange={v => setTransporteOverrides(p => ({ ...p, elementos: v }))} />
-                        <ExtraCostRow label="Transporte personal" cantidad={1} precioUnit={actualTransPersonal} onCantidadChange={() => {}} onPrecioChange={v => setTransporteOverrides(p => ({ ...p, personal: v }))} />
+                        <ExtraCostRow label="Transporte elementos" cantidad={transQtyElementos} precioUnit={transPriceElementos} onCantidadChange={v => { setTransV2(p => ({ ...p, elementos: { ...p.elementos, cantidad: v } })); setTransporteOverrides(p => ({ ...p, elementos: null })) }} onPrecioChange={v => { setTransV2(p => ({ ...p, elementos: { ...p.elementos, precio: v } })); setTransporteOverrides(p => ({ ...p, elementos: null })) }} />
+                        <ExtraCostRow label="Transporte personal" cantidad={transQtyPersonal} precioUnit={transPricePersonal} onCantidadChange={v => { setTransV2(p => ({ ...p, personal: { ...p.personal, cantidad: v } })); setTransporteOverrides(p => ({ ...p, personal: null })) }} onPrecioChange={v => { setTransV2(p => ({ ...p, personal: { ...p.personal, precio: v } })); setTransporteOverrides(p => ({ ...p, personal: null })) }} />
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-[var(--color-border)] bg-orange-50/30">
