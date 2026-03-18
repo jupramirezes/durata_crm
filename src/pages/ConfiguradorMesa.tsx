@@ -104,11 +104,14 @@ function ApuLineRow({ linea, onChange }: { linea: ApuLinea; onChange: (updated: 
       <td className="px-2 py-1.5">
         <input type="number" value={linea.cantidad} onChange={e => onChange({ ...linea, cantidad: Number(e.target.value), total: Number(e.target.value) * linea.precio_unitario * (1 + linea.desperdicio) })} step="0.01" className="w-16 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
       </td>
-      <td className="px-2 py-1.5 text-xs truncate max-w-36" title={linea.descripcion}>{linea.descripcion}</td>
-      <td className="px-2 py-1.5">
-        <input type="number" value={linea.precio_unitario} onChange={e => onChange({ ...linea, precio_unitario: Number(e.target.value), total: linea.cantidad * Number(e.target.value) * (1 + linea.desperdicio) })} step="100" className="w-24 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
+      <td className="px-2 py-1.5 text-xs truncate max-w-36" title={linea.descripcion}>
+        {linea.descripcion}
+        {linea.unidad && <span className="text-[9px] text-[var(--color-text-muted)] ml-1">{linea.unidad}</span>}
       </td>
-      <td className="px-2 py-1.5 text-right font-mono text-xs font-medium">{formatCOP(linea.total)}</td>
+      <td className="px-2 py-1.5">
+        <input type="number" value={Math.round(linea.precio_unitario)} onChange={e => onChange({ ...linea, precio_unitario: Number(e.target.value), total: linea.cantidad * Number(e.target.value) * (1 + linea.desperdicio) })} step="100" className="w-24 px-1 py-1 rounded text-xs text-right border border-[var(--color-border)] focus:ring-1 focus:ring-[var(--color-primary)]/30" />
+      </td>
+      <td className="px-2 py-1.5 text-right font-mono text-xs font-medium">{formatCOP(Math.round(linea.total))}</td>
     </tr>
   )
 }
@@ -186,16 +189,18 @@ export default function ConfiguradorMesa() {
 
   const upd = (key: keyof ConfigMesa, value: any) => setCfg(c => ({ ...c, [key]: value }))
 
-  // Suggested MO values
-  const metrosLineales = 2 * (cfg.largo + cfg.ancho)
-  const sugMoAcero = Math.round(metrosLineales * 30000)
-  const sugMoPulido = Math.round(metrosLineales * 23000)
+  // Suggested MO values — must match Excel APU formula B46
+  // B46 = L + poz_rect + poz_red + entrepaños*L + IF(escab, W*2, 0)
+  const mlMO = cfg.largo + cfg.pozuelos_rect + cfg.pozuelos_redondos + cfg.entrepaños * cfg.largo + (cfg.escabiladero ? cfg.ancho * 2 : 0)
+  const sugMoAcero = Math.round(mlMO * 30000)
+  const sugMoPulido = Math.round(mlMO * 23000)
   const sugMoPatas = cfg.patas * 10000
   const sugMoInstalacion = cfg.instalado ? Math.round(cfg.largo * 22200) : 0
 
-  // Suggested transporte values
-  const sugTransElementos = 15000
-  const sugTransPersonal = 5000
+  // Suggested transporte values — Excel: IF(L<1,1,L) * price
+  const tteUnidades = cfg.largo < 1 ? 1 : cfg.largo
+  const sugTransElementos = Math.round(tteUnidades * 15000)
+  const sugTransPersonal = Math.round(tteUnidades * 5000)
 
   // Actual MO and transport values (override or suggested)
   const actualMoAcero = moOverrides.acero ?? sugMoAcero
