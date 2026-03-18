@@ -9,8 +9,11 @@ export function formatCOP(value: number): string {
   return '$' + Math.round(value).toLocaleString('es-CO')
 }
 
-export function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+export function formatDate(date: string | null | undefined): string {
+  if (!date) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000) return '—'
+  return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#f97316']
@@ -25,6 +28,9 @@ export function getInitials(name: string): string {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export function daysSince(date: string): number {
-  return Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 86400000))
+export function daysSince(date: string | null | undefined): number {
+  if (!date) return 0
+  const d = new Date(date)
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000) return 0
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000))
 }

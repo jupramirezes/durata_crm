@@ -110,14 +110,6 @@ export default function Dashboard() {
     return null
   }
 
-  /* ── Shared: oportunidades with computed fecha_envio (from their cotizaciones) ── */
-  // For "días" calculation: fecha_ingreso → last fecha_envio of cotizaciones
-  function getOpFechaEnvio(opId: string): string | null {
-    const opCots = cotizaciones.filter(c => c.oportunidad_id === opId && c.fecha_envio)
-    if (opCots.length === 0) return null
-    return opCots.sort((a, b) => new Date(b.fecha_envio!).getTime() - new Date(a.fecha_envio!).getTime())[0].fecha_envio!
-  }
-
   /* ── SECCIÓN 2: Métricas mensuales (últimos 6 meses) */
   const last6: { year: number; month: number }[] = []
   for (let i = 5; i >= 0; i--) {
@@ -143,13 +135,10 @@ export default function Dashboard() {
     const avgCot = cotsM.length > 0 ? cotValor / cotsM.length : 0
     const avgAdj = adjOps.length > 0 ? adjValor / adjOps.length : 0
 
-    // Fix 5: Días = fecha_ingreso → fecha_envio (from oportunidades that had cotizaciones this month)
+    // Fix 5: Días = fecha_ingreso → fecha_envio (directly from oportunidad)
     const opsThisMonth = new Set(cotsM.map(c => c.oportunidad_id))
     const diasArr = calcDiasElaboracion(
-      [...opsThisMonth].map(opId => {
-        const op = opMap.get(opId)
-        return op ? { fecha_ingreso: op.fecha_ingreso, fecha_envio: getOpFechaEnvio(opId) } : null
-      }).filter((x): x is { fecha_ingreso: string; fecha_envio: string | null } => x !== null)
+      [...opsThisMonth].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x !== null)
     )
 
     return { label: monthLabel(year, month), cotQty: cotsM.length, cotValor, adjQty: adjOps.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
@@ -171,10 +160,8 @@ export default function Dashboard() {
     const avgCot = cotsC.length > 0 ? cotValor / cotsC.length : 0
     const avgAdj = adjOps.length > 0 ? adjValor / adjOps.length : 0
 
-    // Fix 5: Días from oportunidades of this cotizador
-    const diasArr = calcDiasElaboracion(
-      opsC.map(o => ({ fecha_ingreso: o.fecha_ingreso, fecha_envio: getOpFechaEnvio(o.id) }))
-    )
+    // Fix 5: Días from oportunidades of this cotizador (directly from oportunidad.fecha_envio)
+    const diasArr = calcDiasElaboracion(opsC)
 
     return { iniciales: cot.iniciales, nombre: cot.nombre, cotQty: cotsC.length, cotValor, adjQty: adjOps.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
   })
@@ -187,10 +174,10 @@ export default function Dashboard() {
     .map(o => {
       const empresa = empresas.find(e => e.id === o.empresa_id)
       const opCots = cotizaciones.filter(c => c.oportunidad_id === o.id)
-      const lastEnviada = opCots.filter(c => c.fecha_envio).sort((a, b) => new Date(b.fecha_envio!).getTime() - new Date(a.fecha_envio!).getTime())[0]
+      const lastCot = opCots[opCots.length - 1]
       const cotizador = findCotizador(o.cotizador_asignado)
-      const diasEnvio = lastEnviada?.fecha_envio ? daysSince(lastEnviada.fecha_envio) : null
-      return { id: o.id, empresa: empresa?.nombre ?? '—', etapa: o.etapa, fechaEnvio: lastEnviada?.fecha_envio ?? null, numeroCot: lastEnviada?.numero ?? (opCots[opCots.length - 1]?.numero ?? '—'), valorCotizado: o.valor_cotizado, diasDesdeEnvio: diasEnvio, cotizador: cotizador?.iniciales ?? '—', cotizadorNombre: cotizador?.nombre ?? '' }
+      const diasEnvio = o.fecha_envio ? daysSince(o.fecha_envio) : null
+      return { id: o.id, empresa: empresa?.nombre ?? '—', etapa: o.etapa, fechaEnvio: o.fecha_envio ?? null, numeroCot: lastCot?.numero ?? '—', valorCotizado: o.valor_cotizado, diasDesdeEnvio: diasEnvio, cotizador: cotizador?.iniciales ?? '—', cotizadorNombre: cotizador?.nombre ?? '' }
     })
 
   /* ── SECCIÓN 5: Top 10 clientes ───────────────────── */
@@ -200,10 +187,8 @@ export default function Dashboard() {
     const valorCotizado = ops.reduce((s, o) => s + o.valor_cotizado, 0)
     const valorAdjudicado = ops.filter(o => o.etapa === 'adjudicada').reduce((s, o) => s + o.valor_adjudicado, 0)
     const pctAdj = valorCotizado > 0 ? (valorAdjudicado / valorCotizado) * 100 : 0
-    // Fix 5: Días for top clients
-    const diasArr = calcDiasElaboracion(
-      ops.map(o => ({ fecha_ingreso: o.fecha_ingreso, fecha_envio: getOpFechaEnvio(o.id) }))
-    )
+    // Fix 5: Días for top clients (directly from oportunidad.fecha_envio)
+    const diasArr = calcDiasElaboracion(ops)
     return { nombre: emp.nombre, opCount: ops.length, valorCotizado, valorAdjudicado, pctAdj, avgDias: avgDias(diasArr) }
   }).sort((a, b) => b.valorCotizado - a.valorCotizado).slice(0, 10)
 
@@ -225,10 +210,7 @@ export default function Dashboard() {
 
     const opsThisYear = new Set(cotsY.map(c => c.oportunidad_id))
     const diasArr = calcDiasElaboracion(
-      [...opsThisYear].map(opId => {
-        const op = opMap.get(opId)
-        return op ? { fecha_ingreso: op.fecha_ingreso, fecha_envio: getOpFechaEnvio(opId) } : null
-      }).filter((x): x is { fecha_ingreso: string; fecha_envio: string | null } => x !== null)
+      [...opsThisYear].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x !== null)
     )
 
     return { label: String(year), cotQty: cotsY.length, cotValor, adjQty: adjOpsY.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
@@ -247,11 +229,7 @@ export default function Dashboard() {
       ? yearRows.reduce((s, r) => s + r.cotValor, 0) / yearRows.reduce((s, r) => s + r.cotQty, 0) : 0,
     avgAdj: yearRows.reduce((s, r) => s + r.adjQty, 0) > 0
       ? yearRows.reduce((s, r) => s + r.adjValor, 0) / yearRows.reduce((s, r) => s + r.adjQty, 0) : 0,
-    avgDias: (() => {
-      const allDias = oportunidades
-        .map(o => ({ fecha_ingreso: o.fecha_ingreso, fecha_envio: getOpFechaEnvio(o.id) }))
-      return avgDias(calcDiasElaboracion(allDias))
-    })(),
+    avgDias: avgDias(calcDiasElaboracion(oportunidades)),
   }
 
   /* ── Table styles ────────────────────────────────── */

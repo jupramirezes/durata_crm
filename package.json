@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "migrate": "tsx scripts/migrar-historico.ts"
+    "migrate": "tsx scripts/migrar-historico.ts",
+    "fix-fechas": "tsx scripts/corregir-fechas.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

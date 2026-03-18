@@ -106,6 +106,7 @@ export interface Oportunidad {
   motivo_perdida: string
   ubicacion: string
   fecha_ingreso: string
+  fecha_envio?: string | null
   fecha_adjudicacion?: string
   fecha_ultimo_contacto: string
   notas: string
