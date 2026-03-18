@@ -102,6 +102,7 @@ export default function CotizacionEditor() {
       incluyeTransporte,
       condicionesItems,
       noIncluyeItems,
+      cotizadorAsignado: oportunidad?.cotizador_asignado,
       cliente: {
         empresa: empresa.nombre,
         nombre: contacto.nombre,

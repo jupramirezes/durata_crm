@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf'
-import { ProductoCliente } from '../types'
+import { ProductoCliente, findCotizador } from '../types'
 import { formatCOP } from './utils'
 import { LOGO_DURATA_B64 } from './logo-b64'
 
@@ -22,6 +22,16 @@ export interface PdfCotizacionData {
   incluyeTransporte: boolean
   condicionesItems: string[]
   noIncluyeItems: string[]
+  cotizadorAsignado?: string
+}
+
+// Cotizador info for PDF signature
+const COTIZADOR_PDF_INFO: Record<string, { nombre: string; cargo: string; telefono: string }> = {
+  OC: { nombre: 'OMAR COSSIO', cargo: 'Comercial', telefono: '444 43 70 ext 108' },
+  SA: { nombre: 'SEBASTIAN AGUIRRE', cargo: 'Director Comercial', telefono: '317 666 8023' },
+  JPR: { nombre: 'JUAN PABLO RAMIREZ', cargo: 'Comercial', telefono: '444 43 70' },
+  CA: { nombre: 'CAMILO ARAQUE', cargo: 'Comercial', telefono: '444 43 70' },
+  DG: { nombre: 'DANIELA GALINDO', cargo: 'Comercial', telefono: '444 43 70' },
 }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
@@ -318,7 +328,17 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   y += 1
   textBlock('\u2022 Validez de la propuesta: 10 dias calendario.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
 
-  // Signature
+  // Signature — resolve cotizador from oportunidad
+  const cotizador = data.cotizadorAsignado ? findCotizador(data.cotizadorAsignado) : null
+  const cotInfo = cotizador ? COTIZADOR_PDF_INFO[cotizador.id] : null
+
+  // Left: always Sebastián Aguirre (Director Comercial)
+  // Right: the assigned cotizador (or fallback)
+  const firmaIzq = COTIZADOR_PDF_INFO['SA']
+  const firmaDer = cotInfo && cotInfo.nombre !== firmaIzq.nombre
+    ? cotInfo
+    : { nombre: 'DURATA S.A.S', cargo: 'Equipo Comercial', telefono: '444 43 70' }
+
   y += 10
   checkPage(20)
   doc.setDrawColor(...BLACK)
@@ -329,23 +349,23 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(...BLACK)
-  doc.text('SEBASTIAN AGUIRRE', mL, y)
+  doc.text(firmaIzq.nombre, mL, y)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
-  doc.text('Director comercial', mL, y + 4)
-  doc.text('CEL 317 666 8023', mL, y + 8)
+  doc.text(firmaIzq.cargo, mL, y + 4)
+  doc.text(`CEL ${firmaIzq.telefono}`, mL, y + 8)
 
   const colR = mL + cW / 2 + 10
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(...BLACK)
-  doc.text('OMAR COSSIO', colR, y)
+  doc.text(firmaDer.nombre, colR, y)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
-  doc.text('Comercial', colR, y + 4)
-  doc.text('444 43 70 ext 108', colR, y + 8)
+  doc.text(firmaDer.cargo, colR, y + 4)
+  doc.text(firmaDer.telefono, colR, y + 8)
 
   // Filename: Cotizacion_[NumeroCot]_[Nombre producto]_[Empresa].pdf
   const clean = (s: string) => (s || '').replace(/[^a-zA-Z0-9\u00e0-\u00fc ]/gi, '').replace(/\s+/g, ' ').trim().substring(0, 40)

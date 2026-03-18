@@ -175,6 +175,8 @@ export default function ConfiguradorMesa() {
 
   // APU line overrides
   const [lineaOverrides, setLineaOverrides] = useState<Record<number, Partial<ApuLinea>>>({})
+  // Custom extra lines added by user
+  const [customLineas, setCustomLineas] = useState<ApuLinea[]>([])
 
   // MO overrides
   const [moOverrides, setMoOverrides] = useState<MOOverrides>({ acero: null, pulido: null, patas: null, instalacion: null })
@@ -265,7 +267,7 @@ export default function ConfiguradorMesa() {
       }
       return l
     })
-    const costoInsumosAdj = adjustedLineas.reduce((s, l) => s + l.total, 0)
+    const costoInsumosAdj = adjustedLineas.reduce((s, l) => s + l.total, 0) + customLineas.reduce((s, l) => s + l.total, 0)
 
     const moOriginal = resultado.costo_mo
     const transOriginal = resultado.costo_transporte
@@ -635,11 +637,32 @@ export default function ConfiguradorMesa() {
                           {adjustedResultado.lineas.map((l, i) => (
                             <ApuLineRow key={i} linea={l} onChange={(updated) => handleLineaChange(i, updated)} />
                           ))}
+                          {customLineas.map((cl, ci) => (
+                            <tr key={`custom-${ci}`} className="border-t border-amber-200 bg-amber-50/30 hover:bg-amber-50/60">
+                              <td className="px-2 py-1.5">
+                                <input type="number" value={cl.cantidad} onChange={e => { const v = Number(e.target.value); setCustomLineas(prev => prev.map((c, j) => j === ci ? { ...c, cantidad: v, total: v * c.precio_unitario } : c)) }} step="1" className="w-16 px-1 py-1 rounded text-xs text-right border border-amber-300" />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <input type="text" value={cl.descripcion} onChange={e => setCustomLineas(prev => prev.map((c, j) => j === ci ? { ...c, descripcion: e.target.value } : c))} className="w-full px-1 py-1 rounded text-xs border border-amber-300" placeholder="Descripción..." />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <input type="number" value={cl.precio_unitario} onChange={e => { const v = Number(e.target.value); setCustomLineas(prev => prev.map((c, j) => j === ci ? { ...c, precio_unitario: v, total: c.cantidad * v } : c)) }} step="100" className="w-24 px-1 py-1 rounded text-xs text-right border border-amber-300" />
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono text-xs font-medium">{formatCOP(Math.round(cl.total))}
+                                <button onClick={() => setCustomLineas(prev => prev.filter((_, j) => j !== ci))} className="ml-1 text-red-400 hover:text-red-600 text-[10px]" title="Eliminar">✕</button>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                         <tfoot>
+                          <tr className="border-t border-dashed border-[var(--color-border)]">
+                            <td colSpan={4} className="px-2 py-1.5">
+                              <button onClick={() => setCustomLineas(prev => [...prev, { descripcion: '', material: '', cantidad: 1, unidad: 'und', precio_unitario: 0, desperdicio: 0, total: 0 }])} className="text-[10px] text-[var(--color-primary)] hover:underline font-medium">+ Agregar línea</button>
+                            </td>
+                          </tr>
                           <tr className="border-t-2 border-[var(--color-border)] bg-blue-50/30">
                             <td colSpan={3} className="px-2 py-2 text-xs font-semibold">Total Insumos</td>
-                            <td className="px-2 py-2 text-right font-bold text-xs">{formatCOP(adjustedResultado.costo_insumos)}</td>
+                            <td className="px-2 py-2 text-right font-bold text-xs">{formatCOP(Math.round(adjustedResultado.costo_insumos))}</td>
                           </tr>
                         </tfoot>
                       </table>
