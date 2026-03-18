@@ -51,7 +51,8 @@ export default function Precios() {
 
   const filtered = useMemo(() => {
     return state.precios.filter(p => {
-      const matchSearch = !search || p.nombre.toLowerCase().includes(search.toLowerCase()) || p.codigo.toLowerCase().includes(search.toLowerCase())
+      const s = search.toLowerCase()
+      const matchSearch = !search || (p.nombre || '').toLowerCase().includes(s) || (p.codigo || '').toLowerCase().includes(s) || (p.proveedor || '').toLowerCase().includes(s)
       const matchGrupo = filtroGrupo === 'TODOS' || p.grupo === filtroGrupo
       const matchSubgrupo = filtroSubgrupo === 'TODOS' || (p.subgrupo || '') === filtroSubgrupo
       const matchPrecio = filtroPrecio === 'todos' || (filtroPrecio === 'con_precio' ? p.precio > 0 : p.precio === 0)
