@@ -507,7 +507,7 @@ export default function Dashboard() {
                     <td className={`${tdCls} pl-3 font-medium text-[var(--color-text)] max-w-36 truncate`}>{r.empresa}</td>
                     <td className={tdCls}><EtapaBadge etapa={r.etapa} /></td>
                     <td className={`${tdCls} text-center text-slate-500`}>
-                      {r.fechaEnvio ? new Date(r.fechaEnvio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      {r.fechaEnvio && new Date(r.fechaEnvio).getFullYear() >= 2000 ? new Date(r.fechaEnvio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                     <td className={`${tdCls} font-mono`}>{r.numeroCot}</td>
                     <td className={`${tdCls} text-right font-mono font-semibold text-[var(--color-accent-green)]`}>{formatCOP(r.valorCotizado)}</td>

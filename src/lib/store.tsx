@@ -459,6 +459,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
           if (toFix.length > 0) console.log(`[Normalize] Fixed ${toFix.length} legacy cotizador values`)
         }
+
+        // Fix: Move oportunidades with borrador cotizaciones from cotizacion_enviada → en_cotizacion
+        if (opp.data.length > 0 && cot.data.length > 0) {
+          const borradorOpIds = new Set(
+            cot.data.filter((c: Cotizacion) => c.estado === 'borrador').map((c: Cotizacion) => c.oportunidad_id)
+          )
+          const toMove = opp.data.filter(
+            (o: Oportunidad) => o.etapa === 'cotizacion_enviada' && borradorOpIds.has(o.id) &&
+            // Only if ALL cotizaciones are borrador (not just some)
+            !cot.data.some((c: Cotizacion) => c.oportunidad_id === o.id && c.estado !== 'borrador')
+          )
+          for (const o of toMove) {
+            svcOportunidades.updateOportunidad({ id: o.id, etapa: 'en_cotizacion' } as any)
+          }
+          if (toMove.length > 0) {
+            console.log(`[Fix] Moved ${toMove.length} oportunidades from cotizacion_enviada → en_cotizacion (all cotizaciones are borrador)`)
+            // Also update the local patch
+            if (patch.oportunidades) {
+              patch.oportunidades = patch.oportunidades.map(o =>
+                toMove.some((m: Oportunidad) => m.id === o.id) ? { ...o, etapa: 'en_cotizacion' as const } : o
+              )
+              rawDispatch({ type: '_HYDRATE', payload: { oportunidades: patch.oportunidades } })
+            }
+          }
+        }
       } catch (err) {
         console.error('[Supabase hydrate]', err)
       } finally {

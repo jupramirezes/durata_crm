@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { SECTORES } from '../types'
+import { CONFIG_DEFAULTS } from '../hooks/useConfiguracion'
 import { formatCOP, getInitials, getAvatarColor } from '../lib/utils'
 import { PageHeader } from '../components/ui'
 import { Search, ChevronUp, ChevronDown, Trash2, AlertTriangle } from 'lucide-react'
@@ -123,7 +123,7 @@ export default function Empresas() {
           className="px-3 py-2 rounded-lg text-xs min-w-[160px] border border-[var(--color-border)] bg-white"
         >
           <option value="">Todos los sectores</option>
-          {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
+          {CONFIG_DEFAULTS.sectores.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 

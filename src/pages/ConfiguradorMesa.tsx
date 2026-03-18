@@ -46,11 +46,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">{label}</label>{children}</div>
 }
 
-function NumInput({ value, onChange, step = 0.01, min = 0, suffix }: { value: number; onChange: (v: number) => void; step?: number; min?: number; suffix?: string }) {
+function NumInput({ value, onChange, step = 0.01, min = 0, max, suffix, error }: { value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; suffix?: string; error?: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <input type="number" value={value} onChange={e => onChange(Number(e.target.value))} step={step} min={min} className="w-full px-3 py-2.5 rounded-xl text-sm" />
-      {suffix && <span className="text-xs text-[var(--color-text-muted)] whitespace-nowrap font-medium">{suffix}</span>}
+    <div>
+      <div className="flex items-center gap-2">
+        <input type="number" value={value} onChange={e => onChange(Number(e.target.value))} step={step} min={min} max={max} className={`w-full px-3 py-2.5 rounded-xl text-sm ${error ? 'border-red-400 ring-1 ring-red-200' : ''}`} />
+        {suffix && <span className="text-xs text-[var(--color-text-muted)] whitespace-nowrap font-medium">{suffix}</span>}
+      </div>
+      {error && <p className="text-[10px] text-red-500 mt-0.5">{error}</p>}
     </div>
   )
 }
@@ -339,6 +342,14 @@ export default function ConfiguradorMesa() {
 
   const needsDimensions = cfg.largo <= 0 || cfg.ancho <= 0 || cfg.alto <= 0
 
+  // Validations
+  const dimErrors = {
+    largo: cfg.largo < 0.3 ? 'Mín: 0.3m' : cfg.largo > 5 ? 'Máx: 5m' : '',
+    ancho: cfg.ancho < 0.3 ? 'Mín: 0.3m' : cfg.ancho > 2 ? 'Máx: 2m' : '',
+    alto: cfg.alto < 0.5 ? 'Mín: 0.5m' : cfg.alto > 1.5 ? 'Máx: 1.5m' : '',
+  }
+  const hasValidationErrors = Object.values(dimErrors).some(e => e !== '')
+
 
 
   return (
@@ -370,9 +381,9 @@ export default function ConfiguradorMesa() {
         <div className="space-y-3">
           <Section title="Dimensiones principales">
             <div className="grid grid-cols-3 gap-3">
-              <Field label="Largo"><NumInput value={cfg.largo} onChange={v => upd('largo', v)} suffix="m" /></Field>
-              <Field label="Ancho"><NumInput value={cfg.ancho} onChange={v => upd('ancho', v)} suffix="m" /></Field>
-              <Field label="Alto"><NumInput value={cfg.alto} onChange={v => upd('alto', v)} suffix="m" /></Field>
+              <Field label="Largo (0.3–5m)"><NumInput value={cfg.largo} onChange={v => upd('largo', v)} min={0} max={5} suffix="m" error={dimErrors.largo} /></Field>
+              <Field label="Ancho (0.3–2m)"><NumInput value={cfg.ancho} onChange={v => upd('ancho', v)} min={0} max={2} suffix="m" error={dimErrors.ancho} /></Field>
+              <Field label="Alto (0.5–1.5m)"><NumInput value={cfg.alto} onChange={v => upd('alto', v)} min={0} max={1.5} suffix="m" error={dimErrors.alto} /></Field>
             </div>
           </Section>
 
@@ -707,12 +718,19 @@ export default function ConfiguradorMesa() {
               </div>
 
               {/* Add to order button */}
+              {hasValidationErrors && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-2">
+                  <p className="text-xs text-red-600 font-medium">Corrige los errores de dimensiones antes de continuar.</p>
+                </div>
+              )}
               <button
                 onClick={agregarAlPedido}
-                disabled={added}
+                disabled={added || hasValidationErrors}
                 className={`w-full flex items-center justify-center gap-2.5 px-5 py-4 rounded-2xl text-base font-bold transition-all duration-300 ${
                   added
                     ? 'bg-emerald-500 text-white scale-95'
+                    : hasValidationErrors
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-[var(--color-accent-green)] hover:opacity-90 text-white'
                 }`}
               >

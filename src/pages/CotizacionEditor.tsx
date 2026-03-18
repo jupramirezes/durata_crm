@@ -260,7 +260,8 @@ export default function CotizacionEditor() {
                         <input
                           type="number"
                           value={p.precio_unitario}
-                          onChange={e => updateProducto(i, 'precio_unitario', Number(e.target.value))}
+                          onChange={e => updateProducto(i, 'precio_unitario', Math.max(0, Number(e.target.value)))}
+                          min={0}
                           className="w-20 text-[10px] text-right px-1.5 py-1 rounded border border-[var(--color-border)]"
                         />
                       </td>
@@ -354,7 +355,10 @@ export default function CotizacionEditor() {
           <button onClick={saveDraft} className="w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] px-4 py-2.5 rounded-lg text-xs font-semibold transition-all">
             <Save size={14} /> Guardar borrador
           </button>
-          <button onClick={() => setShowPdfModal(true)} className="w-full flex items-center justify-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2.5 rounded-lg text-xs font-bold transition-all">
+          {total <= 0 && (
+            <p className="text-[10px] text-red-500 text-center">No se puede generar PDF con total $0</p>
+          )}
+          <button onClick={() => setShowPdfModal(true)} disabled={total <= 0} className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${total <= 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white'}`}>
             <Download size={14} /> Descargar PDF
           </button>
         </div>
