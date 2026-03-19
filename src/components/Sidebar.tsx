@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Kanban, Users, FileText, DollarSign, Settings, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Kanban, Users, FileText, DollarSign, Settings, Menu, X, LogOut } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import type { User } from '@supabase/supabase-js'
 
 const navGroups = [
   {
@@ -26,7 +28,31 @@ const navGroups = [
   },
 ]
 
-function SidebarContent({ onClose }: { onClose?: () => void }) {
+/** Extract display name from email: saguirre@durata.co → S. Aguirre */
+function displayName(user: User | null): string {
+  if (!user?.email) return 'Usuario'
+  const local = user.email.split('@')[0] // e.g. "saguirre", "presupuestos2", "caraque"
+
+  // Known mappings for non-obvious emails
+  const KNOWN: Record<string, string> = {
+    presupuestos: 'O. Cossio',
+    presupuestos2: 'J.P. Ramírez',
+  }
+  if (KNOWN[local]) return KNOWN[local]
+
+  // Try to extract first initial + last name from concatenated form (e.g. "saguirre" → "S. Aguirre")
+  // Heuristic: first letter is initial, rest is last name
+  if (local.length > 2) {
+    return `${local[0].toUpperCase()}. ${local.slice(1, 2).toUpperCase()}${local.slice(2)}`
+  }
+  return local
+}
+
+function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | null }) {
+  async function handleLogout() {
+    await supabase.auth.signOut()
+  }
+
   return (
     <>
       <div className="px-5 py-4 flex items-center justify-between">
@@ -73,13 +99,29 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       </nav>
 
       <div className="px-5 py-3 border-t border-[var(--color-sidebar-border)]">
-        <p className="text-[10px] text-slate-500 font-medium">v0.9 MVP</p>
+        {user ? (
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-white font-medium">{displayName(user)}</p>
+              <p className="text-[9px] text-slate-500 truncate max-w-[140px]">{user.email}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-md text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors"
+              title="Cerrar sesión"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        ) : (
+          <p className="text-[10px] text-slate-500 font-medium">v0.9 MVP</p>
+        )}
       </div>
     </>
   )
 }
 
-export default function Sidebar() {
+export default function Sidebar({ user }: { user: User | null }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
@@ -100,14 +142,14 @@ export default function Sidebar() {
             className="absolute left-0 top-0 bottom-0 w-[240px] bg-[var(--color-sidebar)] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            <SidebarContent onClose={() => setMobileOpen(false)} />
+            <SidebarContent onClose={() => setMobileOpen(false)} user={user} />
           </aside>
         </div>
       )}
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-[240px] bg-[var(--color-sidebar)] flex-col h-screen sticky top-0 shrink-0">
-        <SidebarContent />
+        <SidebarContent user={user} />
       </aside>
     </>
   )

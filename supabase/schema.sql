@@ -170,3 +170,23 @@ CREATE POLICY "Allow all for anon" ON cotizaciones           FOR ALL USING (true
 CREATE POLICY "Allow all for anon" ON precios_maestro        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON tarifas_mo              FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON configuracion_sistema   FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- AUTH: Crear usuarios en Supabase Dashboard → Authentication → Users → Add user
+-- Email provider debe estar habilitado (Settings → Authentication → Providers → Email)
+-- Deshabilitar "Confirm email" para uso interno
+--
+-- Usuarios a crear:
+--   saguirre@durata.co    / Durata2026!  (Sebastián Aguirre - Director Comercial)
+--   presupuestos@durata.co / Durata2026!  (Omar Cossio - Comercial)
+--   presupuestos2@durata.co / Durata2026! (Juan Pablo Ramírez - Comercial)
+--   caraque@durata.co     / Durata2026!  (Camilo Araque - Comercial)
+--   dgalindo@durata.co    / Durata2026!  (Daniela Galindo - Comercial)
+--
+-- TODO FASE 2 - RLS con auth:
+-- Actualmente las políticas son USING (true) para rol anon.
+-- Cuando se active RLS por usuario autenticado:
+--   1. Cambiar políticas a USING (auth.role() = 'authenticated')
+--   2. Agregar campo user_id a oportunidades, cotizaciones
+--   3. Crear políticas per-cotizador si se necesita aislamiento
+-- ============================================================
