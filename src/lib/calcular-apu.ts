@@ -26,7 +26,10 @@ const LAMINA_CODES: Record<string, string> = {
   '304_satinado_cal_20': 'AILA010220',
   '304_satinado_cal_22': 'AILA010222',
   '304_satinado_1/8': 'AILA010203',
-  // 430 Mate (2B)
+  // 430 Mate (2B) — cal_14/16/18 use satinado codes as price proxy (no separate 2B exists)
+  '430_mate_cal_14': 'AILA020214',
+  '430_mate_cal_16': 'AILA020216',
+  '430_mate_cal_18': 'AILA020218',
   '430_mate_cal_20': 'AILA020120',
   // 430 Satinado
   '430_satinado_cal_14': 'AILA020214',
