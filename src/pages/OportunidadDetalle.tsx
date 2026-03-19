@@ -170,10 +170,28 @@ export default function OportunidadDetalle() {
   // HANDLERS
   // ══════════════════════════════════════════════════
 
-  function getDefaultNumero() {
+  function getDefaultNumero(baseNumero?: string) {
+    // If editing (versioning), suggest next letter version
+    if (baseNumero) {
+      const letterMatch = baseNumero.match(/^(.+?)([A-Z])$/)
+      if (letterMatch) {
+        const nextLetter = String.fromCharCode(letterMatch[2].charCodeAt(0) + 1)
+        return `${letterMatch[1]}${nextLetter}`
+      }
+      return `${baseNumero}A`
+    }
+    // New cotización: find max number for current year
     const year = new Date().getFullYear()
-    const numExistentes = state.cotizaciones.filter(c => c.numero.startsWith(`COT-${year}-`)).length
-    return `COT-${year}-${String(numExistentes + 1).padStart(3, '0')}`
+    const prefix = `${year}-`
+    let maxNum = 0
+    for (const c of state.cotizaciones) {
+      if (c.numero.startsWith(prefix)) {
+        const rest = c.numero.slice(prefix.length).replace(/[A-Z]+$/, '') // strip version letters
+        const n = parseInt(rest, 10)
+        if (n > maxNum) maxNum = n
+      }
+    }
+    return `${year}-${maxNum + 1}`
   }
 
   function handleCrearCotizacion(data: { numero: string; tiempoEntrega: string; incluyeTransporte: boolean; condicionesItems: string[]; noIncluyeItems: string[] }) {
@@ -285,8 +303,13 @@ export default function OportunidadDetalle() {
   }
 
   function handleDuplicarCotizacion(cotId: string) {
-    const nuevoNumero = getDefaultNumero()
-    dispatch({ type: 'DUPLICATE_COTIZACION', payload: { originalId: cotId, nuevoNumero } })
+    const cot = cotizaciones.find(c => c.id === cotId)
+    // Version: suggest next letter based on original number
+    const nuevoNumero = cot ? getDefaultNumero(cot.numero) : getDefaultNumero()
+    const newId = crypto.randomUUID()
+    dispatch({ type: 'DUPLICATE_COTIZACION', payload: { originalId: cotId, nuevoNumero, newId } })
+    // Navigate to editor so user can edit products
+    setTimeout(() => navigate(`/cotizaciones/${newId}/editar`), 100)
   }
 
   function handleDescargarPdf(cotId: string) {

@@ -721,6 +721,25 @@ export default function ConfiguradorMesa() {
                 </div>
               </div>
 
+              {/* Margin control - prominent card */}
+              <div className="bg-emerald-50 rounded-2xl border-2 border-emerald-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Margen comercial</h4>
+                  <span className="text-2xl font-extrabold text-emerald-700">{(adjustedResultado.margen * 100).toFixed(0)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={15} max={60} step={1}
+                  value={cfg.margen * 100}
+                  onChange={e => upd('margen', Number(e.target.value) / 100)}
+                  className="w-full h-2 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                />
+                <div className="flex justify-between mt-3 text-xs">
+                  <span className="text-emerald-600">Costo: <strong className="font-mono">{formatCOP(adjustedResultado.costo_total)}</strong></span>
+                  <span className="text-emerald-800 font-semibold">Precio venta: <strong className="font-mono text-sm">{formatCOP(adjustedResultado.precio_comercial)}</strong></span>
+                </div>
+              </div>
+
               {/* Cost breakdown with bars */}
               <div className="bg-white rounded-2xl border border-[var(--color-border)] p-5 space-y-3">
                 <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-2">Desglose de costos</h4>

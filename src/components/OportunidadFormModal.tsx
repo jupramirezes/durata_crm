@@ -1,8 +1,18 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useStore } from '../lib/store'
 import { SECTORES, COTIZADORES, FUENTES_LEAD, Sector, FuenteLead, Empresa } from '../types'
 import { formatCOP } from '../lib/utils'
-import { X, Building2, UserPlus, Target, ChevronRight, Search } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { X, Building2, UserPlus, Target, ChevronRight, Search, CheckCircle } from 'lucide-react'
+
+// Map auth email → cotizador ID
+const EMAIL_TO_COTIZADOR: Record<string, string> = {
+  'saguirre@durata.co': 'SA',
+  'presupuestos@durata.co': 'OC',
+  'presupuestos2@durata.co': 'JPR',
+  'caraque@durata.co': 'CA',
+  'dgalindo@durata.co': 'DG',
+}
 
 interface Props { onClose: () => void; onCreated?: (oportunidadId: string) => void }
 
@@ -22,14 +32,25 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   const [contactoMode, setContactoMode] = useState<'select' | 'create'>('create')
   const [selectedContactoId, setSelectedContactoId] = useState<string | null>(null)
   const [newContacto, setNewContacto] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '+57', notas: '' })
+  const [contactoMatch, setContactoMatch] = useState<string | null>(null) // matched existing contact id
 
-  // === Oportunidad state ===
+  // === Oportunidad state (cotizador defaults to logged-in user) ===
   const [oportunidad, setOportunidad] = useState({
     cotizador_asignado: 'OC',
     fuente_lead: 'WhatsApp' as FuenteLead,
     ubicacion: '',
     notas: '',
   })
+
+  // Auto-assign cotizador from logged-in user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        const cotId = EMAIL_TO_COTIZADOR[session.user.email]
+        if (cotId) setOportunidad(p => ({ ...p, cotizador_asignado: cotId }))
+      }
+    })
+  }, [])
 
   // Derived
   const empresasFiltradas = useMemo(() => {
@@ -82,13 +103,20 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
     }
     if (!empresaId) return
 
-    // Create contacto if needed
+    // Create or reuse contacto
     let contactoId = selectedContactoId
     const effectiveContactoMode = contactosEmpresa.length === 0 ? 'create' : contactoMode
-    if (effectiveContactoMode === 'create' && !contactoId) {
-      if (!newContacto.nombre.trim()) return
-      contactoId = crypto.randomUUID()
-      dispatch({ type: 'ADD_CONTACTO', payload: { ...newContacto, empresa_id: empresaId, id: contactoId } })
+    if (effectiveContactoMode === 'create') {
+      if (contactoMatch) {
+        // Reuse matched contact (and update if data changed)
+        contactoId = contactoMatch
+        const existingContact = state.contactos.find(c => c.id === contactoMatch)
+        if (existingContact) dispatch({ type: 'UPDATE_CONTACTO', payload: { ...existingContact, ...newContacto, empresa_id: empresaId } })
+      } else if (!contactoId) {
+        if (!newContacto.nombre.trim()) return
+        contactoId = crypto.randomUUID()
+        dispatch({ type: 'ADD_CONTACTO', payload: { ...newContacto, empresa_id: empresaId, id: contactoId } })
+      }
     }
     if (!contactoId) return
 
@@ -241,9 +269,29 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
 
               {(contactoMode === 'create' || contactosEmpresa.length === 0) && (
                 <div className="space-y-3">
+                  {contactoMatch && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700">
+                      <CheckCircle size={13} /> Contacto existente encontrado — datos pre-llenados
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Nombre *</label>
-                      <input value={newContacto.nombre} onChange={e => setNewContacto(p => ({ ...p, nombre: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" required />
+                      <input value={newContacto.nombre} onChange={e => {
+                        const val = e.target.value
+                        setNewContacto(p => ({ ...p, nombre: val }))
+                        // Auto-match existing contact by name
+                        if (val.trim().length >= 3) {
+                          const match = contactosEmpresa.find(c => c.nombre.toLowerCase().includes(val.toLowerCase()))
+                          if (match) {
+                            setContactoMatch(match.id)
+                            setNewContacto({ nombre: match.nombre, cargo: match.cargo || '', correo: match.correo || '', whatsapp: match.whatsapp || '+57', notas: '' })
+                          } else {
+                            setContactoMatch(null)
+                          }
+                        } else {
+                          setContactoMatch(null)
+                        }
+                      }} className="w-full px-3 py-2.5 rounded-xl text-sm" required />
                     </div>
                     <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Cargo</label>
                       <input value={newContacto.cargo} onChange={e => setNewContacto(p => ({ ...p, cargo: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />

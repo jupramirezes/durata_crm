@@ -41,7 +41,7 @@ type Action =
   | { type: 'ADD_COTIZACION'; payload: Omit<Cotizacion, 'id'> & { id?: string } }
   | { type: 'UPDATE_COTIZACION_ESTADO'; payload: { id: string; estado: Cotizacion['estado'] } }
   | { type: 'DELETE_COTIZACION'; payload: { id: string } }
-  | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string } }
+  | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string; newId?: string } }
   | { type: 'UPDATE_COTIZACION'; payload: Partial<Cotizacion> & { id: string } }
   | { type: 'BULK_UPSERT_PRECIOS'; payload: PrecioMaestro[] }
   | { type: '_HYDRATE'; payload: Partial<State> }
@@ -279,7 +279,7 @@ function reducer(state: State, action: Action): State {
     case 'DUPLICATE_COTIZACION': {
       const original = state.cotizaciones.find(c => c.id === action.payload.originalId)
       if (!original) return state
-      const duplicated: Cotizacion = { ...original, id: newId(), numero: action.payload.nuevoNumero, estado: 'borrador', fecha: new Date().toISOString().split('T')[0] }
+      const duplicated: Cotizacion = { ...original, id: action.payload.newId || newId(), numero: action.payload.nuevoNumero, estado: 'borrador', fecha: new Date().toISOString().split('T')[0] }
       return { ...state, cotizaciones: [...state.cotizaciones, duplicated] }
     }
     case 'UPDATE_COTIZACION': {
