@@ -218,24 +218,24 @@ export default function Pipeline() {
               onDragOver={e => onDragOver(e, etapa.key)}
               onDragLeave={onDragLeave}
               onDrop={e => onDrop(e, etapa.key)}
-              className={`flex-shrink-0 w-[220px] rounded-lg border flex flex-col transition-all duration-150 ${
+              className={`flex-shrink-0 w-[300px] rounded-xl border flex flex-col transition-all duration-150 ${
                 isOver ? 'bg-blue-50 border-blue-300 shadow-md' : 'bg-white border-[var(--color-border)]'
               }`}
             >
               {/* Column header with color bar */}
               <div className="rounded-t-lg overflow-hidden">
-                <div className="h-1.5" style={{ background: etapa.color }} />
-                <div className="px-3 py-2.5 flex items-center gap-2">
-                  <span className="text-[11px] font-semibold flex-1 text-[var(--color-text)] truncate">{etapa.label}</span>
-                  <span className="text-[9px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface)] px-1.5 py-0.5 rounded">{oportunidades.length}</span>
-                </div>
-                {valorTotal > 0 && (
-                  <div className="px-3 pb-2 -mt-1">
-                    <span className="text-[9px] text-[var(--color-text-muted)] font-mono font-semibold">{formatCOP(valorTotal)}</span>
+                <div className="h-[3px]" style={{ background: etapa.color }} />
+                <div className="px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold flex-1 text-[var(--color-text)]">{etapa.label}</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: etapa.color + '18', color: etapa.color }}>{oportunidades.length}</span>
                   </div>
-                )}
+                  {valorTotal > 0 && (
+                    <span className="text-[13px] text-[var(--color-text-muted)] tabular-nums mt-1 block">{formatCOP(valorTotal)}</span>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 px-1.5 pb-1.5 space-y-1.5 overflow-y-auto">
+              <div className="flex-1 px-2.5 pb-2.5 space-y-3 overflow-y-auto">
                 {oportunidades.map(o => {
                   const empresa = state.empresas.find(e => e.id === o.empresa_id)
                   const contactoNombre = contactoMap.get(o.contacto_id)
@@ -249,24 +249,24 @@ export default function Pipeline() {
                       onDragStart={e => onDragStart(e, o.id)}
                       onDragEnd={onDragEnd}
                       onClick={() => navigate(`/oportunidades/${o.id}`)}
-                      className={`bg-[var(--color-bg)] rounded-md p-2.5 border border-[var(--color-border)] cursor-pointer transition-all duration-150 ${
-                        dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-md hover:border-slate-300 hover:-translate-y-px'
+                      className={`bg-[var(--color-surface)] rounded-xl p-5 border border-[var(--color-border)] cursor-pointer transition-all duration-250 ${
+                        dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-lg hover:border-slate-300 hover:-translate-y-[3px]'
                       }`}
                     >
-                      <div className="font-semibold text-[11px] truncate text-[var(--color-text)] mb-0.5">{empresa?.nombre}</div>
+                      <div className="font-semibold text-[15px] truncate text-[var(--color-text)] mb-1">{empresa?.nombre}</div>
                       {contactoNombre && (
-                        <div className="text-[10px] text-slate-400 truncate mb-1">{contactoNombre}</div>
+                        <div className="text-sm text-[var(--color-text-muted)] truncate mb-2">{contactoNombre}</div>
                       )}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-bold" style={{ color: etapa.color }}>{formatCOP(o.valor_cotizado)}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base font-bold tabular-nums" style={{ color: o.valor_cotizado > 100_000_000 ? 'var(--color-accent-green)' : 'var(--color-text)' }}>{formatCOP(o.valor_cotizado)}</span>
                         {cotizador && (
-                          <span className="text-[8px] w-4 h-4 rounded-full font-bold text-white flex items-center justify-center" style={{ background: getAvatarColor(cotizador.nombre) }} title={cotizador.nombre}>{cotizador.iniciales}</span>
+                          <span className="text-[10px] w-7 h-7 rounded-full font-bold text-white flex items-center justify-center" style={{ background: getAvatarColor(cotizador.nombre) }} title={cotizador.nombre}>{cotizador.iniciales}</span>
                         )}
                         {hasNotas && (
-                          <span title="Tiene notas"><StickyNote size={10} className="text-amber-400" /></span>
+                          <span title="Tiene notas"><StickyNote size={12} className="text-amber-400" /></span>
                         )}
-                        <span className="flex items-center gap-0.5 text-[9px] text-[var(--color-text-muted)] ml-auto">
-                          <Clock size={8} /> {dias}d
+                        <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] ml-auto bg-slate-100 px-2.5 py-1 rounded-full">
+                          <Clock size={10} /> {dias}d
                         </span>
                       </div>
                     </div>

@@ -25,10 +25,10 @@ export function KPICard({ label, value, subtitle }: {
   subtitle?: string
 }) {
   return (
-    <div className="bg-[var(--color-surface)] rounded-xl p-6 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-200">
-      <p className="text-xs font-medium uppercase tracking-[0.05em] text-[var(--color-text-muted)] mb-3">{label}</p>
-      <p className="text-3xl font-extrabold text-[var(--color-text)] tabular-nums tracking-tight">{value}</p>
-      {subtitle && <p className="text-[13px] text-[var(--color-text-muted)] mt-2">{subtitle}</p>}
+    <div className="bg-[var(--color-surface)] rounded-xl p-8 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-200 min-h-[140px] flex flex-col justify-between">
+      <p className="text-[13px] font-medium uppercase tracking-[0.05em] text-[var(--color-text-muted)] mb-3">{label}</p>
+      <p className="text-[40px] font-extrabold text-[var(--color-text)] tabular-nums tracking-tight leading-none">{value}</p>
+      {subtitle && <p className="text-sm text-slate-400 mt-3">{subtitle}</p>}
     </div>
   )
 }

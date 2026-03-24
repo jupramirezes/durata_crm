@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { ETAPAS, COTIZADORES, Etapa, matchCotizador, findCotizador } from '../types'
 import { formatCOP, daysSince, getAvatarColor } from '../lib/utils'
 import { PageHeader, KPICard, EtapaBadge } from '../components/ui'
-import { Target, DollarSign, FileText, TrendingUp, Users, BarChart3, CalendarClock, Calendar, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
+import { Target, DollarSign, FileText, TrendingUp, Users, BarChart3, CalendarClock, Calendar, ArrowUpRight, ArrowDownRight, Minus, ChevronRight } from 'lucide-react'
 
 /* ── helpers ───────────────────────────────────────────── */
 
@@ -74,19 +74,27 @@ type MetricsRow = {
 }
 
 /* ── Section wrapper ─────────────────────────────────── */
-function Section({ title, subtitle, icon: Icon, children }: {
-  title: string; subtitle?: string; icon: React.ElementType; children: React.ReactNode
+function Section({ title, subtitle, icon: Icon, summary, children, defaultOpen = false }: {
+  title: string; subtitle?: string; icon: React.ElementType; summary?: string; children: React.ReactNode; defaultOpen?: boolean
 }) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="bg-[var(--color-surface)] rounded-xl p-6 shadow-[var(--shadow-sm)]">
-      <div className="flex items-center gap-2.5 mb-5">
+    <div className="bg-[var(--color-surface)] rounded-xl shadow-[var(--shadow-sm)] overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-6 py-5 hover:bg-[var(--color-surface-hover)] transition-colors text-left">
+        <ChevronRight size={16} className={`text-[var(--color-text-muted)] shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
         <Icon size={16} className="text-[var(--color-primary)] shrink-0" />
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-base text-[var(--color-text)]">{title}</h3>
-          {subtitle && <p className="text-[13px] text-[var(--color-text-muted)] mt-0.5">{subtitle}</p>}
+          {subtitle && !open && <p className="text-[13px] text-[var(--color-text-muted)] mt-0.5">{subtitle}</p>}
         </div>
-      </div>
-      {children}
+        {summary && !open && <span className="text-sm font-semibold text-[var(--color-primary)] tabular-nums shrink-0">{summary}</span>}
+      </button>
+      {open && (
+        <div className="px-6 pb-6 animate-fade-in">
+          {subtitle && <p className="text-[13px] text-[var(--color-text-muted)] mb-4">{subtitle}</p>}
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -340,14 +348,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-8 py-6 space-y-4 animate-fade-in max-w-[1400px] mx-auto">
+    <div className="px-8 py-8 space-y-5 animate-fade-in max-w-[1400px] mx-auto">
       <PageHeader
         title="Dashboard"
         subtitle={dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
       />
 
       {/* ─── KPI CARDS ──────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-5">
         <KPICard label="Oportunidades activas" value={String(activas.length)} icon={Target} subtitle="En pipeline actual (excluye adjudicadas y perdidas)" />
         <KPICard label="Valor del pipeline" value={formatCOP(valorPipeline)} icon={DollarSign} small subtitle="Suma de valor cotizado en pipeline activo" />
         <KPICard label={`Cotizaciones del mes (${cotsMes.length})`} value={formatCOP(totalMes)} icon={FileText} small subtitle={currentMonthLabel} />
@@ -357,7 +365,7 @@ export default function Dashboard() {
       {/* ─── PIPELINE BAR ───────────────────────────── */}
       <div className="bg-[var(--color-surface)] rounded-xl p-6 shadow-[var(--shadow-sm)]">
         <p className="text-xs font-medium uppercase tracking-[0.05em] text-[var(--color-text-muted)] mb-3">Distribucion del pipeline</p>
-        <div className="flex h-8 rounded-md overflow-hidden gap-px">
+        <div className="flex h-3 rounded-md overflow-hidden gap-px">
           {etapaCounts.map(e => {
             const pct = (e.count / totalOps) * 100
             if (pct < 0.5) return null
@@ -384,7 +392,7 @@ export default function Dashboard() {
       </div>
 
       {/* ─── COMPARATIVO VS AÑO ANTERIOR ─────────── */}
-      <Section title="Comparativo vs año anterior" subtitle={`${prevPeriodLabel} vs ${periodLabel}`} icon={TrendingUp}>
+      <Section title="Comparativo vs año anterior" subtitle={`${prevPeriodLabel} vs ${periodLabel}`} icon={TrendingUp} summary={`${comparativo[1]?.variation > 0 ? '+' : ''}${comparativo[1]?.variation.toFixed(1)}% valor cotizado`} defaultOpen>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -412,7 +420,7 @@ export default function Dashboard() {
       </Section>
 
       {/* ─── MÉTRICAS MENSUALES ─────────────────────── */}
-      <Section title="Métricas mensuales" subtitle="Últimos 6 meses — Adj. por fecha de adjudicación — % sobre valor" icon={CalendarClock}>
+      <Section title="Métricas mensuales" subtitle="Últimos 6 meses — Adj. por fecha de adjudicacion — % sobre valor" icon={CalendarClock} summary={`${monthRows[monthRows.length - 1]?.cotQty || 0} cots este mes`}>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <MetricsTableHead />
@@ -424,7 +432,7 @@ export default function Dashboard() {
       </Section>
 
       {/* ─── MÉTRICAS POR COTIZADOR ─────────────────── */}
-      <Section title="Métricas por cotizador" subtitle="Histórico total — % sobre valor" icon={Users}>
+      <Section title="Métricas por cotizador" subtitle="Historico total — % sobre valor" icon={Users} summary={`${COTIZADORES.length} cotizadores`}>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -465,7 +473,7 @@ export default function Dashboard() {
       </Section>
 
       {/* ─── EVOLUCIÓN ANUAL ──────────────────────────── */}
-      <Section title="Evolución anual" subtitle="2021–2026 — Adj. por fecha de adjudicación — % sobre valor" icon={Calendar}>
+      <Section title="Evolucion anual" subtitle="2021–2026 — Adj. por fecha de adjudicacion — % sobre valor" icon={Calendar} summary={`${totalRow.cotQty} cots totales`}>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <MetricsTableHead />
@@ -478,7 +486,7 @@ export default function Dashboard() {
       </Section>
 
       {/* ─── PIPELINE ACTIVO ────────────────────────── */}
-      <Section title="Pipeline activo — Reunión semanal" subtitle={`> ${formatCOP(MIN_PIPELINE_VALOR)} · ${pipelineActivo.length} oportunidades`} icon={BarChart3}>
+      <Section title="Pipeline activo — Reunion semanal" subtitle={`> ${formatCOP(MIN_PIPELINE_VALOR)} · ${pipelineActivo.length} oportunidades`} icon={BarChart3} summary={`${pipelineActivo.length} oportunidades`}>
         {pipelineActivo.length === 0 ? (
           <p className="text-xs text-[var(--color-text-muted)] text-center py-6">No hay oportunidades en seguimiento activo con valor mayor a {formatCOP(MIN_PIPELINE_VALOR)}.</p>
         ) : (
@@ -522,7 +530,7 @@ export default function Dashboard() {
       </Section>
 
       {/* ─── TOP 10 CLIENTES ────────────────────────── */}
-      <Section title="Top 10 clientes" subtitle="Por valor cotizado — % sobre valor" icon={Target}>
+      <Section title="Top 10 clientes" subtitle="Por valor cotizado — % sobre valor" icon={Target} summary={empresaStats[0]?.nombre || ''}>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>

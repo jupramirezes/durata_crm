@@ -30,7 +30,13 @@
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
 body {
   background: var(--color-bg);
@@ -63,8 +69,11 @@ input:focus, select:focus, textarea:focus {
 /* Tabular numbers for data alignment */
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
+/* Global transitions */
+button, a { transition: all 150ms ease; }
+
 /* Scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
