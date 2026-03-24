@@ -23,7 +23,7 @@ interface State {
   precios: PrecioMaestro[]
 }
 
-type Action =
+export type Action =
   | { type: 'ADD_EMPRESA'; payload: Omit<Empresa, 'id' | 'created_at'> & { id?: string } }
   | { type: 'UPDATE_EMPRESA'; payload: Empresa }
   | { type: 'DELETE_EMPRESA'; payload: { id: string } }
@@ -114,7 +114,8 @@ function saveState(state: State) {
    REDUCER
    ══════════════════════════════════════════════════════════ */
 
-function reducer(state: State, action: Action): State {
+/** @internal exported for testing */
+export function reducer(state: State, action: Action): State {
   switch (action.type) {
     // ── Hydrate from Supabase ────────────────────────
     case '_HYDRATE': {
