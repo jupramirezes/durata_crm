@@ -78,14 +78,12 @@ function Section({ title, subtitle, icon: Icon, children }: {
   title: string; subtitle?: string; icon: React.ElementType; children: React.ReactNode
 }) {
   return (
-    <div className="bg-white border border-[var(--color-border)] rounded-lg p-5 shadow-sm">
-      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--color-border)]">
-        <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center">
-          <Icon size={14} className="text-[var(--color-primary)]" />
-        </div>
+    <div className="bg-[var(--color-surface)] rounded-xl p-6 shadow-[var(--shadow-sm)]">
+      <div className="flex items-center gap-2.5 mb-5">
+        <Icon size={16} className="text-[var(--color-primary)] shrink-0" />
         <div>
-          <h3 className="font-semibold text-sm text-[var(--color-text)]">{title}</h3>
-          {subtitle && <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">{subtitle}</p>}
+          <h3 className="font-semibold text-base text-[var(--color-text)]">{title}</h3>
+          {subtitle && <p className="text-[13px] text-[var(--color-text-muted)] mt-0.5">{subtitle}</p>}
         </div>
       </div>
       {children}
@@ -301,15 +299,15 @@ export default function Dashboard() {
   ], [oportunidades, cotizaciones])
 
   /* ── Table styles ────────────────────────────────── */
-  const thCls = 'pb-2 pt-1 font-semibold text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50'
-  const tdCls = 'py-2 text-xs'
+  const thCls = 'pb-3 pt-2 font-medium text-xs uppercase tracking-[0.05em] text-[var(--color-text-muted)] px-4'
+  const tdCls = 'py-3 px-4 text-sm'
 
   /** Reusable metrics table header */
   function MetricsTableHead() {
     return (
       <thead>
         <tr>
-          <th className={`${thCls} pl-3 rounded-tl-md`}>Período</th>
+          <th className={`${thCls} text-left`}>Período</th>
           <th className={`${thCls} text-center`}>Cots</th>
           <th className={`${thCls} text-right`}>Valor cotizado</th>
           <th className={`${thCls} text-center`}>Adj</th>
@@ -317,33 +315,32 @@ export default function Dashboard() {
           <th className={`${thCls} text-center`}>% Adj</th>
           <th className={`${thCls} text-right`}>Prom cot.</th>
           <th className={`${thCls} text-right`}>Prom adj.</th>
-          <th className={`${thCls} text-center pr-3 rounded-tr-md`}>Días prom.</th>
+          <th className={`${thCls} text-center`}>Días prom.</th>
         </tr>
       </thead>
     )
   }
 
   /** Reusable metrics table row */
-  function MetricsTableRow({ r, bold, idx }: { r: MetricsRow; bold?: boolean; idx?: number }) {
-    const w = bold ? 'font-bold' : ''
-    const zebra = !bold && idx !== undefined && idx % 2 === 1 ? 'bg-slate-50/50' : ''
+  function MetricsTableRow({ r, bold }: { r: MetricsRow; bold?: boolean; idx?: number }) {
+    const w = bold ? 'font-semibold' : ''
     return (
-      <tr className={`border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors ${bold ? 'bg-slate-50 border-t-2 border-slate-200' : ''} ${zebra}`}>
-        <td className={`${tdCls} pl-3 font-medium text-[var(--color-text)] ${w}`}>{r.label}</td>
-        <td className={`${tdCls} text-center ${w}`}>{r.cotQty}</td>
-        <td className={`${tdCls} text-right font-mono ${w}`}>{formatCOP(r.cotValor)}</td>
-        <td className={`${tdCls} text-center ${w}`}>{r.adjQty}</td>
-        <td className={`${tdCls} text-right font-mono ${w}`}>{formatCOP(r.adjValor)}</td>
+      <tr className={`border-b border-[var(--color-border-light)] last:border-0 hover:bg-[var(--color-surface-hover)] transition-colors ${bold ? 'bg-slate-50/80 border-t border-slate-200' : ''}`}>
+        <td className={`${tdCls} font-medium text-[var(--color-text)] ${w}`}>{r.label}</td>
+        <td className={`${tdCls} text-center tabular-nums ${w}`}>{r.cotQty}</td>
+        <td className={`${tdCls} text-right tabular-nums ${w}`}>{formatCOP(r.cotValor)}</td>
+        <td className={`${tdCls} text-center tabular-nums ${w}`}>{r.adjQty}</td>
+        <td className={`${tdCls} text-right tabular-nums ${w}`}>{formatCOP(r.adjValor)}</td>
         <td className={`${tdCls} text-center`}><PctBadge value={r.pctAdj} /></td>
-        <td className={`${tdCls} text-right font-mono`}>{formatCOP(r.avgCot)}</td>
-        <td className={`${tdCls} text-right font-mono`}>{formatCOP(r.avgAdj)}</td>
-        <td className={`${tdCls} text-center pr-3`}>{fmtDias(r.avgDias)}</td>
+        <td className={`${tdCls} text-right tabular-nums`}>{formatCOP(r.avgCot)}</td>
+        <td className={`${tdCls} text-right tabular-nums`}>{formatCOP(r.avgAdj)}</td>
+        <td className={`${tdCls} text-center text-[var(--color-text-muted)]`}>{fmtDias(r.avgDias)}</td>
       </tr>
     )
   }
 
   return (
-    <div className="p-6 space-y-6 animate-fade-in max-w-[1400px] mx-auto">
+    <div className="px-8 py-6 space-y-4 animate-fade-in max-w-[1400px] mx-auto">
       <PageHeader
         title="Dashboard"
         subtitle={dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
@@ -358,8 +355,8 @@ export default function Dashboard() {
       </div>
 
       {/* ─── PIPELINE BAR ───────────────────────────── */}
-      <div className="bg-white border border-[var(--color-border)] rounded-lg p-5 shadow-sm">
-        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Distribución del pipeline</p>
+      <div className="bg-[var(--color-surface)] rounded-xl p-6 shadow-[var(--shadow-sm)]">
+        <p className="text-xs font-medium uppercase tracking-[0.05em] text-[var(--color-text-muted)] mb-3">Distribucion del pipeline</p>
         <div className="flex h-8 rounded-md overflow-hidden gap-px">
           {etapaCounts.map(e => {
             const pct = (e.count / totalOps) * 100
@@ -440,7 +437,7 @@ export default function Dashboard() {
                 <th className={`${thCls} text-center`}>% Adj</th>
                 <th className={`${thCls} text-right`}>Prom cot.</th>
                 <th className={`${thCls} text-right`}>Prom adj.</th>
-                <th className={`${thCls} text-center pr-3 rounded-tr-md`}>Días prom.</th>
+                <th className={`${thCls} text-center`}>Días prom.</th>
               </tr>
             </thead>
             <tbody>
@@ -536,7 +533,7 @@ export default function Dashboard() {
                 <th className={`${thCls} text-right`}>Valor cotizado</th>
                 <th className={`${thCls} text-right`}>Valor adj.</th>
                 <th className={`${thCls} text-center`}>% Adj</th>
-                <th className={`${thCls} text-center pr-3 rounded-tr-md`}>Días prom.</th>
+                <th className={`${thCls} text-center`}>Días prom.</th>
               </tr>
             </thead>
             <tbody>
