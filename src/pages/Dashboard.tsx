@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useStore } from '../lib/store'
 import { ETAPAS, COTIZADORES, Etapa, matchCotizador, findCotizador } from '../types'
 import { formatCOP, daysSince, getAvatarColor } from '../lib/utils'
@@ -103,31 +104,25 @@ export default function Dashboard() {
   const currentMonthLabel = `${FULL_MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`
 
   // Pre-build lookup: oportunidad_id -> oportunidad
-  const opMap = new Map(oportunidades.map(o => [o.id, o]))
+  const opMap = useMemo(() => new Map(oportunidades.map(o => [o.id, o])), [oportunidades])
 
   /* ── SECCIÓN 1: Resumen general ───────────────────── */
-  const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida')
-  const valorPipeline = activas.reduce((s, o) => s + o.valor_cotizado, 0)
-
-  const cotsMes = cotizaciones.filter(c => {
-    const d = new Date(c.fecha)
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  })
-  const totalMes = cotsMes.reduce((s, c) => s + c.total, 0)
-
-  const adjTotal = oportunidades.filter(o => o.etapa === 'adjudicada').length
-  const perTotal = oportunidades.filter(o => o.etapa === 'perdida').length
-  const tasaCierre = adjTotal + perTotal > 0 ? Math.round((adjTotal / (adjTotal + perTotal)) * 100) : 0
-
-  /* ── Pipeline distribution bar ───────────────────── */
-  const etapaCounts = ETAPAS.map(e => ({
-    ...e,
-    count: oportunidades.filter(o => o.etapa === e.key).length,
-  }))
-  const totalOps = oportunidades.length || 1
-
-  /* ── Shared: adjudicaciones indexed by month of fecha_adjudicacion ── */
-  const adjOportunidades = oportunidades.filter(o => o.etapa === 'adjudicada')
+  const { activas, valorPipeline, cotsMes, totalMes, tasaCierre, etapaCounts, totalOps, adjOportunidades } = useMemo(() => {
+    const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida')
+    const valorPipeline = activas.reduce((s, o) => s + o.valor_cotizado, 0)
+    const cotsMes = cotizaciones.filter(c => {
+      const d = new Date(c.fecha)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    })
+    const totalMes = cotsMes.reduce((s, c) => s + c.total, 0)
+    const adjTotal = oportunidades.filter(o => o.etapa === 'adjudicada').length
+    const perTotal = oportunidades.filter(o => o.etapa === 'perdida').length
+    const tasaCierre = adjTotal + perTotal > 0 ? Math.round((adjTotal / (adjTotal + perTotal)) * 100) : 0
+    const etapaCounts = ETAPAS.map(e => ({ ...e, count: oportunidades.filter(o => o.etapa === e.key).length }))
+    const totalOps = oportunidades.length || 1
+    const adjOportunidades = oportunidades.filter(o => o.etapa === 'adjudicada')
+    return { activas, valorPipeline, cotsMes, totalMes, adjTotal, perTotal, tasaCierre, etapaCounts, totalOps, adjOportunidades }
+  }, [oportunidades, cotizaciones])
 
   function getAdjMonth(o: typeof oportunidades[0]): { year: number; month: number } | null {
     const fa = o.fecha_adjudicacion
@@ -172,10 +167,10 @@ export default function Dashboard() {
     return { label: monthLabel(year, month), cotQty: cotsM.length, cotValor, adjQty: adjOps.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
   }
 
-  const monthRows = last6.map(m => buildMonthRow(m.year, m.month))
+  const monthRows = useMemo(() => last6.map(m => buildMonthRow(m.year, m.month)), [oportunidades, cotizaciones])
 
   /* ── SECCIÓN 3: Métricas por cotizador ─────────────── */
-  const cotizadorRows = COTIZADORES.map(cot => {
+  const cotizadorRows = useMemo(() => COTIZADORES.map(cot => {
     const opsC = oportunidades.filter(o => matchCotizador(o.cotizador_asignado, cot.id))
     const cotsC = cotizaciones.filter(c => { const op = opMap.get(c.oportunidad_id); return op && matchCotizador(op.cotizador_asignado, cot.id) })
     const cotValor = cotsC.reduce((s, c) => s + c.total, 0)
@@ -190,10 +185,10 @@ export default function Dashboard() {
     const diasArr = calcDiasElaboracion(opsC)
 
     return { iniciales: cot.iniciales, nombre: cot.nombre, cotQty: cotsC.length, cotValor, adjQty: adjOps.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
-  })
+  }), [oportunidades, cotizaciones])
 
   /* ── SECCIÓN 4: Pipeline activo — Reunión semanal ─── */
-  const pipelineActivo = oportunidades
+  const pipelineActivo = useMemo(() => oportunidades
     .filter(o => PIPELINE_ACTIVO.includes(o.etapa) && o.valor_cotizado > MIN_PIPELINE_VALOR)
     .sort((a, b) => b.valor_cotizado - a.valor_cotizado)
     .map(o => {
@@ -203,21 +198,21 @@ export default function Dashboard() {
       const cotizador = findCotizador(o.cotizador_asignado)
       const diasEnvio = o.fecha_envio ? daysSince(o.fecha_envio) : null
       return { id: o.id, empresa: empresa?.nombre ?? '—', etapa: o.etapa, fechaEnvio: o.fecha_envio ?? null, numeroCot: lastCot?.numero ?? '—', valorCotizado: o.valor_cotizado, diasDesdeEnvio: diasEnvio, cotizador: cotizador?.iniciales ?? '—', cotizadorNombre: cotizador?.nombre ?? '' }
-    })
+    }), [oportunidades, cotizaciones, empresas])
 
   /* ── SECCIÓN 5: Top 10 clientes ───────────────────── */
-  const empresaStats = empresas.map(emp => {
+  const empresaStats = useMemo(() => empresas.map(emp => {
     const ops = oportunidades.filter(o => o.empresa_id === emp.id)
     const valorCotizado = ops.reduce((s, o) => s + o.valor_cotizado, 0)
     const valorAdjudicado = ops.filter(o => o.etapa === 'adjudicada').reduce((s, o) => s + o.valor_adjudicado, 0)
     const pctAdj = valorCotizado > 0 ? (valorAdjudicado / valorCotizado) * 100 : 0
     const diasArr = calcDiasElaboracion(ops)
     return { nombre: emp.nombre, opCount: ops.length, valorCotizado, valorAdjudicado, pctAdj, avgDias: avgDias(diasArr) }
-  }).sort((a, b) => b.valorCotizado - a.valorCotizado).slice(0, 10)
+  }).sort((a, b) => b.valorCotizado - a.valorCotizado).slice(0, 10), [oportunidades, empresas])
 
   /* ── SECCIÓN 6: Evolución anual ───────────────────── */
   const years = [2021, 2022, 2023, 2024, 2025, 2026]
-  const yearRows: MetricsRow[] = years.map(year => {
+  const { yearRows, totalRow } = useMemo(() => { const yearRows: MetricsRow[] = years.map(year => {
     const cotsY = cotizaciones.filter(c => new Date(c.fecha).getFullYear() === year)
     const cotValor = cotsY.reduce((s, c) => s + c.total, 0)
 
@@ -253,6 +248,8 @@ export default function Dashboard() {
       ? yearRows.reduce((s, r) => s + r.adjValor, 0) / yearRows.reduce((s, r) => s + r.adjQty, 0) : 0,
     avgDias: avgDias(calcDiasElaboracion(oportunidades)),
   }
+  return { yearRows, totalRow }
+  }, [oportunidades, cotizaciones])
 
   /* ── SECCIÓN 7: Comparativo vs año anterior ─────── */
   const currentYear = now.getFullYear()
@@ -294,14 +291,14 @@ export default function Dashboard() {
     return ((current - prev) / prev) * 100
   }
 
-  const comparativo = [
+  const comparativo = useMemo(() => [
     { metric: 'Cotizaciones', prev: String(prevYearMetrics.cotQty), curr: String(thisYearMetrics.cotQty), variation: pctChange(thisYearMetrics.cotQty, prevYearMetrics.cotQty), suffix: '%' },
     { metric: 'Valor cotizado', prev: formatCOP(prevYearMetrics.cotValor), curr: formatCOP(thisYearMetrics.cotValor), variation: pctChange(thisYearMetrics.cotValor, prevYearMetrics.cotValor), suffix: '%' },
     { metric: 'Adjudicaciones', prev: String(prevYearMetrics.adjQty), curr: String(thisYearMetrics.adjQty), variation: pctChange(thisYearMetrics.adjQty, prevYearMetrics.adjQty), suffix: '%' },
     { metric: 'Valor adjudicado', prev: formatCOP(prevYearMetrics.adjValor), curr: formatCOP(thisYearMetrics.adjValor), variation: pctChange(thisYearMetrics.adjValor, prevYearMetrics.adjValor), suffix: '%' },
     { metric: '% Adjudicación', prev: `${prevYearMetrics.pctAdj.toFixed(1)}%`, curr: `${thisYearMetrics.pctAdj.toFixed(1)}%`, variation: thisYearMetrics.pctAdj - prevYearMetrics.pctAdj, suffix: 'pp' },
     { metric: 'Días promedio', prev: thisYearMetrics.dias > 0 ? prevYearMetrics.dias.toFixed(1) : '—', curr: thisYearMetrics.dias > 0 ? thisYearMetrics.dias.toFixed(1) : '—', variation: pctChange(thisYearMetrics.dias, prevYearMetrics.dias), suffix: '%', invert: true },
-  ]
+  ], [oportunidades, cotizaciones])
 
   /* ── Table styles ────────────────────────────────── */
   const thCls = 'pb-2 pt-1 font-semibold text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50'

@@ -1,7 +1,8 @@
-import { createContext, useContext, useReducer, useEffect, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useReducer, useEffect, useRef, useState, useCallback, ReactNode } from 'react'
 import { Empresa, Contacto, Oportunidad, Etapa, HistorialEtapa, ProductoCliente, Cotizacion, PrecioMaestro } from '../types'
 import { DEMO_EMPRESAS, DEMO_CONTACTOS, DEMO_OPORTUNIDADES, DEMO_PRECIOS } from './demo-data'
 import { isSupabaseReady } from './supabase'
+import { showToast } from '../components/Toast'
 
 // ── Supabase service imports (fire-and-forget sync) ──
 import * as svcEmpresas from '../hooks/useEmpresas'
@@ -306,7 +307,10 @@ function syncToSupabase(action: Action, stateBefore: State) {
   if (!isSupabaseReady) return
 
   const log = (label: string, result: { error?: string | null }) => {
-    if (result.error) console.error(`[Supabase] ${label}:`, result.error)
+    if (result.error) {
+      console.error(`[Supabase] ${label}:`, result.error)
+      showToast('error', `Error al guardar (${label}). Los cambios se perderán al recargar.`)
+    }
   }
 
   switch (action.type) {
@@ -370,11 +374,12 @@ function syncToSupabase(action: Action, stateBefore: State) {
         upd.fecha_envio = new Date().toISOString().split('T')[0]
       }
       svcCotizaciones.updateCotizacion(upd).then(r => log('UPDATE_COTIZACION_ESTADO', r))
-      // Auto-move oportunidad
+      // Auto-move oportunidad is handled in the reducer (single source of truth)
+      // Persist the reducer's etapa change to Supabase
       if (cot?.estado === 'borrador' && action.payload.estado === 'enviada') {
         const oppCot = stateBefore.oportunidades.find(o => o.id === cot.oportunidad_id)
         if (oppCot && (oppCot.etapa === 'nuevo_lead' || oppCot.etapa === 'en_cotizacion')) {
-          svcOportunidades.updateOportunidad({ id: oppCot.id, etapa: 'cotizacion_enviada', fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }).then(r => log('UPDATE_COTIZACION_ESTADO move', r))
+          svcOportunidades.updateOportunidad({ id: oppCot.id, etapa: 'cotizacion_enviada', fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }).then(r => log('UPDATE_COTIZACION_ESTADO sync', r))
           svcOportunidades.createHistorial({ oportunidad_id: oppCot.id, etapa_anterior: oppCot.etapa, etapa_nueva: 'cotizacion_enviada', created_at: new Date().toISOString() }).then(r => log('UPDATE_COTIZACION_ESTADO historial', r))
         }
       }
@@ -407,12 +412,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, rawDispatch] = useReducer(reducer, undefined, loadState)
   const [loading, setLoading] = useState(isSupabaseReady)
 
+  // Keep a ref to always have latest state for sync (fixes closure bug)
+  const stateRef = useRef(state)
+  useEffect(() => { stateRef.current = state }, [state])
+
   // Wrapped dispatch: reduce locally + sync to Supabase
   const dispatch = useCallback((action: Action) => {
-    // Capture state before reduction for sync logic
-    syncToSupabase(action, state)
+    syncToSupabase(action, stateRef.current)
     rawDispatch(action)
-  }, [state])
+  }, []) // stable reference — stateRef.current always fresh
 
   // Persist to localStorage (cache/fallback, quota-safe)
   useEffect(() => {
@@ -487,6 +495,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error('[Supabase hydrate]', err)
+        showToast('error', 'Error al cargar datos de Supabase')
       } finally {
         setLoading(false)
       }

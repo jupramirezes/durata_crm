@@ -171,7 +171,7 @@ export default function CotizacionEditor() {
           <button onClick={saveDraft} className="flex items-center gap-1.5 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] px-3 py-2 rounded-md text-xs font-semibold transition-all">
             <Save size={12} /> Guardar borrador
           </button>
-          <button onClick={() => setShowPdfModal(true)} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-3 py-2 rounded-md text-xs font-bold transition-all">
+          <button onClick={() => { if (subtotal <= 0) { alert('No se puede generar PDF con total $0'); return } setShowPdfModal(true) }} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-3 py-2 rounded-md text-xs font-bold transition-all disabled:opacity-40" disabled={subtotal <= 0}>
             <Download size={12} /> Descargar PDF
           </button>
         </div>
@@ -235,8 +235,8 @@ export default function CotizacionEditor() {
                         <input
                           type="number"
                           value={p.cantidad}
-                          onChange={e => updateProducto(i, 'cantidad', Number(e.target.value))}
-                          min={0}
+                          onChange={e => updateProducto(i, 'cantidad', Math.max(1, Number(e.target.value)))}
+                          min={1}
                           step="any"
                           className="w-12 text-[10px] text-center px-1 py-1 rounded border border-[var(--color-border)]"
                         />

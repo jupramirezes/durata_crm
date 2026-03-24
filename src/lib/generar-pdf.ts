@@ -23,6 +23,13 @@ export interface PdfCotizacionData {
   condicionesItems: string[]
   noIncluyeItems: string[]
   cotizadorAsignado?: string
+  /** Optional overrides from configuracion_sistema */
+  config?: {
+    textoInstitucional?: string
+    cuentaBancaria?: string
+    validezPropuesta?: string
+    formaPago?: string
+  }
 }
 
 // Cotizador info for PDF signature
@@ -152,7 +159,7 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
-  const parrafoInst = 'DURATA S.A.S es una empresa antioquena fundada desde 1985, dedicada a la fabricacion de articulos en Acero Inoxidable y estructura metalica. Nos destacamos en el mercado por nuestra eficiencia y calidad.'
+  const parrafoInst = data.config?.textoInstitucional || 'DURATA S.A.S es una empresa antioquena fundada desde 1985, dedicada a la fabricacion de articulos en Acero Inoxidable y estructura metalica. Nos destacamos en el mercado por nuestra eficiencia y calidad.'
   const instLines: string[] = doc.splitTextToSize(parrafoInst, cW)
   for (const line of instLines) {
     doc.text(line, mL, y)
@@ -322,11 +329,11 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
 
   y += 2
   checkPage(18)
-  textBlock('\u2022 Forma de Pago: 50% ANTICIPO Y 50% contra entrega.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+  textBlock(`\u2022 Forma de Pago: ${data.config?.formaPago || '50% ANTICIPO Y 50% contra entrega.'}`, mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
   y += 1
-  textBlock('\u2022 Cuentas Bancarias: Bancolombia Corriente 27250080764.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+  textBlock(`\u2022 Cuentas Bancarias: ${data.config?.cuentaBancaria || 'Bancolombia Corriente 27250080764.'}`, mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
   y += 1
-  textBlock('\u2022 Validez de la propuesta: 10 dias calendario.', mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
+  textBlock(`\u2022 Validez de la propuesta: ${data.config?.validezPropuesta || '10 dias calendario.'}`, mL + 2, cW - 4, 3.2, 7, 'helvetica', 'normal', [60, 60, 60])
 
   // Signature — resolve cotizador from oportunidad
   const cotizador = data.cotizadorAsignado ? findCotizador(data.cotizadorAsignado) : null

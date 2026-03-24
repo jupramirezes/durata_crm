@@ -72,7 +72,7 @@ export default function Precios() {
   }
 
   function saveEdit(id: string) {
-    dispatch({ type: 'UPDATE_PRECIO', payload: { id, precio: Number(editValue) } })
+    dispatch({ type: 'UPDATE_PRECIO', payload: { id, precio: Math.max(0, Number(editValue) || 0) } })
     setEditingId(null)
     setLastEditedId(id)
     setTimeout(() => setLastEditedId(null), 2500)

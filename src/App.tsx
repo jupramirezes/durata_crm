@@ -16,6 +16,7 @@ import CotizacionEditor from './pages/CotizacionEditor'
 import Precios from './pages/Precios'
 import PreciosImportar from './pages/PreciosImportar'
 import Configuracion from './pages/Configuracion'
+import { ToastProvider } from './components/Toast'
 
 function Layout({ children, user }: { children: React.ReactNode; user: User }) {
   return (
@@ -72,24 +73,26 @@ export default function App() {
 
   // Authenticated (or Supabase not configured → dev mode)
   return (
-    <StoreProvider>
-      <BrowserRouter>
-        <Layout user={user!}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/empresas" element={<Empresas />} />
-            <Route path="/empresas/:id" element={<EmpresaDetalle />} />
-            <Route path="/oportunidades/:id" element={<OportunidadDetalle />} />
-            <Route path="/oportunidades/:id/configurar" element={<ConfiguradorMesa />} />
-            <Route path="/cotizaciones" element={<Cotizaciones />} />
-            <Route path="/cotizaciones/:id/editar" element={<CotizacionEditor />} />
-            <Route path="/precios" element={<Precios />} />
-            <Route path="/precios/importar" element={<PreciosImportar />} />
-            <Route path="/config" element={<Configuracion />} />
-          </Routes>
-        </Layout>
-      </BrowserRouter>
-    </StoreProvider>
+    <ToastProvider>
+      <StoreProvider>
+        <BrowserRouter>
+          <Layout user={user!}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/empresas" element={<Empresas />} />
+              <Route path="/empresas/:id" element={<EmpresaDetalle />} />
+              <Route path="/oportunidades/:id" element={<OportunidadDetalle />} />
+              <Route path="/oportunidades/:id/configurar" element={<ConfiguradorMesa />} />
+              <Route path="/cotizaciones" element={<Cotizaciones />} />
+              <Route path="/cotizaciones/:id/editar" element={<CotizacionEditor />} />
+              <Route path="/precios" element={<Precios />} />
+              <Route path="/precios/importar" element={<PreciosImportar />} />
+              <Route path="/config" element={<Configuracion />} />
+            </Routes>
+          </Layout>
+        </BrowserRouter>
+      </StoreProvider>
+    </ToastProvider>
   )
 }
