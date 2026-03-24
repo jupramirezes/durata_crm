@@ -137,6 +137,10 @@ export interface ProductoCliente {
   precio_calculado?: number
   descripcion_comercial?: string
   cantidad: number
+  archivo_apu_url?: string | null
+  archivo_apu_nombre?: string | null
+  archivo_pdf_url?: string | null
+  archivo_pdf_nombre?: string | null
 }
 
 // ==============================

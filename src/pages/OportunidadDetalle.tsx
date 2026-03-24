@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
@@ -6,10 +6,13 @@ import { formatDate, formatCOP, daysSince } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
+import { uploadProductFile, getSignedUrl, acceptString } from '../hooks/useStorage'
+import * as svcOportunidades from '../hooks/useOportunidades'
 import {
   ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
   StickyNote, Send, Wrench, X, ChevronDown, Copy, Download, Clock,
   ArrowRightLeft, MessageSquare, Box, Phone, Mail, AlertCircle,
+  Paperclip, FileSpreadsheet, File,
 } from 'lucide-react'
 
 const CATEGORIAS_PRODUCTO = [
@@ -58,6 +61,16 @@ export default function OportunidadDetalle() {
     precio_unitario: 0,
     notas: '',
   })
+  const [manualApuFile, setManualApuFile] = useState<File | null>(null)
+  const [manualPdfFile, setManualPdfFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const apuInputRef = useRef<HTMLInputElement>(null)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
+  // For inline file attach on existing products
+  const [attachingProduct, setAttachingProduct] = useState<string | null>(null)
+  const attachApuRef = useRef<HTMLInputElement>(null)
+  const attachPdfRef = useRef<HTMLInputElement>(null)
 
   if (!oportunidad || !empresa) return <div className="p-6 text-[var(--color-text-muted)]">Oportunidad no encontrada</div>
 
@@ -627,6 +640,13 @@ export default function OportunidadDetalle() {
                               <Copy size={13} />
                             </button>
                             <button
+                              onClick={() => setAttachingProduct(attachingProduct === p.id ? null : p.id)}
+                              className={`p-1.5 rounded transition-all ${attachingProduct === p.id ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                              title="Adjuntar archivo"
+                            >
+                              <Paperclip size={13} />
+                            </button>
+                            <button
                               onClick={() => { if (window.confirm('\u00bfEliminar este producto?')) dispatch({ type: 'DELETE_PRODUCTO', payload: { id: p.id } }) }}
                               className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
                               title="Eliminar"
@@ -636,6 +656,76 @@ export default function OportunidadDetalle() {
                           </div>
                         </div>
                       </div>
+                      {/* Attached files display */}
+                      {(p.archivo_apu_nombre || p.archivo_pdf_nombre) && (
+                        <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-wrap gap-2">
+                          {p.archivo_apu_nombre && (
+                            <button
+                              onClick={async () => {
+                                if (!p.archivo_apu_url) return
+                                const url = await getSignedUrl(p.archivo_apu_url)
+                                if (url) window.open(url, '_blank')
+                              }}
+                              className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-50 border border-green-200 hover:bg-green-100 transition-all text-[10px] text-green-800"
+                            >
+                              <FileSpreadsheet size={12} className="text-green-600" />
+                              {p.archivo_apu_nombre}
+                              <Download size={10} />
+                            </button>
+                          )}
+                          {p.archivo_pdf_nombre && (
+                            <button
+                              onClick={async () => {
+                                if (!p.archivo_pdf_url) return
+                                const url = await getSignedUrl(p.archivo_pdf_url)
+                                if (url) window.open(url, '_blank')
+                              }}
+                              className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-50 border border-red-200 hover:bg-red-100 transition-all text-[10px] text-red-700"
+                            >
+                              <File size={12} className="text-red-500" />
+                              {p.archivo_pdf_nombre}
+                              <Download size={10} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {/* Inline attach area */}
+                      {attachingProduct === p.id && (
+                        <div className="mt-3 pt-3 border-t border-dashed border-blue-200 bg-blue-50/30 rounded-lg p-3">
+                          <div className="text-[10px] font-semibold text-blue-700 mb-2">Adjuntar archivos</div>
+                          <div className="flex gap-2 flex-wrap">
+                            <input ref={attachApuRef} type="file" accept={acceptString('apu')} className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file || !opp) return
+                              setUploading(true)
+                              const res = await uploadProductFile(opp.id, p.id, file, 'apu')
+                              if ('error' in res) { alert(res.error); setUploading(false); return }
+                              await svcOportunidades.updateProducto({ id: p.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } as any)
+                              dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } as any })
+                              setUploading(false)
+                              setAttachingProduct(null)
+                            }} />
+                            <button onClick={() => attachApuRef.current?.click()} disabled={uploading} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-green-300 bg-white hover:bg-green-50 text-[10px] text-green-700 transition-all disabled:opacity-50">
+                              <FileSpreadsheet size={12} /> {p.archivo_apu_nombre ? 'Reemplazar APU' : 'Subir APU (.xlsx)'}
+                            </button>
+                            <input ref={attachPdfRef} type="file" accept={acceptString('pdf')} className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file || !opp) return
+                              setUploading(true)
+                              const res = await uploadProductFile(opp.id, p.id, file, 'pdf')
+                              if ('error' in res) { alert(res.error); setUploading(false); return }
+                              await svcOportunidades.updateProducto({ id: p.id, archivo_pdf_url: res.url, archivo_pdf_nombre: res.nombre } as any)
+                              dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_pdf_url: res.url, archivo_pdf_nombre: res.nombre } as any })
+                              setUploading(false)
+                              setAttachingProduct(null)
+                            }} />
+                            <button onClick={() => attachPdfRef.current?.click()} disabled={uploading} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-300 bg-white hover:bg-red-50 text-[10px] text-red-600 transition-all disabled:opacity-50">
+                              <File size={12} /> {p.archivo_pdf_nombre ? 'Reemplazar PDF' : 'Subir PDF (.pdf)'}
+                            </button>
+                          </div>
+                          {uploading && <p className="text-[10px] text-blue-500 mt-1">Subiendo...</p>}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -954,7 +1044,7 @@ export default function OportunidadDetalle() {
       {/* Manual product modal */}
       {showManualForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowManualForm(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Producto manual</h3>
               <button onClick={() => setShowManualForm(false)} className="p-1 rounded hover:bg-[var(--color-surface)]"><X size={16} /></button>
@@ -989,19 +1079,89 @@ export default function OportunidadDetalle() {
                 <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Notas internas (opcional)</label>
                 <textarea value={manualForm.notas} onChange={e => setManualForm(f => ({ ...f, notas: e.target.value }))} rows={2} placeholder="Notas para referencia del cotizador..." className="w-full px-3 py-2 rounded-lg text-xs border border-[var(--color-border)] resize-none" />
               </div>
+
+              {/* File uploads */}
+              <div className="border-t border-[var(--color-border)] pt-4">
+                <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-2">Archivos adjuntos (opcional)</label>
+                <div className="space-y-2">
+                  {/* APU file */}
+                  <div className="flex items-center gap-2">
+                    <input ref={apuInputRef} type="file" accept={acceptString('apu')} className="hidden" onChange={e => { if (e.target.files?.[0]) setManualApuFile(e.target.files[0]) }} />
+                    {manualApuFile ? (
+                      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex-1">
+                        <FileSpreadsheet size={14} className="text-green-600 shrink-0" />
+                        <span className="text-xs text-green-800 truncate flex-1">{manualApuFile.name}</span>
+                        <button onClick={() => { setManualApuFile(null); if (apuInputRef.current) apuInputRef.current.value = '' }} className="text-red-400 hover:text-red-600"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => apuInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/30 text-xs text-[var(--color-text-muted)] transition-all flex-1">
+                        <FileSpreadsheet size={14} className="text-green-500" /> Archivo APU (.xlsx)
+                      </button>
+                    )}
+                  </div>
+                  {/* PDF file */}
+                  <div className="flex items-center gap-2">
+                    <input ref={pdfInputRef} type="file" accept={acceptString('pdf')} className="hidden" onChange={e => { if (e.target.files?.[0]) setManualPdfFile(e.target.files[0]) }} />
+                    {manualPdfFile ? (
+                      <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex-1">
+                        <File size={14} className="text-red-500 shrink-0" />
+                        <span className="text-xs text-red-800 truncate flex-1">{manualPdfFile.name}</span>
+                        <button onClick={() => { setManualPdfFile(null); if (pdfInputRef.current) pdfInputRef.current.value = '' }} className="text-red-400 hover:text-red-600"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => pdfInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/30 text-xs text-[var(--color-text-muted)] transition-all flex-1">
+                        <File size={14} className="text-red-400" /> PDF Cotizacion (.pdf)
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {uploadError && <p className="text-[10px] text-red-500 mt-1">{uploadError}</p>}
+              </div>
             </div>
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
-              <button onClick={() => setShowManualForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-white border border-[var(--color-border)] transition-colors">Cancelar</button>
+              <button onClick={() => { setShowManualForm(false); setManualApuFile(null); setManualPdfFile(null); setUploadError('') }} className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-white border border-[var(--color-border)] transition-colors">Cancelar</button>
               <button
-                disabled={!manualForm.descripcion.trim() || manualForm.precio_unitario <= 0}
-                onClick={() => {
+                disabled={!manualForm.descripcion.trim() || manualForm.precio_unitario <= 0 || uploading}
+                onClick={async () => {
                   if (!opp) return
+                  setUploading(true)
+                  setUploadError('')
+
                   const descFull = manualForm.notas.trim()
                     ? `${manualForm.descripcion}\n[Nota: ${manualForm.notas.trim()}]`
                     : manualForm.descripcion
+
+                  // Create the product first to get an ID
+                  const prodId = crypto.randomUUID()
+                  const prodPayload: Record<string, unknown> = {
+                    id: prodId,
+                    oportunidad_id: opp.id,
+                    categoria: manualForm.categoria,
+                    subtipo: `${manualForm.categoria} (manual)`,
+                    configuracion: CONFIG_MESA_DEFAULT,
+                    precio_calculado: manualForm.precio_unitario,
+                    descripcion_comercial: descFull,
+                    cantidad: manualForm.cantidad,
+                  }
+
+                  // Upload files if any
+                  if (manualApuFile) {
+                    const res = await uploadProductFile(opp.id, prodId, manualApuFile, 'apu')
+                    if ('error' in res) { setUploadError(res.error); setUploading(false); return }
+                    prodPayload.archivo_apu_url = res.url
+                    prodPayload.archivo_apu_nombre = res.nombre
+                  }
+                  if (manualPdfFile) {
+                    const res = await uploadProductFile(opp.id, prodId, manualPdfFile, 'pdf')
+                    if ('error' in res) { setUploadError(res.error); setUploading(false); return }
+                    prodPayload.archivo_pdf_url = res.url
+                    prodPayload.archivo_pdf_nombre = res.nombre
+                  }
+
                   dispatch({
                     type: 'ADD_PRODUCTO',
                     payload: {
+                      id: prodId,
                       oportunidad_id: opp.id,
                       categoria: manualForm.categoria,
                       subtipo: `${manualForm.categoria} (manual)`,
@@ -1009,14 +1169,31 @@ export default function OportunidadDetalle() {
                       precio_calculado: manualForm.precio_unitario,
                       descripcion_comercial: descFull,
                       cantidad: manualForm.cantidad,
-                    },
+                      archivo_apu_url: (prodPayload.archivo_apu_url as string) ?? null,
+                      archivo_apu_nombre: (prodPayload.archivo_apu_nombre as string) ?? null,
+                      archivo_pdf_url: (prodPayload.archivo_pdf_url as string) ?? null,
+                      archivo_pdf_nombre: (prodPayload.archivo_pdf_nombre as string) ?? null,
+                    } as any,
                   })
+
+                  // If files were uploaded, update the product in Supabase with the file URLs
+                  if (manualApuFile || manualPdfFile) {
+                    const updates: Record<string, unknown> = { id: prodId }
+                    if (prodPayload.archivo_apu_url) { updates.archivo_apu_url = prodPayload.archivo_apu_url; updates.archivo_apu_nombre = prodPayload.archivo_apu_nombre }
+                    if (prodPayload.archivo_pdf_url) { updates.archivo_pdf_url = prodPayload.archivo_pdf_url; updates.archivo_pdf_nombre = prodPayload.archivo_pdf_nombre }
+                    svcOportunidades.updateProducto(updates as any)
+                  }
+
                   setShowManualForm(false)
                   setManualForm({ categoria: 'Mesas', descripcion: '', cantidad: 1, precio_unitario: 0, notas: '' })
+                  setManualApuFile(null)
+                  setManualPdfFile(null)
+                  setUploadError('')
+                  setUploading(false)
                 }}
                 className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-primary)] hover:opacity-90 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                Guardar producto
+                {uploading ? 'Subiendo...' : 'Guardar producto'}
               </button>
             </div>
           </div>

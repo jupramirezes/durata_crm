@@ -188,7 +188,7 @@ function reducer(state: State, action: Action): State {
 
     // ── Productos ────────────────────────────────────
     case 'ADD_PRODUCTO': {
-      const newProducto = { ...action.payload, id: newId() }
+      const newProducto = { ...action.payload, id: (action.payload as any).id || newId() }
       let newOportunidades = state.oportunidades
       let newHistorial = state.historial
       const opp = state.oportunidades.find(o => o.id === newProducto.oportunidad_id)
