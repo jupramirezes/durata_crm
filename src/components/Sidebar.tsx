@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Kanban, Users, FileText, DollarSign, Settings, Menu, X, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import GlobalSearch from './GlobalSearch'
 
 const navGroups = [
   {
@@ -69,6 +70,11 @@ function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | 
             <X size={18} />
           </button>
         )}
+      </div>
+
+      {/* Search */}
+      <div className="px-3 pb-2">
+        <GlobalSearch />
       </div>
 
       {/* Navigation */}
