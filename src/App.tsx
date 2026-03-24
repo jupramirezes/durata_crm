@@ -47,6 +47,9 @@ export default function App() {
     // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (!session) {
+        window.history.replaceState({}, '', '/')
+      }
     })
 
     return () => subscription.unsubscribe()

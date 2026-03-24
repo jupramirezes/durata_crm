@@ -427,8 +427,8 @@ export default function OportunidadDetalle() {
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-[var(--color-text)] truncate">{emp.nombre}</h1>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Contacto: <span className="font-medium text-[var(--color-text)]">{contacto?.nombre || '\u2014'}</span>
-                {contacto?.cargo && <span> \u2014 {contacto.cargo}</span>}
+                Contacto: <span className="font-medium text-[var(--color-text)]">{contacto?.nombre || '—'}</span>
+                {contacto?.cargo && <span> — {contacto.cargo}</span>}
               </p>
               <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
                 Fuente: {opp.fuente_lead} &bull; Ingreso: {formatDate(opp.fecha_ingreso)} &bull; Cotizador: {cotizador?.nombre || opp.cotizador_asignado}
@@ -904,7 +904,7 @@ export default function OportunidadDetalle() {
               {/* Contacto info */}
               <div className="pt-2 border-t border-[var(--color-border)]">
                 <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider font-semibold mb-2">Contacto</p>
-                <p className="font-medium text-[var(--color-text)] mb-1">{contacto?.nombre || '\u2014'}</p>
+                <p className="font-medium text-[var(--color-text)] mb-1">{contacto?.nombre || '—'}</p>
                 {contacto?.whatsapp && (
                   <a href={`tel:${contacto.whatsapp}`} className="flex items-center gap-1.5 text-[10px] text-[var(--color-primary)] hover:underline mb-0.5">
                     <Phone size={10} /> {contacto.whatsapp}
@@ -948,8 +948,8 @@ export default function OportunidadDetalle() {
             </div>
             <div className="space-y-1 text-[10px]">
               <div className="font-medium text-xs text-[var(--color-text)]">{emp.nombre}</div>
-              <div className="text-[var(--color-text-muted)]">NIT: {emp.nit || '\u2014'}</div>
-              <div className="text-[var(--color-text-muted)]">{emp.direccion || '\u2014'}</div>
+              <div className="text-[var(--color-text-muted)]">NIT: {emp.nit || '—'}</div>
+              <div className="text-[var(--color-text-muted)]">{emp.direccion || '—'}</div>
               <div className="text-[var(--color-text-muted)]">{emp.sector}</div>
             </div>
             <button onClick={() => navigate(`/empresas/${emp.id}`)} className="text-[10px] text-[var(--color-primary)] hover:underline mt-2 block">
@@ -972,20 +972,20 @@ export default function OportunidadDetalle() {
             {contacto ? (
               <div className="space-y-1.5">
                 <div className="font-medium text-xs text-[var(--color-text)]">{contacto.nombre}</div>
-                <div className="text-[10px] text-[var(--color-text-muted)]">{contacto.cargo || '\u2014'}</div>
+                <div className="text-[10px] text-[var(--color-text-muted)]">{contacto.cargo || '—'}</div>
                 {contacto.correo ? (
                   <a href={`mailto:${contacto.correo}`} className="flex items-center gap-1.5 text-[10px] text-[var(--color-primary)] hover:underline">
                     <Mail size={10} /> {contacto.correo}
                   </a>
-                ) : (
-                  <span className="text-[10px] text-[var(--color-text-muted)]">Sin correo</span>
+                ) : !contacto.whatsapp ? null : (
+                  <div className="text-[10px] text-[var(--color-text-muted)]">Sin correo</div>
                 )}
                 {contacto.whatsapp ? (
                   <a href={`tel:${contacto.whatsapp}`} className="flex items-center gap-1.5 text-[10px] text-[var(--color-primary)] hover:underline">
                     <Phone size={10} /> {contacto.whatsapp}
                   </a>
-                ) : (
-                  <span className="text-[10px] text-[var(--color-text-muted)]">Sin telefono</span>
+                ) : !contacto.correo ? null : (
+                  <div className="text-[10px] text-[var(--color-text-muted)]">Sin teléfono</div>
                 )}
                 {(!contacto.correo || !contacto.whatsapp) && (
                   <div className="flex items-center gap-1 mt-1 text-[9px] text-amber-600">
