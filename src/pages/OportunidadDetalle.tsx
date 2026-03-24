@@ -1,12 +1,13 @@
 import { useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { ETAPAS, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
+import { ETAPAS, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
 import { formatDate, formatCOP, daysSince } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
 import { uploadProductFile, getSignedUrl, acceptString } from '../hooks/useStorage'
+import { showToast } from '../components/Toast'
 import * as svcOportunidades from '../hooks/useOportunidades'
 import {
   ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
@@ -61,6 +62,11 @@ export default function OportunidadDetalle() {
     precio_unitario: 0,
     notas: '',
   })
+  // Duplicate to other client state
+  const [dupCotId, setDupCotId] = useState<string | null>(null)
+  const [dupSearch, setDupSearch] = useState('')
+  const [dupSelectedEmpId, setDupSelectedEmpId] = useState<string | null>(null)
+  const [dupSelectedOppId, setDupSelectedOppId] = useState<string | null>(null)
   const [manualApuFile, setManualApuFile] = useState<File | null>(null)
   const [manualPdfFile, setManualPdfFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -315,14 +321,45 @@ export default function OportunidadDetalle() {
     })
   }
 
-  function handleDuplicarCotizacion(cotId: string) {
+  function handleDuplicarCotizacionSame(cotId: string) {
     const cot = cotizaciones.find(c => c.id === cotId)
-    // Version: suggest next letter based on original number
     const nuevoNumero = cot ? getDefaultNumero(cot.numero) : getDefaultNumero()
     const newId = crypto.randomUUID()
     dispatch({ type: 'DUPLICATE_COTIZACION', payload: { originalId: cotId, nuevoNumero, newId } })
-    // Navigate to editor so user can edit products
     setTimeout(() => navigate(`/cotizaciones/${newId}/editar`), 100)
+  }
+
+  function handleDuplicarCotizacion(cotId: string) {
+    setDupCotId(cotId)
+    setDupSearch('')
+    setDupSelectedEmpId(null)
+    setDupSelectedOppId(null)
+  }
+
+  function handleDupToOtherClient() {
+    if (!dupCotId || !dupSelectedOppId) return
+    const cot = state.cotizaciones.find(c => c.id === dupCotId)
+    if (!cot) return
+    const nuevoNumero = getDefaultNumero(cot.numero)
+    const newId = crypto.randomUUID()
+    // Create cotización copy on the target oportunidad
+    dispatch({
+      type: 'ADD_COTIZACION',
+      payload: {
+        id: newId,
+        oportunidad_id: dupSelectedOppId,
+        numero: nuevoNumero,
+        fecha: new Date().toISOString().split('T')[0],
+        total: cot.total,
+        estado: 'borrador' as const,
+        productos_snapshot: cot.productos_snapshot,
+        condicionesItems: cot.condicionesItems,
+        noIncluyeItems: cot.noIncluyeItems,
+      } as any,
+    })
+    setDupCotId(null)
+    showToast('success', `Cotizacion ${nuevoNumero} duplicada en otra oportunidad`)
+    setTimeout(() => navigate(`/oportunidades/${dupSelectedOppId}`), 100)
   }
 
   function handleDescargarPdf(cotId: string) {
@@ -840,12 +877,19 @@ export default function OportunidadDetalle() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[var(--color-text-muted)]">Cotizador</span>
-                <span className="font-medium flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-blue-50 text-[var(--color-primary)] flex items-center justify-center text-[8px] font-bold">
-                    {cotizador?.iniciales || '?'}
-                  </span>
-                  {cotizador?.nombre || opp.cotizador_asignado}
-                </span>
+                <select
+                  value={opp.cotizador_asignado}
+                  onChange={e => {
+                    dispatch({ type: 'UPDATE_OPORTUNIDAD', payload: { id: opp.id, cotizador_asignado: e.target.value } })
+                    const c = findCotizador(e.target.value)
+                    showToast('success', `Cotizador actualizado a ${c?.nombre || e.target.value}`)
+                  }}
+                  className="text-sm font-medium bg-transparent border-none cursor-pointer text-right pr-0 focus:ring-0 focus:outline-none hover:text-[var(--color-primary)] transition-colors"
+                >
+                  {COTIZADORES.map(c => (
+                    <option key={c.id} value={c.id}>{c.iniciales} — {c.nombre}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[var(--color-text-muted)]">Empresa</span>
@@ -1195,6 +1239,67 @@ export default function OportunidadDetalle() {
               >
                 {uploading ? 'Subiendo...' : 'Guardar producto'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate to other client modal */}
+      {dupCotId && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setDupCotId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+              <h3 className="font-bold text-base text-[var(--color-text)]">Duplicar cotizacion</h3>
+              <button onClick={() => setDupCotId(null)} className="p-1 rounded hover:bg-slate-100"><X size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <button
+                onClick={() => { handleDuplicarCotizacionSame(dupCotId); setDupCotId(null) }}
+                className="w-full text-left px-4 py-3 rounded-xl border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-blue-50/30 transition-all"
+              >
+                <p className="font-semibold text-sm">Duplicar en esta oportunidad</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Crea una version nueva (A, B, C...)</p>
+              </button>
+              <div className="border border-[var(--color-border)] rounded-xl p-4">
+                <p className="font-semibold text-sm mb-3">Duplicar para otro cliente</p>
+                <input
+                  type="text"
+                  value={dupSearch}
+                  onChange={e => { setDupSearch(e.target.value); setDupSelectedEmpId(null); setDupSelectedOppId(null) }}
+                  placeholder="Buscar empresa..."
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-[var(--color-border)]"
+                />
+                {dupSearch.length >= 2 && !dupSelectedEmpId && (
+                  <div className="mt-2 max-h-32 overflow-y-auto border border-[var(--color-border)] rounded-lg">
+                    {state.empresas.filter(e => e.nombre.toLowerCase().includes(dupSearch.toLowerCase())).slice(0, 8).map(e => (
+                      <button key={e.id} onClick={() => { setDupSelectedEmpId(e.id); setDupSearch(e.nombre) }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 truncate">
+                        {e.nombre}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {dupSelectedEmpId && (
+                  <div className="mt-3">
+                    <p className="text-xs text-[var(--color-text-muted)] mb-1.5 font-medium">Seleccionar oportunidad:</p>
+                    <div className="max-h-28 overflow-y-auto space-y-1">
+                      {state.oportunidades.filter(o => o.empresa_id === dupSelectedEmpId).map(o => (
+                        <button
+                          key={o.id}
+                          onClick={() => setDupSelectedOppId(o.id)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${dupSelectedOppId === o.id ? 'bg-blue-50 border border-[var(--color-primary)] text-[var(--color-primary)]' : 'border border-[var(--color-border)] hover:bg-slate-50'}`}
+                        >
+                          {o.ubicacion || o.etapa} — {formatCOP(o.valor_cotizado)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dupSelectedOppId && (
+                  <button onClick={handleDupToOtherClient} className="mt-3 w-full py-2.5 rounded-lg bg-[var(--color-primary)] text-white text-sm font-bold hover:opacity-90 transition-all">
+                    Duplicar cotizacion
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
