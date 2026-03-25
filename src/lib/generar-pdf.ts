@@ -374,11 +374,12 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text(firmaDer.cargo, colR, y + 4)
   doc.text(firmaDer.telefono, colR, y + 8)
 
-  // Filename: Cotizacion_[NumeroCot]_[Nombre producto]_[Empresa].pdf
-  const clean = (s: string) => (s || '').replace(/[^a-zA-Z0-9\u00e0-\u00fc ]/gi, '').replace(/\s+/g, ' ').trim().substring(0, 40)
-  const nombreClean = clean(nombreProducto).replace(/ /g, '_')
-  const empresaClean = clean(cliente.empresa).replace(/ /g, '')
-  doc.save(`Cotizacion_${numero}_${nombreClean}_${empresaClean}.pdf`)
+  // Filename: Cotizacion_[NumeroCot]_[Nombre producto]_[Empresa]_[Contacto].pdf
+  const clean = (s: string) => (s || '').replace(/[\/\\:*?"<>|#%&{}$!'@+`=]/g, '').replace(/[^a-zA-Z0-9\u00e0-\u00fc _-]/gi, '').replace(/\s+/g, '_').trim().substring(0, 40)
+  const nombreClean = clean(nombreProducto)
+  const empresaClean = clean(cliente.empresa)
+  const contactoClean = clean(cliente.nombre)
+  doc.save(`Cotizacion_${numero}_${nombreClean}_${empresaClean}_${contactoClean}.pdf`)
 
   return totalFinal
 }

@@ -7,7 +7,7 @@ import { generarPdfCotizacion } from '../lib/generar-pdf'
 import PdfNameModal from '../components/PdfNameModal'
 import {
   ArrowLeft, FileText, Save, Download, Plus, Trash2, Check,
-  Mail, Phone, MapPin, Hash, Building2
+  Mail, Phone, MapPin, Hash, Building2, X
 } from 'lucide-react'
 
 export default function CotizacionEditor() {
@@ -40,6 +40,31 @@ export default function CotizacionEditor() {
   const [incluyeTransporte, setIncluyeTransporte] = useState(cotizacion?.incluyeTransporte ?? true)
   const [condicionesText, setCondicionesText] = useState(cotizacion?.condicionesItems?.join('\n') || '')
   const [noIncluyeText, setNoIncluyeText] = useState(cotizacion?.noIncluyeItems?.join('\n') || '')
+
+  // Auto-suggest product name based on products
+  const suggestedProductName = useMemo(() => {
+    if (productos.length === 0) return 'Producto'
+    if (productos.length === 1) {
+      const desc = productos[0].descripcion || ''
+      // Try to extract meaningful short name
+      const dimMatch = desc.match(/(\d+[.,]\d+\s*x\s*\d+[.,]\d+)/i)
+      if (dimMatch) return `Mesa ${dimMatch[1].replace(/\s/g, '')}`
+      return desc.length > 40 ? desc.substring(0, 40) : desc || 'Mesa Inoxidable'
+    }
+    // Multiple products: combine categories
+    const cats = new Set(productos.map(p => {
+      const d = p.descripcion.toLowerCase()
+      if (d.includes('mesa')) return 'Mesas'
+      if (d.includes('pozuelo') || d.includes('poceta')) return 'Pozuelos'
+      if (d.includes('campana')) return 'Campanas'
+      if (d.includes('estante') || d.includes('repisa')) return 'Estantería'
+      return 'Mobiliario'
+    }))
+    const arr = [...cats]
+    if (arr.length === 1) return `${arr[0]} Inoxidables`
+    if (arr.length === 2) return `${arr[0]} y ${arr[1]}`
+    return 'Mobiliario Inoxidable'
+  }, [productos])
 
   const subtotal = productos.reduce((s, p) => s + p.precio_unitario * p.cantidad, 0)
   const iva = subtotal * 0.19
@@ -168,11 +193,11 @@ export default function CotizacionEditor() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={saveDraft} className="flex items-center gap-1.5 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] px-3 py-2 rounded-md text-xs font-semibold transition-all">
-            <Save size={12} /> Guardar borrador
+          <button onClick={saveDraft} className="flex items-center gap-1.5 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] h-11 px-6 rounded-[10px] text-sm font-semibold transition-all">
+            <Save size={14} /> Guardar borrador
           </button>
-          <button onClick={() => { if (subtotal <= 0) { alert('No se puede generar PDF con total $0'); return } setShowPdfModal(true) }} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-3 py-2 rounded-md text-xs font-bold transition-all disabled:opacity-40" disabled={subtotal <= 0}>
-            <Download size={12} /> Descargar PDF
+          <button onClick={() => { if (subtotal <= 0) { alert('No se puede generar PDF con total $0'); return } setShowPdfModal(true) }} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white h-11 px-6 rounded-[10px] text-sm font-bold transition-all disabled:opacity-40" disabled={subtotal <= 0}>
+            <Download size={14} /> Descargar PDF
           </button>
         </div>
       </div>
@@ -190,19 +215,19 @@ export default function CotizacionEditor() {
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <Mail size={12} className="text-[var(--color-text-muted)]" />
-                <span>{contacto.correo || '\u2014'}</span>
+                <span>{contacto.correo || '—'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <Phone size={12} className="text-[var(--color-text-muted)]" />
-                <span>{contacto.whatsapp || '\u2014'}</span>
+                <span>{contacto.whatsapp || '—'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <MapPin size={12} className="text-[var(--color-text-muted)]" />
-                <span>{oportunidad.ubicacion || empresa.direccion || '\u2014'}</span>
+                <span>{oportunidad.ubicacion || empresa.direccion || '—'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <Hash size={12} className="text-[var(--color-text-muted)]" />
-                <span>NIT: {empresa.nit || '\u2014'}</span>
+                <span>NIT: {empresa.nit || '—'}</span>
               </div>
             </div>
           </div>
@@ -220,56 +245,56 @@ export default function CotizacionEditor() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-[var(--color-surface)] text-left text-[var(--color-text-muted)]">
-                    <th className="px-2.5 py-2 font-medium w-14 text-center">Cant</th>
-                    <th className="px-2.5 py-2 font-medium w-14 text-center">Und</th>
-                    <th className="px-2.5 py-2 font-medium">Descripcion</th>
-                    <th className="px-2.5 py-2 font-medium w-24 text-right">Precio Unit.</th>
-                    <th className="px-2.5 py-2 font-medium w-24 text-right">Total</th>
-                    <th className="px-2.5 py-2 w-8"></th>
+                    <th className="px-3 py-3 font-medium w-16 text-center">Cant</th>
+                    <th className="px-3 py-3 font-medium w-16 text-center">Und</th>
+                    <th className="px-3 py-3 font-medium" style={{ minWidth: 280 }}>Descripción</th>
+                    <th className="px-3 py-3 font-medium w-32 text-right">Precio Unit.</th>
+                    <th className="px-3 py-3 font-medium w-28 text-right">Total</th>
+                    <th className="px-3 py-3 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {productos.map((p, i) => (
-                    <tr key={i} className={`border-t border-[var(--color-border)] ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'}`}>
-                      <td className="px-2.5 py-1.5 text-center">
+                    <tr key={i} className="border-t border-[var(--color-border)] hover:bg-[#fafbfc] transition-colors" style={{ minHeight: 60 }}>
+                      <td className="px-3 py-3 text-center">
                         <input
                           type="number"
                           value={p.cantidad}
                           onChange={e => updateProducto(i, 'cantidad', Math.max(1, Number(e.target.value)))}
                           min={1}
                           step="any"
-                          className="w-12 text-[10px] text-center px-1 py-1 rounded border border-[var(--color-border)]"
+                          className="w-14 text-xs text-center px-2 py-2 rounded-lg border border-[var(--color-border)]"
                         />
                       </td>
-                      <td className="px-2.5 py-1.5 text-center">
+                      <td className="px-3 py-3 text-center">
                         <input
                           type="text"
                           value={p.unidad || 'UND'}
                           onChange={e => updateProducto(i, 'unidad', e.target.value)}
-                          className="w-10 text-[10px] text-center px-1 py-1 rounded border border-[var(--color-border)]"
+                          className="w-14 text-xs text-center px-2 py-2 rounded-lg border border-[var(--color-border)]"
                         />
                       </td>
-                      <td className="px-2.5 py-1.5">
+                      <td className="px-3 py-3">
                         <textarea
                           value={p.descripcion}
                           onChange={e => updateProducto(i, 'descripcion', e.target.value)}
                           rows={2}
-                          className="w-full text-[10px] px-1.5 py-1 rounded border border-[var(--color-border)] resize-none"
+                          className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] resize-none leading-relaxed"
                         />
                       </td>
-                      <td className="px-2.5 py-1.5 text-right">
+                      <td className="px-3 py-3 text-right">
                         <input
                           type="number"
                           value={p.precio_unitario}
                           onChange={e => updateProducto(i, 'precio_unitario', Math.max(0, Number(e.target.value)))}
                           min={0}
-                          className="w-20 text-[10px] text-right px-1.5 py-1 rounded border border-[var(--color-border)]"
+                          className="w-28 text-xs text-right px-3 py-2 rounded-lg border border-[var(--color-border)] tabular-nums"
                         />
                       </td>
-                      <td className="px-2.5 py-1.5 text-right font-bold text-[10px] font-mono">{formatCOP(p.precio_unitario * p.cantidad)}</td>
-                      <td className="px-2.5 py-1.5">
-                        <button onClick={() => removeProducto(i)} className="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all">
-                          <Trash2 size={12} />
+                      <td className="px-3 py-3 text-right font-bold text-xs tabular-nums">{formatCOP(p.precio_unitario * p.cantidad)}</td>
+                      <td className="px-3 py-3">
+                        <button onClick={() => removeProducto(i)} className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all">
+                          <Trash2 size={14} />
                         </button>
                       </td>
                     </tr>
@@ -300,25 +325,65 @@ export default function CotizacionEditor() {
           </div>
 
           <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5">Condiciones comerciales</h3>
-            <textarea
-              value={condicionesText}
-              onChange={e => setCondicionesText(e.target.value)}
-              rows={5}
-              placeholder="Una condicion por linea..."
-              className="w-full text-[10px] px-2.5 py-1.5 rounded-md border border-[var(--color-border)] resize-none leading-relaxed"
-            />
+            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Condiciones comerciales</h3>
+            <div className="space-y-2">
+              {condicionesText.split('\n').map((line, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <input
+                    type="text"
+                    value={line}
+                    onChange={e => {
+                      const lines = condicionesText.split('\n')
+                      lines[i] = e.target.value
+                      setCondicionesText(lines.join('\n'))
+                    }}
+                    className="flex-1 text-xs px-3 py-2.5 rounded-lg bg-slate-50 border border-[var(--color-border)] focus:bg-white focus:border-[var(--color-primary)] transition-colors"
+                  />
+                  <button
+                    onClick={() => {
+                      const lines = condicionesText.split('\n').filter((_, idx) => idx !== i)
+                      setCondicionesText(lines.join('\n'))
+                    }}
+                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 mt-0.5"
+                  ><X size={12} /></button>
+                </div>
+              ))}
+              <button
+                onClick={() => setCondicionesText(prev => prev + (prev ? '\n' : '') + '')}
+                className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium mt-1"
+              ><Plus size={12} /> Agregar condición</button>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5">No incluye</h3>
-            <textarea
-              value={noIncluyeText}
-              onChange={e => setNoIncluyeText(e.target.value)}
-              rows={3}
-              placeholder="Una clausula por linea..."
-              className="w-full text-[10px] px-2.5 py-1.5 rounded-md border border-[var(--color-border)] resize-none leading-relaxed"
-            />
+            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3">No incluye</h3>
+            <div className="space-y-2">
+              {noIncluyeText.split('\n').map((line, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <input
+                    type="text"
+                    value={line}
+                    onChange={e => {
+                      const lines = noIncluyeText.split('\n')
+                      lines[i] = e.target.value
+                      setNoIncluyeText(lines.join('\n'))
+                    }}
+                    className="flex-1 text-xs px-3 py-2.5 rounded-lg bg-slate-50 border border-[var(--color-border)] focus:bg-white focus:border-[var(--color-primary)] transition-colors"
+                  />
+                  <button
+                    onClick={() => {
+                      const lines = noIncluyeText.split('\n').filter((_, idx) => idx !== i)
+                      setNoIncluyeText(lines.join('\n'))
+                    }}
+                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 mt-0.5"
+                  ><X size={12} /></button>
+                </div>
+              ))}
+              <button
+                onClick={() => setNoIncluyeText(prev => prev + (prev ? '\n' : '') + '')}
+                className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium mt-1"
+              ><Plus size={12} /> Agregar ítem</button>
+            </div>
           </div>
         </div>
 
@@ -353,14 +418,14 @@ export default function CotizacionEditor() {
             </div>
           </div>
 
-          <button onClick={saveDraft} className="w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] px-4 py-2.5 rounded-lg text-xs font-semibold transition-all">
-            <Save size={14} /> Guardar borrador
+          <button onClick={saveDraft} className="w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] h-12 px-7 rounded-xl text-sm font-semibold transition-all">
+            <Save size={16} /> Guardar borrador
           </button>
           {total <= 0 && (
-            <p className="text-[10px] text-red-500 text-center">No se puede generar PDF con total $0</p>
+            <p className="text-xs text-red-500 text-center">No se puede generar PDF con total $0</p>
           )}
-          <button onClick={() => setShowPdfModal(true)} disabled={total <= 0} className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${total <= 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white'}`}>
-            <Download size={14} /> Descargar PDF
+          <button onClick={() => setShowPdfModal(true)} disabled={total <= 0} className={`w-full flex items-center justify-center gap-2 h-12 px-7 rounded-xl text-sm font-bold transition-all ${total <= 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white'}`}>
+            <Download size={16} /> Descargar PDF
           </button>
         </div>
       </div>
@@ -368,6 +433,9 @@ export default function CotizacionEditor() {
       {showPdfModal && (
         <PdfNameModal
           defaultNumero={cotizacion.numero}
+          defaultNombreProducto={suggestedProductName}
+          empresaNombre={empresa.nombre}
+          contactoNombre={contacto.nombre}
           onConfirm={handleGenerarPdf}
           onClose={() => setShowPdfModal(false)}
         />

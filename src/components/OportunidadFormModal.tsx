@@ -33,6 +33,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   const [selectedContactoId, setSelectedContactoId] = useState<string | null>(null)
   const [newContacto, setNewContacto] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '+57', notas: '' })
   const [contactoMatch, setContactoMatch] = useState<string | null>(null) // matched existing contact id
+  const [editContacto, setEditContacto] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '' })
 
   // === Oportunidad state (cotizador defaults to logged-in user) ===
   const [oportunidad, setOportunidad] = useState({
@@ -58,6 +59,15 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
     const q = empresaSearch.toLowerCase()
     return state.empresas.filter(e => e.nombre.toLowerCase().includes(q) || e.nit.includes(q)).slice(0, 8)
   }, [empresaSearch, state.empresas])
+
+  // Check if selected contact has been edited
+  const selectedContactoOriginal = selectedContactoId ? state.contactos.find(c => c.id === selectedContactoId) : null
+  const hasContactChanges = selectedContactoOriginal && contactoMode === 'select' && (
+    editContacto.nombre !== selectedContactoOriginal.nombre ||
+    editContacto.cargo !== (selectedContactoOriginal.cargo || '') ||
+    editContacto.correo !== (selectedContactoOriginal.correo || '') ||
+    editContacto.whatsapp !== (selectedContactoOriginal.whatsapp || '')
+  )
 
   const selectedEmpresa = selectedEmpresaId ? state.empresas.find(e => e.id === selectedEmpresaId) : null
   const contactosEmpresa = selectedEmpresaId ? state.contactos.filter(c => c.empresa_id === selectedEmpresaId) : []
@@ -103,9 +113,15 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
     }
     if (!empresaId) return
 
-    // Create or reuse contacto
+    // Create or reuse contacto (and update if edited)
     let contactoId = selectedContactoId
     const effectiveContactoMode = contactosEmpresa.length === 0 ? 'create' : contactoMode
+
+    // If selecting an existing contact and user edited the fields, update it
+    if (effectiveContactoMode === 'select' && contactoId && hasContactChanges && selectedContactoOriginal) {
+      dispatch({ type: 'UPDATE_CONTACTO', payload: { ...selectedContactoOriginal, ...editContacto } })
+    }
+
     if (effectiveContactoMode === 'create') {
       if (contactoMatch) {
         // Reuse matched contact (and update if data changed)
@@ -252,18 +268,49 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
               )}
 
               {contactoMode === 'select' && contactosEmpresa.length > 0 && (
-                <div className="space-y-1">
-                  {contactosEmpresa.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setSelectedContactoId(c.id)}
-                      className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${selectedContactoId === c.id ? 'bg-blue-500/10 border border-[var(--color-primary)]/30' : 'hover:bg-[var(--color-surface-hover)] border border-transparent'}`}
-                    >
-                      <div className="font-medium">{c.nombre}</div>
-                      <div className="text-xs text-[var(--color-text-muted)]">{c.cargo} &bull; {c.correo}</div>
-                    </button>
-                  ))}
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    {contactosEmpresa.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedContactoId(c.id)
+                          setEditContacto({ nombre: c.nombre, cargo: c.cargo || '', correo: c.correo || '', whatsapp: c.whatsapp || '' })
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${selectedContactoId === c.id ? 'bg-blue-500/10 border border-[var(--color-primary)]/30' : 'hover:bg-[var(--color-surface-hover)] border border-transparent'}`}
+                      >
+                        <div className="font-medium">{c.nombre}</div>
+                        <div className="text-xs text-[var(--color-text-muted)]">{c.cargo} &bull; {c.correo}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedContactoId && (
+                    <div className="space-y-3 pt-2 border-t border-[var(--color-border)]">
+                      <p className="text-[10px] text-[var(--color-text-muted)] font-medium uppercase tracking-wider">Datos del contacto (editables)</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Nombre</label>
+                          <input value={editContacto.nombre} onChange={e => setEditContacto(p => ({ ...p, nombre: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />
+                        </div>
+                        <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Cargo</label>
+                          <input value={editContacto.cargo} onChange={e => setEditContacto(p => ({ ...p, cargo: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Correo</label>
+                          <input type="email" value={editContacto.correo} onChange={e => setEditContacto(p => ({ ...p, correo: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />
+                        </div>
+                        <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">WhatsApp</label>
+                          <input value={editContacto.whatsapp} onChange={e => setEditContacto(p => ({ ...p, whatsapp: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />
+                        </div>
+                      </div>
+                      {hasContactChanges && (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                          <CheckCircle size={13} /> Se actualizarán los datos al crear la oportunidad
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

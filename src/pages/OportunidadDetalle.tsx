@@ -53,6 +53,9 @@ export default function OportunidadDetalle() {
   const [showEtapaDropdown, setShowEtapaDropdown] = useState(false)
   const [showAdjudicadaModal, setShowAdjudicadaModal] = useState(false)
   const [showPerdidaModal, setShowPerdidaModal] = useState(false)
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [editingContacto, setEditingContacto] = useState(false)
+  const [contactoForm, setContactoForm] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '' })
   const [valorAdjudicado, setValorAdjudicado] = useState('')
   const [motivoPerdida, setMotivoPerdida] = useState('')
   const [manualForm, setManualForm] = useState({
@@ -460,30 +463,12 @@ export default function OportunidadDetalle() {
             <StickyNote size={14} /> + Nota
           </button>
 
-          <div className="relative">
-            <button
-              onClick={() => setShowAddMenu(!showAddMenu)}
-              className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium border border-[#e2e8f0] text-[#334155] hover:shadow-sm hover:opacity-90 transition-all"
-            >
-              <Package size={14} /> + Producto
-            </button>
-            {showAddMenu && (
-              <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-[var(--color-border)] z-20 overflow-hidden">
-                <button
-                  onClick={() => { setShowAddMenu(false); navigate(`/oportunidades/${id}/configurar`) }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-[var(--color-surface)] transition-colors text-left"
-                >
-                  <Wrench size={14} className="text-[var(--color-primary)]" /> Configurar Mesa
-                </button>
-                <button
-                  onClick={() => { setShowAddMenu(false); setShowManualForm(true) }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-[var(--color-surface)] transition-colors text-left border-t border-[var(--color-border)]"
-                >
-                  <Package size={14} className="text-purple-500" /> Producto manual
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setShowProductModal(true)}
+            className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium border border-[#e2e8f0] text-[#334155] hover:shadow-sm hover:opacity-90 transition-all"
+          >
+            <Package size={14} /> + Producto
+          </button>
 
           {productos.length > 0 && (
             <button
@@ -915,22 +900,6 @@ export default function OportunidadDetalle() {
                 </button>
               </div>
 
-              {/* Contacto info */}
-              <div className="pt-2 border-t border-[var(--color-border)]">
-                <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider font-semibold mb-2">Contacto</p>
-                <p className="font-medium text-[var(--color-text)] mb-1">{contacto?.nombre || '—'}</p>
-                {contacto?.whatsapp && (
-                  <a href={`tel:${contacto.whatsapp}`} className="flex items-center gap-1.5 text-[10px] text-[var(--color-primary)] hover:underline mb-0.5">
-                    <Phone size={10} /> {contacto.whatsapp}
-                  </a>
-                )}
-                {contacto?.correo && (
-                  <a href={`mailto:${contacto.correo}`} className="flex items-center gap-1.5 text-[10px] text-[var(--color-primary)] hover:underline">
-                    <Mail size={10} /> {contacto.correo}
-                  </a>
-                )}
-              </div>
-
               <div className="pt-2 border-t border-[var(--color-border)] space-y-2">
                 <div className="flex justify-between">
                   <span className="text-[var(--color-text-muted)]">Dias en pipeline</span>
@@ -977,13 +946,27 @@ export default function OportunidadDetalle() {
             )}
           </div>
 
-          {/* ═══ CAMBIO 6: CONTACTO CARD ═══ */}
+          {/* ═══ CAMBIO 6: CONTACTO CARD (editable) ═══ */}
           <div className="card p-5">
-            <div className="flex items-center gap-1.5 mb-3">
-              <User size={12} className="text-[var(--color-primary)]" />
-              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Contacto</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <User size={12} className="text-[var(--color-primary)]" />
+                <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Contacto</span>
+              </div>
+              {contacto && !editingContacto && (
+                <button
+                  onClick={() => {
+                    setContactoForm({ nombre: contacto.nombre, cargo: contacto.cargo || '', correo: contacto.correo || '', whatsapp: contacto.whatsapp || '' })
+                    setEditingContacto(true)
+                  }}
+                  className="p-1 rounded-lg hover:bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                  title="Editar contacto"
+                >
+                  <Edit3 size={12} />
+                </button>
+              )}
             </div>
-            {contacto ? (
+            {contacto && !editingContacto ? (
               <div className="space-y-1.5">
                 <div className="font-medium text-xs text-[var(--color-text)]">{contacto.nombre}</div>
                 <div className="text-[10px] text-[var(--color-text-muted)]">{contacto.cargo || '—'}</div>
@@ -1007,9 +990,35 @@ export default function OportunidadDetalle() {
                   </div>
                 )}
               </div>
+            ) : contacto && editingContacto ? (
+              <div className="space-y-2">
+                <input value={contactoForm.nombre} onChange={e => setContactoForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" />
+                <input value={contactoForm.cargo} onChange={e => setContactoForm(p => ({ ...p, cargo: e.target.value }))} placeholder="Cargo" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" />
+                <input value={contactoForm.correo} onChange={e => setContactoForm(p => ({ ...p, correo: e.target.value }))} placeholder="Email" type="email" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" />
+                <input value={contactoForm.whatsapp} onChange={e => setContactoForm(p => ({ ...p, whatsapp: e.target.value }))} placeholder="Teléfono/WhatsApp" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" />
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={async () => {
+                      const updated = { ...contacto, ...contactoForm }
+                      dispatch({ type: 'UPDATE_CONTACTO', payload: updated })
+                      await svcOportunidades.updateContacto(updated)
+                      setEditingContacto(false)
+                      showToast('success', 'Contacto actualizado')
+                    }}
+                    className="flex-1 text-xs font-semibold py-2 rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 transition-all"
+                  >Guardar</button>
+                  <button onClick={() => setEditingContacto(false)} className="text-xs py-2 px-3 rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]">Cancelar</button>
+                </div>
+              </div>
             ) : (
-              <div className="flex items-center gap-1 text-[10px] text-amber-600">
-                <AlertCircle size={12} /> Sin contacto asignado
+              <div className="text-center py-2">
+                <div className="flex items-center justify-center gap-1 text-[10px] text-amber-600 mb-2">
+                  <AlertCircle size={12} /> Sin contacto asignado
+                </div>
+                <button
+                  onClick={() => showToast('warning', 'Asigna un contacto desde la creación de oportunidad')}
+                  className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
+                >Asignar contacto</button>
               </div>
             )}
           </div>
@@ -1017,6 +1026,54 @@ export default function OportunidadDetalle() {
       </div>
 
       {/* ═══ MODALS ═══ */}
+
+      {/* Product selection modal */}
+      {showProductModal && (
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 animate-fade-in" onMouseDown={e => { if (e.target === e.currentTarget) setShowProductModal(false) }}>
+          <div className="bg-white modal-card w-full max-w-2xl mx-4" onMouseDown={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 py-5 border-b border-[var(--color-border)]">
+              <div>
+                <h3 className="font-bold text-lg">Agregar producto</h3>
+                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Selecciona el tipo de producto a configurar</p>
+              </div>
+              <button onClick={() => setShowProductModal(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={20} /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-4 p-6">
+              {[
+                { name: 'Mesas', desc: 'Configurar mesa inoxidable', subtipos: 6, active: true, icon: '🍽️', action: () => { setShowProductModal(false); navigate(`/oportunidades/${id}/configurar`) } },
+                { name: 'Pozuelos', desc: 'Pozuelos y pocetas', subtipos: 4, active: false },
+                { name: 'Pasamanos', desc: 'Pasamanos y barandas', subtipos: 3, active: false },
+                { name: 'Autoservicios', desc: 'Líneas de servicio', subtipos: 4, active: false },
+                { name: 'Muebles', desc: 'Mobiliario general', subtipos: 7, active: false },
+                { name: 'Producto Manual', desc: 'Cualquier producto — precio y descripción libre', subtipos: 0, active: true, icon: '📝', action: () => { setShowProductModal(false); setShowManualForm(true) } },
+              ].map(item => (
+                <button
+                  key={item.name}
+                  onClick={item.action}
+                  disabled={!item.active}
+                  className={`text-left p-5 rounded-xl border transition-all ${
+                    item.active
+                      ? 'border-[var(--color-border)] bg-white hover:shadow-md hover:border-[var(--color-primary)] cursor-pointer'
+                      : 'border-[var(--color-border)] bg-gray-50 opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <div className="text-2xl mb-2">{item.icon || '🔧'}</div>
+                  <div className="font-semibold text-sm text-[var(--color-text)]">{item.name}</div>
+                  <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{item.desc}</div>
+                  {item.subtipos > 0 && <div className="text-[10px] text-[var(--color-text-muted)] mt-0.5">{item.subtipos} subtipos</div>}
+                  <div className="mt-2">
+                    {item.active ? (
+                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">ACTIVO</span>
+                    ) : (
+                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">🔒 PRÓXIMO</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cotizacion modal */}
       {showCotModal && (
