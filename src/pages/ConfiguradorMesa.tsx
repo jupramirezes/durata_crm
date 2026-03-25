@@ -4,7 +4,7 @@ import { useStore } from '../lib/store'
 import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado, ApuLinea } from '../types'
 import { calcularApuMesa } from '../lib/calcular-apu'
 import { formatCOP } from '../lib/utils'
-import * as XLSX from 'xlsx'
+import { exportApuExcel as exportApuExcelFn } from '../lib/exportar-apu'
 import {
   ArrowLeft, ShoppingCart, ChevronDown, ChevronRight, Check,
   Ruler, Layers, Shield, Package, Circle, Droplets, SlidersHorizontal, Settings, Minus, LayoutGrid,
@@ -411,82 +411,9 @@ export default function ConfiguradorMesa() {
   }
   const hasValidationErrors = Object.values(dimErrors).some(e => e !== '')
 
-  function exportApuExcel() {
+  function handlePreviewApuExcel() {
     if (!adjustedResultado) return
-    const r = adjustedResultado
-    const materialLabel = `Acero ${cfg.tipo_acero} ${cfg.acabado} Cal ${cfg.calibre}`
-
-    const rows: (string | number)[][] = []
-    rows.push(['DURATA S.A.S - ANÁLISIS DE PRECIOS UNITARIOS'])
-    rows.push([`Fecha: ${new Date().toLocaleDateString('es-CO')}`])
-    rows.push([])
-    rows.push([`PRODUCTO: Mesa - ${r.descripcion_comercial.substring(0, 60)}`])
-    rows.push([`DIMENSIONES: ${cfg.largo.toFixed(2)}m x ${cfg.ancho.toFixed(2)}m x ${cfg.alto.toFixed(2)}m`])
-    rows.push([`MATERIAL: ${materialLabel}`])
-    rows.push([])
-
-    // Insumos header
-    rows.push(['Cant', 'Und', 'Código', 'Descripción', 'P.Unit', 'Desp%', 'Total'])
-    for (const l of r.lineas) {
-      rows.push([
-        parseFloat(l.unidad?.toLowerCase() === 'und' ? Math.round(l.cantidad).toString() : l.cantidad.toFixed(2)),
-        l.unidad || '',
-        l.material || '',
-        l.descripcion,
-        Math.round(l.precio_unitario),
-        parseFloat((l.desperdicio * 100).toFixed(1)),
-        Math.round(l.total),
-      ])
-    }
-    // Custom lines
-    for (const cl of customLineas) {
-      rows.push([cl.cantidad, cl.unidad || 'und', '', cl.descripcion, Math.round(cl.precio_unitario), 0, Math.round(cl.total)])
-    }
-    rows.push([])
-    rows.push(['', '', '', 'TOTAL INSUMOS', '', '', Math.round(r.costo_insumos)])
-
-    // MO
-    rows.push([])
-    rows.push(['MANO DE OBRA'])
-    rows.push(['Cant', 'Und', '', 'Descripción', 'P.Unit', '', 'Total'])
-    rows.push([moQtyAcero, 'ml', '', 'MO Acero', moPriceAcero, '', Math.round(moQtyAcero * moPriceAcero)])
-    rows.push([moQtyPulido, 'ml', '', 'MO Pulido', moPricePulido, '', Math.round(moQtyPulido * moPricePulido)])
-    rows.push([moQtyPatas, 'und', '', 'MO Patas', moPricePatas, '', Math.round(moQtyPatas * moPricePatas)])
-    if (cfg.instalado) rows.push([moQtyInstalacion, 'ml', '', 'MO Instalación', moPriceInstalacion, '', Math.round(moQtyInstalacion * moPriceInstalacion)])
-    rows.push(['', '', '', 'TOTAL MO', '', '', Math.round(r.costo_mo)])
-
-    // Transporte
-    rows.push([])
-    rows.push(['TRANSPORTE'])
-    rows.push([transQtyElementos, 'und', '', 'Transporte elementos', transPriceElementos, '', Math.round(transQtyElementos * transPriceElementos)])
-    rows.push([transQtyPersonal, 'und', '', 'Transporte personal', transPricePersonal, '', Math.round(transQtyPersonal * transPricePersonal)])
-    rows.push(['', '', '', 'TOTAL TRANSPORTE', '', '', Math.round(r.costo_transporte)])
-
-    // Laser
-    if (r.costo_laser > 0) {
-      rows.push([])
-      rows.push(['CORTE LÁSER'])
-      rows.push([actualLaserCant, 'min', '', 'Corte láser', actualLaserPrecio, '', Math.round(totalLaserOverride)])
-    }
-
-    // Summary
-    rows.push([])
-    rows.push([])
-    rows.push(['', '', '', 'COSTO TOTAL', '', '', Math.round(r.costo_total)])
-    rows.push(['', '', '', `MARGEN ${(r.margen * 100).toFixed(0)}%`, '', '', Math.round(r.precio_venta - r.costo_total)])
-    rows.push(['', '', '', 'PRECIO VENTA', '', '', Math.round(r.precio_venta)])
-    rows.push(['', '', '', 'PRECIO COMERCIAL', '', '', Math.round(r.precio_comercial)])
-
-    const ws = XLSX.utils.aoa_to_sheet(rows)
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 8 }, { wch: 6 }, { wch: 14 }, { wch: 40 }, { wch: 14 }, { wch: 8 }, { wch: 16 },
-    ]
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'APU')
-
-    const cotNum = state.cotizaciones.find(c => c.oportunidad_id === id)?.numero || 'sin-cot'
-    XLSX.writeFile(wb, `APU_${cotNum}.xlsx`)
+    exportApuExcelFn({ resultado: adjustedResultado, config: cfg, preview: true })
   }
 
   return (
@@ -915,10 +842,10 @@ export default function ConfiguradorMesa() {
 
               {/* Export APU Excel + Add to order buttons */}
               <button
-                onClick={exportApuExcel}
+                onClick={handlePreviewApuExcel}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface)] transition-all mb-2"
               >
-                <Download size={16} /> Exportar APU Excel
+                <Download size={16} /> Preview APU Excel
               </button>
               {hasValidationErrors && (
                 <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-2">

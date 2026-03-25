@@ -8,6 +8,7 @@ import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
 import { uploadProductFile, getSignedUrl, acceptString } from '../hooks/useStorage'
 import { showToast } from '../components/Toast'
+import { exportApuExcel } from '../lib/exportar-apu'
 import * as svcOportunidades from '../hooks/useOportunidades'
 import {
   ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
@@ -682,6 +683,24 @@ export default function OportunidadDetalle() {
                             >
                               <Paperclip size={13} />
                             </button>
+                            {p.apu_resultado && (
+                              <button
+                                onClick={() => {
+                                  const cot = cotizaciones.length > 0 ? cotizaciones[cotizaciones.length - 1] : null
+                                  exportApuExcel({
+                                    resultado: p.apu_resultado!,
+                                    config: p.configuracion || CONFIG_MESA_DEFAULT,
+                                    cotizacionNumero: cot?.numero,
+                                    empresaNombre: emp.nombre,
+                                    contactoNombre: contacto?.nombre,
+                                  })
+                                }}
+                                className="p-1.5 rounded text-green-500 hover:text-green-700 hover:bg-green-50 transition-all"
+                                title="Descargar APU Excel"
+                              >
+                                <FileSpreadsheet size={13} />
+                              </button>
+                            )}
                             <button
                               onClick={() => { if (window.confirm('\u00bfEliminar este producto?')) dispatch({ type: 'DELETE_PRODUCTO', payload: { id: p.id } }) }}
                               className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"

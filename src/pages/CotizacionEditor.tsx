@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { CotizacionProducto } from '../types'
+import { CotizacionProducto, CONFIG_MESA_DEFAULT } from '../types'
 import { formatCOP, formatDate } from '../lib/utils'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
+import { exportApuExcel } from '../lib/exportar-apu'
 import PdfNameModal from '../components/PdfNameModal'
 import {
   ArrowLeft, FileText, Save, Download, Plus, Trash2, Check,
-  Mail, Phone, MapPin, Hash, Building2, X
+  Mail, Phone, MapPin, Hash, Building2, X, FileSpreadsheet
 } from 'lucide-react'
 
 export default function CotizacionEditor() {
@@ -303,9 +304,32 @@ export default function CotizacionEditor() {
                       </td>
                       <td className="px-3 py-3 text-right font-bold text-xs tabular-nums">{formatCOP(p.precio_unitario * p.cantidad)}</td>
                       <td className="px-3 py-3">
-                        <button onClick={() => removeProducto(i)} className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all">
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {(() => {
+                            const srcProd = productosOportunidad.find(pp =>
+                              (pp.descripcion_comercial || pp.subtipo) === p.descripcion && pp.apu_resultado
+                            )
+                            if (!srcProd) return null
+                            return (
+                              <button
+                                onClick={() => exportApuExcel({
+                                  resultado: srcProd.apu_resultado!,
+                                  config: srcProd.configuracion || CONFIG_MESA_DEFAULT,
+                                  cotizacionNumero: cotizacion?.numero,
+                                  empresaNombre: empresa?.nombre,
+                                  contactoNombre: contacto?.nombre,
+                                })}
+                                className="p-1.5 rounded-lg text-green-500 hover:text-green-700 hover:bg-green-50 transition-all"
+                                title="Descargar APU Excel"
+                              >
+                                <FileSpreadsheet size={14} />
+                              </button>
+                            )
+                          })()}
+                          <button onClick={() => removeProducto(i)} className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
