@@ -36,11 +36,11 @@ function fmtDias(val: number): string {
 
 /** Percent badge with color coding: green >15%, yellow 8-15%, red <8% */
 function PctBadge({ value }: { value: number }) {
-  const cls = value >= 15 ? 'bg-emerald-50 text-emerald-700'
-    : value >= 8 ? 'bg-amber-50 text-amber-700'
-    : value > 0 ? 'bg-red-50 text-red-600'
+  const cls = value >= 15 ? 'bg-[#ecfdf5] text-[#059669]'
+    : value >= 8 ? 'bg-[#fffbeb] text-[#d97706]'
+    : value > 0 ? 'bg-[#fef2f2] text-[#dc2626]'
     : 'bg-gray-100 text-gray-400'
-  return <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>{value.toFixed(1)}%</span>
+  return <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${cls}`}>{value.toFixed(1)}%</span>
 }
 
 /** Variation badge */
@@ -79,19 +79,19 @@ function Section({ title, subtitle, icon: Icon, summary, children, defaultOpen =
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="bg-[var(--color-surface)] rounded-xl shadow-[var(--shadow-sm)] overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-6 py-5 hover:bg-[var(--color-surface-hover)] transition-colors text-left">
-        <ChevronRight size={16} className={`text-[var(--color-text-muted)] shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
-        <Icon size={16} className="text-[var(--color-primary)] shrink-0" />
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-base text-[var(--color-text)]">{title}</h3>
-          {subtitle && !open && <p className="text-[13px] text-[var(--color-text-muted)] mt-0.5">{subtitle}</p>}
+    <div className="card overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-7 py-6 hover:bg-[#f8fafc] transition-colors text-left cursor-pointer">
+        <ChevronRight size={20} className={`text-[var(--color-text-muted)] shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
+        <Icon size={20} className="text-[var(--color-primary)] shrink-0" />
+        <div className="flex-1 min-w-0 ml-1">
+          <h3 className="font-semibold text-[17px] text-[var(--color-text)]">{title}</h3>
+          {subtitle && !open && <p className="text-[13px] text-[#94a3b8] mt-0.5">{subtitle}</p>}
         </div>
         {summary && !open && <span className="text-sm font-semibold text-[var(--color-primary)] tabular-nums shrink-0">{summary}</span>}
       </button>
       {open && (
-        <div className="px-6 pb-6 animate-fade-in">
-          {subtitle && <p className="text-[13px] text-[var(--color-text-muted)] mb-4">{subtitle}</p>}
+        <div className="px-7 pb-6 animate-fade-in">
+          {subtitle && <p className="text-[13px] text-[#94a3b8] mb-4">{subtitle}</p>}
           {children}
         </div>
       )}
@@ -307,14 +307,14 @@ export default function Dashboard() {
   ], [oportunidades, cotizaciones])
 
   /* ── Table styles ────────────────────────────────── */
-  const thCls = 'pb-3 pt-2 font-medium text-xs uppercase tracking-[0.05em] text-[var(--color-text-muted)] px-4'
-  const tdCls = 'py-3 px-4 text-sm'
+  const thCls = 'py-3.5 px-4 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8]'
+  const tdCls = 'py-4 px-4 text-sm'
 
   /** Reusable metrics table header */
   function MetricsTableHead() {
     return (
       <thead>
-        <tr>
+        <tr className="border-b-2 border-[#f1f5f9]">
           <th className={`${thCls} text-left`}>Período</th>
           <th className={`${thCls} text-center`}>Cots</th>
           <th className={`${thCls} text-right`}>Valor cotizado</th>
@@ -333,16 +333,16 @@ export default function Dashboard() {
   function MetricsTableRow({ r, bold }: { r: MetricsRow; bold?: boolean; idx?: number }) {
     const w = bold ? 'font-semibold' : ''
     return (
-      <tr className={`border-b border-[var(--color-border-light)] last:border-0 hover:bg-[var(--color-surface-hover)] transition-colors ${bold ? 'bg-slate-50/80 border-t border-slate-200' : ''}`}>
-        <td className={`${tdCls} font-medium text-[var(--color-text)] ${w}`}>{r.label}</td>
+      <tr className={`border-b border-[#f8fafc] last:border-0 hover:bg-[#fafbfc] transition-colors ${bold ? 'bg-slate-50/80 border-t-2 border-t-[#f1f5f9]' : ''}`}>
+        <td className={`${tdCls} font-semibold text-[var(--color-text)] ${w}`}>{r.label}</td>
         <td className={`${tdCls} text-center tabular-nums ${w}`}>{r.cotQty}</td>
-        <td className={`${tdCls} text-right tabular-nums ${w}`}>{formatCOP(r.cotValor)}</td>
+        <td className={`${tdCls} text-right tabular-nums font-semibold text-[var(--color-text)] ${w}`}>{formatCOP(r.cotValor)}</td>
         <td className={`${tdCls} text-center tabular-nums ${w}`}>{r.adjQty}</td>
-        <td className={`${tdCls} text-right tabular-nums ${w}`}>{formatCOP(r.adjValor)}</td>
+        <td className={`${tdCls} text-right tabular-nums font-semibold text-[var(--color-text)] ${w}`}>{formatCOP(r.adjValor)}</td>
         <td className={`${tdCls} text-center`}><PctBadge value={r.pctAdj} /></td>
-        <td className={`${tdCls} text-right tabular-nums`}>{formatCOP(r.avgCot)}</td>
-        <td className={`${tdCls} text-right tabular-nums`}>{formatCOP(r.avgAdj)}</td>
-        <td className={`${tdCls} text-center text-[var(--color-text-muted)]`}>{fmtDias(r.avgDias)}</td>
+        <td className={`${tdCls} text-right tabular-nums text-[#334155]`}>{formatCOP(r.avgCot)}</td>
+        <td className={`${tdCls} text-right tabular-nums text-[#334155]`}>{formatCOP(r.avgAdj)}</td>
+        <td className={`${tdCls} text-center text-[#64748b]`}>{fmtDias(r.avgDias)}</td>
       </tr>
     )
   }
@@ -356,16 +356,16 @@ export default function Dashboard() {
 
       {/* ─── KPI CARDS ──────────────────────────────── */}
       <div className="grid grid-cols-4 gap-5">
-        <KPICard label="Oportunidades activas" value={String(activas.length)} icon={Target} subtitle="En pipeline actual (excluye adjudicadas y perdidas)" />
-        <KPICard label="Valor del pipeline" value={formatCOP(valorPipeline)} icon={DollarSign} small subtitle="Suma de valor cotizado en pipeline activo" />
+        <KPICard label="Oportunidades activas" value={String(activas.length)} icon={Target} subtitle="En pipeline actual" />
+        <KPICard label="Valor del pipeline" value={formatCOP(valorPipeline)} icon={DollarSign} small subtitle="Suma valor cotizado activo" />
         <KPICard label={`Cotizaciones del mes (${cotsMes.length})`} value={formatCOP(totalMes)} icon={FileText} small subtitle={currentMonthLabel} />
-        <KPICard label="Tasa de cierre" value={`${tasaCierre}%`} icon={TrendingUp} subtitle="Historica — por cantidad de cotizaciones" />
+        <KPICard label="Tasa de cierre" value={`${tasaCierre}%`} icon={TrendingUp} subtitle="Historica — por cantidad" />
       </div>
 
       {/* ─── PIPELINE BAR ───────────────────────────── */}
-      <div className="bg-[var(--color-surface)] rounded-xl p-6 shadow-[var(--shadow-sm)]">
-        <p className="text-xs font-medium uppercase tracking-[0.05em] text-[var(--color-text-muted)] mb-3">Distribucion del pipeline</p>
-        <div className="flex h-3 rounded-md overflow-hidden gap-px">
+      <div className="card p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[#94a3b8] mb-3">Distribucion del pipeline</p>
+        <div className="flex h-4 rounded-lg overflow-hidden gap-px">
           {etapaCounts.map(e => {
             const pct = (e.count / totalOps) * 100
             if (pct < 0.5) return null
@@ -381,10 +381,10 @@ export default function Dashboard() {
             )
           })}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-4">
           {etapaCounts.map(e => (
-            <div key={e.key} className="flex items-center gap-1.5 text-[10px] text-slate-500">
-              <div className="w-2.5 h-2.5 rounded-sm" style={{ background: e.color }} />
+            <div key={e.key} className="flex items-center gap-2 text-[13px] text-[#64748b]">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: e.color }} />
               {e.label} ({e.count})
             </div>
           ))}
@@ -396,20 +396,20 @@ export default function Dashboard() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr>
-                <th className={`${thCls} pl-3 rounded-tl-md`}>Métrica</th>
+              <tr className="border-b-2 border-[#f1f5f9]">
+                <th className={`${thCls} pl-3`}>Métrica</th>
                 <th className={`${thCls} text-right`}>{prevPeriodLabel}</th>
                 <th className={`${thCls} text-right`}>{periodLabel}</th>
-                <th className={`${thCls} text-center pr-3 rounded-tr-md`}>Variación</th>
+                <th className={`${thCls} text-center pr-3`}>Variación</th>
               </tr>
             </thead>
             <tbody>
               {comparativo.map((row, i) => (
-                <tr key={i} className={`border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                  <td className="py-2.5 pl-3 text-xs font-medium text-[var(--color-text)]">{row.metric}</td>
-                  <td className="py-2.5 text-right text-xs font-mono text-slate-500">{row.prev}</td>
-                  <td className="py-2.5 text-right text-xs font-mono font-semibold text-[var(--color-text)]">{row.curr}</td>
-                  <td className="py-2.5 text-center pr-3">
+                <tr key={i} className="border-b border-[#f8fafc] last:border-0 hover:bg-[#fafbfc] transition-colors">
+                  <td className="py-4 pl-3 text-sm font-medium text-[var(--color-text)]">{row.metric}</td>
+                  <td className="py-4 text-right text-sm tabular-nums text-[#64748b]">{row.prev}</td>
+                  <td className="py-4 text-right text-sm tabular-nums font-semibold text-[var(--color-text)]">{row.curr}</td>
+                  <td className="py-4 text-center pr-3">
                     <VariationBadge value={row.variation} suffix={row.suffix} invert={row.invert} />
                   </td>
                 </tr>
@@ -436,8 +436,8 @@ export default function Dashboard() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr>
-                <th className={`${thCls} pl-3 rounded-tl-md`}>Cotizador</th>
+              <tr className="border-b-2 border-[#f1f5f9]">
+                <th className={`${thCls} pl-3`}>Cotizador</th>
                 <th className={`${thCls} text-center`}>Cots</th>
                 <th className={`${thCls} text-right`}>Valor cotizado</th>
                 <th className={`${thCls} text-center`}>Adj</th>
@@ -450,21 +450,21 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {cotizadorRows.map((r, i) => (
-                <tr key={i} className={`border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                <tr key={i} className="border-b border-[#f8fafc] last:border-0 hover:bg-[#fafbfc] transition-colors">
                   <td className={`${tdCls} pl-3 font-medium text-[var(--color-text)]`}>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold text-white" style={{ background: getAvatarColor(r.nombre) }}>{r.iniciales}</span>
+                      <span className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: getAvatarColor(r.nombre) }}>{r.iniciales}</span>
                       <span className="truncate">{r.nombre}</span>
                     </div>
                   </td>
-                  <td className={`${tdCls} text-center`}>{r.cotQty}</td>
-                  <td className={`${tdCls} text-right font-mono`}>{formatCOP(r.cotValor)}</td>
-                  <td className={`${tdCls} text-center`}>{r.adjQty}</td>
-                  <td className={`${tdCls} text-right font-mono`}>{formatCOP(r.adjValor)}</td>
+                  <td className={`${tdCls} text-center tabular-nums`}>{r.cotQty}</td>
+                  <td className={`${tdCls} text-right tabular-nums font-semibold text-[var(--color-text)]`}>{formatCOP(r.cotValor)}</td>
+                  <td className={`${tdCls} text-center tabular-nums`}>{r.adjQty}</td>
+                  <td className={`${tdCls} text-right tabular-nums font-semibold text-[var(--color-text)]`}>{formatCOP(r.adjValor)}</td>
                   <td className={`${tdCls} text-center`}><PctBadge value={r.pctAdj} /></td>
-                  <td className={`${tdCls} text-right font-mono`}>{formatCOP(r.avgCot)}</td>
-                  <td className={`${tdCls} text-right font-mono`}>{formatCOP(r.avgAdj)}</td>
-                  <td className={`${tdCls} text-center pr-3`}>{fmtDias(r.avgDias)}</td>
+                  <td className={`${tdCls} text-right tabular-nums text-[#334155]`}>{formatCOP(r.avgCot)}</td>
+                  <td className={`${tdCls} text-right tabular-nums text-[#334155]`}>{formatCOP(r.avgAdj)}</td>
+                  <td className={`${tdCls} text-center pr-3 text-[#64748b]`}>{fmtDias(r.avgDias)}</td>
                 </tr>
               ))}
             </tbody>
@@ -488,38 +488,38 @@ export default function Dashboard() {
       {/* ─── PIPELINE ACTIVO ────────────────────────── */}
       <Section title="Pipeline activo — Reunion semanal" subtitle={`> ${formatCOP(MIN_PIPELINE_VALOR)} · ${pipelineActivo.length} oportunidades`} icon={BarChart3} summary={`${pipelineActivo.length} oportunidades`}>
         {pipelineActivo.length === 0 ? (
-          <p className="text-xs text-[var(--color-text-muted)] text-center py-6">No hay oportunidades en seguimiento activo con valor mayor a {formatCOP(MIN_PIPELINE_VALOR)}.</p>
+          <p className="text-sm text-[#94a3b8] text-center py-8">No hay oportunidades en seguimiento activo con valor mayor a {formatCOP(MIN_PIPELINE_VALOR)}.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr>
-                  <th className={`${thCls} pl-3 rounded-tl-md`}>Empresa</th>
+                <tr className="border-b-2 border-[#f1f5f9]">
+                  <th className={`${thCls} pl-3`}>Empresa</th>
                   <th className={thCls}>Etapa</th>
                   <th className={`${thCls} text-center`}>Fecha envío</th>
                   <th className={thCls}>Cotización</th>
                   <th className={`${thCls} text-right`}>Valor</th>
                   <th className={`${thCls} text-center`}>Días desde envío</th>
-                  <th className={`${thCls} text-center pr-3 rounded-tr-md`}>Cot.</th>
+                  <th className={`${thCls} text-center pr-3`}>Cot.</th>
                 </tr>
               </thead>
               <tbody>
-                {pipelineActivo.map((r, i) => (
-                  <tr key={r.id} className={`border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                    <td className={`${tdCls} pl-3 font-medium text-[var(--color-text)] max-w-36 truncate`}>{r.empresa}</td>
+                {pipelineActivo.map((r) => (
+                  <tr key={r.id} className="border-b border-[#f8fafc] last:border-0 hover:bg-[#fafbfc] transition-colors">
+                    <td className={`${tdCls} pl-3 font-semibold text-[var(--color-text)] max-w-36 truncate`}>{r.empresa}</td>
                     <td className={tdCls}><EtapaBadge etapa={r.etapa} /></td>
-                    <td className={`${tdCls} text-center text-slate-500`}>
+                    <td className={`${tdCls} text-center text-[#64748b]`}>
                       {r.fechaEnvio && new Date(r.fechaEnvio).getFullYear() >= 2000 ? new Date(r.fechaEnvio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
-                    <td className={`${tdCls} font-mono`}>{r.numeroCot}</td>
-                    <td className={`${tdCls} text-right font-mono font-semibold text-[var(--color-accent-green)]`}>{formatCOP(r.valorCotizado)}</td>
+                    <td className={`${tdCls} tabular-nums text-[#334155]`}>{r.numeroCot}</td>
+                    <td className={`${tdCls} text-right tabular-nums font-semibold text-[var(--color-accent-green)]`}>{formatCOP(r.valorCotizado)}</td>
                     <td className={`${tdCls} text-center`}>
                       {r.diasDesdeEnvio !== null ? (
                         <span className={`font-semibold ${r.diasDesdeEnvio > 14 ? 'text-red-500' : r.diasDesdeEnvio > 7 ? 'text-amber-500' : 'text-[var(--color-text)]'}`}>{r.diasDesdeEnvio}d</span>
                       ) : '—'}
                     </td>
                     <td className={`${tdCls} text-center pr-3`}>
-                      <span className="inline-block w-6 h-6 rounded-full text-[8px] font-bold text-white leading-6 text-center" style={{ background: getAvatarColor(r.cotizadorNombre) }} title={r.cotizadorNombre}>{r.cotizador}</span>
+                      <span className="inline-block w-7 h-7 rounded-full text-[9px] font-bold text-white leading-7 text-center" style={{ background: getAvatarColor(r.cotizadorNombre) }} title={r.cotizadorNombre}>{r.cotizador}</span>
                     </td>
                   </tr>
                 ))}
@@ -534,8 +534,8 @@ export default function Dashboard() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr>
-                <th className={`${thCls} pl-3 rounded-tl-md`}>#</th>
+              <tr className="border-b-2 border-[#f1f5f9]">
+                <th className={`${thCls} pl-3`}>#</th>
                 <th className={thCls}>Empresa</th>
                 <th className={`${thCls} text-center`}>Ops</th>
                 <th className={`${thCls} text-right`}>Valor cotizado</th>
@@ -546,14 +546,14 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {empresaStats.map((r, i) => (
-                <tr key={i} className={`border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                  <td className={`${tdCls} pl-3 font-semibold text-slate-400`}>{i + 1}</td>
-                  <td className={`${tdCls} font-medium text-[var(--color-text)]`}>{r.nombre}</td>
-                  <td className={`${tdCls} text-center`}>{r.opCount}</td>
-                  <td className={`${tdCls} text-right font-mono font-semibold`}>{formatCOP(r.valorCotizado)}</td>
-                  <td className={`${tdCls} text-right font-mono`}>{formatCOP(r.valorAdjudicado)}</td>
+                <tr key={i} className="border-b border-[#f8fafc] last:border-0 hover:bg-[#fafbfc] transition-colors">
+                  <td className={`${tdCls} pl-3 font-semibold text-[#94a3b8]`}>{i + 1}</td>
+                  <td className={`${tdCls} font-semibold text-[var(--color-text)]`}>{r.nombre}</td>
+                  <td className={`${tdCls} text-center tabular-nums`}>{r.opCount}</td>
+                  <td className={`${tdCls} text-right tabular-nums font-semibold text-[var(--color-text)]`}>{formatCOP(r.valorCotizado)}</td>
+                  <td className={`${tdCls} text-right tabular-nums text-[#334155]`}>{formatCOP(r.valorAdjudicado)}</td>
                   <td className={`${tdCls} text-center`}><PctBadge value={r.pctAdj} /></td>
-                  <td className={`${tdCls} text-center pr-3`}>{fmtDias(r.avgDias)}</td>
+                  <td className={`${tdCls} text-center pr-3 text-[#64748b]`}>{fmtDias(r.avgDias)}</td>
                 </tr>
               ))}
             </tbody>

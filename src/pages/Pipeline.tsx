@@ -45,7 +45,6 @@ function emailToCotizadorId(email: string | undefined): string | null {
     saguirre: 'SA', caraque: 'CA', dgalindo: 'DG',
   }
   if (MAP[local]) return MAP[local]
-  // Try matching by initials
   for (const c of COTIZADORES) {
     if (c.id.toLowerCase() === local || (c as any).correo?.split('@')[0]?.toLowerCase() === local) return c.id
   }
@@ -79,6 +78,34 @@ function getDateRangeFilter(range: string): (fecha: string) => boolean {
   }
 }
 
+/* gradient top colors for each stage */
+const ETAPA_GRADIENT: Record<string, string> = {
+  nuevo_lead: 'from-emerald-50 to-white',
+  en_cotizacion: 'from-amber-50 to-white',
+  cotizacion_enviada: 'from-blue-50 to-white',
+  en_seguimiento: 'from-indigo-50 to-white',
+  en_negociacion: 'from-purple-50 to-white',
+  adjudicada: 'from-green-50 to-white',
+  perdida: 'from-red-50 to-white',
+}
+
+/* ── Tooltip component ─────── */
+function NotesTooltip({ notas }: { notas: string }) {
+  const lines = notas.split('\n').filter(l => l.trim()).slice(-2)
+  if (lines.length === 0) return null
+  return (
+    <div className="absolute left-0 right-0 top-full mt-2 z-50 animate-tooltip">
+      <div className="bg-white rounded-[10px] p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-[#f1f5f9]" style={{ maxWidth: 300 }}>
+        {lines.map((line, i) => (
+          <div key={i} className={i > 0 ? 'mt-2 pt-2 border-t border-[#f1f5f9]' : ''}>
+            <p className="text-[13px] text-[#334155] leading-relaxed">{line}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Pipeline() {
   const { state, dispatch } = useStore()
   const navigate = useNavigate()
@@ -100,6 +127,8 @@ export default function Pipeline() {
   const [filtroDateRange, setFiltroDateRange] = useState('')
   const [filtroSector, setFiltroSector] = useState('')
   const [currentUserCotId, setCurrentUserCotId] = useState<string | null>(null)
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+  const [hoverTimer, setHoverTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
 
   // Detect logged-in user's cotizador ID
   useEffect(() => {
@@ -196,67 +225,85 @@ export default function Pipeline() {
     setPerdidaModal(null)
   }
 
+  function handleCardMouseEnter(id: string) {
+    const timer = setTimeout(() => setHoveredCard(id), 400)
+    setHoverTimer(timer)
+  }
+  function handleCardMouseLeave() {
+    if (hoverTimer) clearTimeout(hoverTimer)
+    setHoverTimer(null)
+    setHoveredCard(null)
+  }
+
   const hasFilters = filtroCotizador || filtroYear || filtroMonth || filtroValorMin > 0 || searchEmpresa.trim() || filtroMisCots || filtroDateRange || filtroSector
 
+  const filterBtnCls = (active: boolean) => `h-10 px-5 rounded-[10px] text-[13px] font-medium transition-all border ${
+    active ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'bg-white border-[#e2e8f0] text-[#334155] hover:border-[var(--color-primary)] hover:bg-[#f8fafc]'
+  }`
+
+  const filterPillCls = (active: boolean) => `h-9 px-3.5 rounded-full text-[13px] font-medium transition-all ${
+    active ? 'text-white' : 'bg-white border border-[#e2e8f0] text-[var(--color-text-muted)] hover:bg-[#f8fafc]'
+  }`
+
   return (
-    <div className="p-5 h-screen flex flex-col animate-fade-in">
-      <div className="flex justify-between items-center mb-2">
+    <div className="p-6 h-screen flex flex-col animate-fade-in">
+      {/* ── Header ── */}
+      <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text)]">Pipeline</h1>
-          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+          <h1 className="text-[28px] font-bold text-[var(--color-text)] tracking-tight">Pipeline</h1>
+          <p className="text-sm text-[#94a3b8] mt-0.5">
             {activeCount} activas{showHistoricas && ` (${state.oportunidades.length} total)`}
             {hasFilters && ` — ${filtered.length} filtradas`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Cotizador filter chips */}
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2.5">
+          {/* Cotizador filter pills */}
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setFiltroCotizador('')}
-              className={`text-[10px] px-2 py-1 rounded font-medium transition-colors ${!filtroCotizador ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'}`}
+              className={filterPillCls(!filtroCotizador)}
+              style={!filtroCotizador ? { background: 'var(--color-primary)' } : {}}
             >Todos</button>
             {COTIZADORES.map(c => (
               <button
                 key={c.id}
                 onClick={() => setFiltroCotizador(filtroCotizador === c.id ? '' : c.id)}
-                className={`text-[10px] px-2 py-1 rounded font-medium transition-colors ${filtroCotizador === c.id ? 'text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'}`}
+                className={filterPillCls(filtroCotizador === c.id)}
                 style={filtroCotizador === c.id ? { background: getAvatarColor(c.nombre) } : {}}
               >{c.iniciales}</button>
             ))}
           </div>
           <button
             onClick={() => setShowHistoricas(!showHistoricas)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-medium transition-colors border ${
-              showHistoricas ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'
-            }`}
+            className={`flex items-center gap-1.5 ${filterBtnCls(showHistoricas)}`}
           >
-            <History size={12} />
+            <History size={14} />
             Históricas
           </button>
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-4 py-2 rounded-md text-xs font-semibold transition-colors"
+            className="flex items-center gap-1.5 h-10 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white px-5 rounded-[10px] text-[13px] font-semibold transition-colors"
           >
             <Plus size={14} /> Nueva
           </button>
         </div>
       </div>
 
-      {/* Fix 10: Additional filters row */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
+      {/* ── Filters row ── */}
+      <div className="flex items-center gap-2.5 mb-4 flex-wrap">
         <div className="relative">
-          <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
           <input
             value={searchEmpresa}
             onChange={e => setSearchEmpresa(e.target.value)}
             placeholder="Buscar empresa..."
-            className="pl-7 pr-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white w-36"
+            className="pl-10 pr-4 h-[42px] rounded-[10px] text-sm border border-[#e2e8f0] bg-white w-80 focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)]"
           />
         </div>
         <select
           value={filtroYear}
           onChange={e => setFiltroYear(e.target.value)}
-          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+          className={filterBtnCls(!!filtroYear)}
         >
           <option value="">Año: Todos</option>
           {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
@@ -264,17 +311,17 @@ export default function Pipeline() {
         <select
           value={filtroMonth}
           onChange={e => setFiltroMonth(e.target.value)}
-          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+          className={filterBtnCls(!!filtroMonth)}
         >
           <option value="">Mes: Todos</option>
           {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {VALOR_PRESETS.map(p => (
             <button
               key={p.label}
               onClick={() => setFiltroValorMin(filtroValorMin === p.min ? 0 : p.min)}
-              className={`text-[10px] px-2 py-1 rounded font-medium transition-colors ${filtroValorMin === p.min ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'}`}
+              className={filterBtnCls(filtroValorMin === p.min)}
             >{p.label}</button>
           ))}
         </div>
@@ -282,11 +329,9 @@ export default function Pipeline() {
         {currentUserCotId && (
           <button
             onClick={() => setFiltroMisCots(!filtroMisCots)}
-            className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
-              filtroMisCots ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'
-            }`}
+            className={`flex items-center gap-1.5 ${filterBtnCls(filtroMisCots)}`}
           >
-            <User size={11} />
+            <User size={14} />
             Mis cotizaciones
           </button>
         )}
@@ -294,7 +339,7 @@ export default function Pipeline() {
         <select
           value={filtroDateRange}
           onChange={e => setFiltroDateRange(e.target.value)}
-          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+          className={filterBtnCls(!!filtroDateRange)}
         >
           {DATE_RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -302,7 +347,7 @@ export default function Pipeline() {
         <select
           value={filtroSector}
           onChange={e => setFiltroSector(e.target.value)}
-          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+          className={filterBtnCls(!!filtroSector)}
         >
           <option value="">Sector: Todos</option>
           {CONFIG_DEFAULTS.sectores.map(s => <option key={s} value={s}>{s}</option>)}
@@ -310,43 +355,44 @@ export default function Pipeline() {
         {hasFilters && (
           <button
             onClick={() => { setFiltroCotizador(''); setFiltroYear(''); setFiltroMonth(''); setFiltroValorMin(0); setSearchEmpresa(''); setFiltroMisCots(false); setFiltroDateRange(''); setFiltroSector('') }}
-            className="text-[10px] px-2 py-1 rounded font-medium text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
+            className="h-10 px-4 rounded-[10px] text-[13px] font-medium text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
           >Limpiar filtros</button>
         )}
       </div>
 
-      <div className="flex-1 flex gap-2 overflow-x-auto pb-3">
+      {/* ── Columns ── */}
+      <div className="flex-1 flex gap-3 overflow-x-auto pb-3">
         {ETAPAS.map(etapa => {
-          // Fix 9: Sort cards by valor_cotizado descending
           const oportunidades = filtered
             .filter(o => o.etapa === etapa.key)
             .sort((a, b) => b.valor_cotizado - a.valor_cotizado)
           const valorTotal = oportunidades.reduce((s, o) => s + o.valor_cotizado, 0)
           const isOver = dragOverCol === etapa.key
+          const gradient = ETAPA_GRADIENT[etapa.key] || 'from-gray-50 to-white'
           return (
             <div
               key={etapa.key}
               onDragOver={e => onDragOver(e, etapa.key)}
               onDragLeave={onDragLeave}
               onDrop={e => onDrop(e, etapa.key)}
-              className={`flex-shrink-0 w-[300px] rounded-xl border flex flex-col transition-all duration-150 ${
-                isOver ? 'bg-blue-50 border-blue-300 shadow-md' : 'bg-white border-[var(--color-border)]'
+              className={`flex-shrink-0 w-[300px] rounded-xl flex flex-col transition-all duration-150 ${
+                isOver ? 'bg-blue-50 ring-2 ring-blue-300 shadow-md' : 'bg-[#f8fafc]'
               }`}
             >
-              {/* Column header with color bar */}
-              <div className="rounded-t-lg overflow-hidden">
+              {/* Column header */}
+              <div className="rounded-t-xl overflow-hidden">
                 <div className="h-[3px]" style={{ background: etapa.color }} />
-                <div className="px-5 py-4">
+                <div className={`px-5 py-4 bg-gradient-to-b ${gradient}`}>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold flex-1 text-[var(--color-text)]">{etapa.label}</span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: etapa.color + '18', color: etapa.color }}>{oportunidades.length}</span>
+                    <span className="text-[15px] font-semibold flex-1 text-[var(--color-text)]">{etapa.label}</span>
+                    <span className="text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ background: etapa.color }}>{oportunidades.length}</span>
                   </div>
                   {valorTotal > 0 && (
-                    <span className="text-[13px] text-[var(--color-text-muted)] tabular-nums mt-1 block">{formatCOP(valorTotal)}</span>
+                    <span className="text-sm text-[#64748b] tabular-nums mt-1 block font-medium">{formatCOP(valorTotal)}</span>
                   )}
                 </div>
               </div>
-              <div className="flex-1 px-2.5 pb-2.5 space-y-3 overflow-y-auto">
+              <div className="flex-1 px-2.5 pb-2.5 space-y-2.5 overflow-y-auto">
                 {oportunidades.map(o => {
                   const empresa = state.empresas.find(e => e.id === o.empresa_id)
                   const contactoNombre = contactoMap.get(o.contacto_id)
@@ -360,13 +406,15 @@ export default function Pipeline() {
                       onDragStart={e => onDragStart(e, o.id)}
                       onDragEnd={onDragEnd}
                       onClick={() => navigate(`/oportunidades/${o.id}`)}
-                      className={`bg-[var(--color-surface)] rounded-xl p-5 border border-[var(--color-border)] cursor-pointer transition-all duration-250 ${
-                        dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-lg hover:border-slate-300 hover:-translate-y-[3px]'
+                      onMouseEnter={() => hasNotas && handleCardMouseEnter(o.id)}
+                      onMouseLeave={handleCardMouseLeave}
+                      className={`relative bg-white rounded-xl p-[18px_20px] border border-[#f1f5f9] cursor-pointer transition-all duration-250 shadow-[0_1px_3px_rgba(0,0,0,0.03)] ${
+                        dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-[0_8px_25px_rgba(0,0,0,0.08)] hover:-translate-y-[3px]'
                       }`}
                     >
                       <div className="font-semibold text-[15px] truncate text-[var(--color-text)] mb-1">{empresa?.nombre}</div>
                       {contactoNombre && (
-                        <div className="text-sm text-[var(--color-text-muted)] truncate mb-2">{contactoNombre}</div>
+                        <div className="text-sm text-[#64748b] truncate mb-2">{contactoNombre}</div>
                       )}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base font-bold tabular-nums" style={{ color: o.valor_cotizado > 100_000_000 ? 'var(--color-accent-green)' : 'var(--color-text)' }}>{formatCOP(o.valor_cotizado)}</span>
@@ -376,10 +424,12 @@ export default function Pipeline() {
                         {hasNotas && (
                           <span title="Tiene notas"><StickyNote size={12} className="text-amber-400" /></span>
                         )}
-                        <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] ml-auto bg-slate-100 px-2.5 py-1 rounded-full">
+                        <span className="flex items-center gap-1 text-xs text-[#64748b] ml-auto bg-[#f1f5f9] px-2.5 py-1 rounded-full">
                           <Clock size={10} /> {dias}d
                         </span>
                       </div>
+                      {/* Tooltip */}
+                      {hoveredCard === o.id && hasNotas && <NotesTooltip notas={o.notas!} />}
                     </div>
                   )
                 })}
@@ -393,18 +443,18 @@ export default function Pipeline() {
 
       {/* Adjudicada modal */}
       {adjudicadaModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-white rounded-lg border border-[var(--color-border)] w-full max-w-sm p-5 shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-sm">Adjudicar oportunidad</h3>
-              <button onClick={() => setAdjudicadaModal(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={16} /></button>
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white modal-card w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-xl">Adjudicar oportunidad</h3>
+              <button onClick={() => setAdjudicadaModal(null)} className="text-[#64748b] hover:text-[var(--color-text)] p-1"><X size={20} /></button>
             </div>
-            <label className="text-[10px] font-medium text-[var(--color-text-muted)] mb-1 block">Valor adjudicado (COP)</label>
-            <input type="number" value={valorAdjudicado || ''} onChange={e => setValorAdjudicado(Number(e.target.value))} className="w-full px-3 py-2 rounded-md text-sm mb-1 border border-[var(--color-border)]" />
-            {valorAdjudicado > 0 && <p className="text-xs text-[var(--color-text-muted)] mb-3">{formatCOP(valorAdjudicado)}</p>}
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setAdjudicadaModal(null)} className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] rounded-md">Cancelar</button>
-              <button onClick={confirmAdjudicada} className="px-3 py-1.5 bg-[var(--color-accent-green)] text-white text-xs font-semibold rounded-md hover:opacity-90">Confirmar</button>
+            <label className="text-[13px] font-medium text-[#334155] mb-2 block">Valor adjudicado (COP)</label>
+            <input type="number" value={valorAdjudicado || ''} onChange={e => setValorAdjudicado(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl text-sm mb-1 border border-[#e2e8f0]" />
+            {valorAdjudicado > 0 && <p className="text-sm text-[#64748b] mb-4 tabular-nums">{formatCOP(valorAdjudicado)}</p>}
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setAdjudicadaModal(null)} className="px-5 py-3 text-sm text-[#64748b] hover:bg-[#f8fafc] rounded-xl">Cancelar</button>
+              <button onClick={confirmAdjudicada} className="px-5 py-3 h-12 bg-[var(--color-accent-green)] text-white text-sm font-semibold rounded-xl hover:opacity-90">Confirmar</button>
             </div>
           </div>
         </div>
@@ -412,19 +462,19 @@ export default function Pipeline() {
 
       {/* Perdida modal */}
       {perdidaModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-white rounded-lg border border-[var(--color-border)] w-full max-w-sm p-5 shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-sm">Motivo de pérdida</h3>
-              <button onClick={() => setPerdidaModal(null)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={16} /></button>
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white modal-card w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-xl">Motivo de pérdida</h3>
+              <button onClick={() => setPerdidaModal(null)} className="text-[#64748b] hover:text-[var(--color-text)] p-1"><X size={20} /></button>
             </div>
-            <label className="text-[10px] font-medium text-[var(--color-text-muted)] mb-1 block">Motivo</label>
-            <select value={motivoPerdida} onChange={e => setMotivoPerdida(e.target.value)} className="w-full px-3 py-2 rounded-md text-sm mb-4 border border-[var(--color-border)]">
+            <label className="text-[13px] font-medium text-[#334155] mb-2 block">Motivo</label>
+            <select value={motivoPerdida} onChange={e => setMotivoPerdida(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm mb-4 border border-[#e2e8f0]">
               {MOTIVOS_PERDIDA.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setPerdidaModal(null)} className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] rounded-md">Cancelar</button>
-              <button onClick={confirmPerdida} className="px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-md hover:opacity-90">Confirmar</button>
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setPerdidaModal(null)} className="px-5 py-3 text-sm text-[#64748b] hover:bg-[#f8fafc] rounded-xl">Cancelar</button>
+              <button onClick={confirmPerdida} className="px-5 py-3 h-12 bg-red-500 text-white text-sm font-semibold rounded-xl hover:bg-red-600 transition-colors">Confirmar</button>
             </div>
           </div>
         </div>

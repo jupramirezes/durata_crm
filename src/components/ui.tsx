@@ -6,8 +6,8 @@ export function EtapaBadge({ etapa, size = 'sm' }: { etapa: string; size?: 'sm' 
   const info = ETAPAS.find(e => e.key === etapa)
   if (!info) return <span className="text-xs text-[var(--color-text-muted)]">{etapa}</span>
   const cls = size === 'md'
-    ? 'text-xs px-4 py-1.5 rounded-full font-medium'
-    : 'text-[11px] px-2.5 py-1 rounded-full font-medium'
+    ? 'text-sm px-5 py-1.5 rounded-full font-semibold'
+    : 'text-[11px] px-3 py-1 rounded-full font-medium'
   return (
     <span className={cls} style={{ background: info.color + '14', color: info.color }}>
       {info.label}
@@ -25,10 +25,10 @@ export function KPICard({ label, value, subtitle }: {
   subtitle?: string
 }) {
   return (
-    <div className="bg-[var(--color-surface)] rounded-xl p-8 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-200 min-h-[140px] flex flex-col justify-between">
-      <p className="text-[13px] font-medium uppercase tracking-[0.05em] text-[var(--color-text-muted)] mb-3">{label}</p>
-      <p className="text-[40px] font-extrabold text-[var(--color-text)] tabular-nums tracking-tight leading-none">{value}</p>
-      {subtitle && <p className="text-sm text-slate-400 mt-3">{subtitle}</p>}
+    <div className="card card-hover p-7 min-h-[130px] flex flex-col justify-between">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8] mb-2">{label}</p>
+      <p className="text-[44px] font-extrabold text-[var(--color-text)] tabular-nums tracking-tight leading-none my-2">{value}</p>
+      {subtitle && <p className="text-[13px] text-[#94a3b8] mt-2">{subtitle}</p>}
     </div>
   )
 }
@@ -43,8 +43,8 @@ export function PageHeader({ title, subtitle, actions }: {
   return (
     <div className="flex items-center justify-between mb-6">
       <div>
-        <h1 className="text-2xl font-bold text-[var(--color-text)] tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-[var(--color-text-muted)] mt-1">{subtitle}</p>}
+        <h1 className="text-[28px] font-bold text-[var(--color-text)] tracking-tight">{title}</h1>
+        {subtitle && <p className="text-sm text-[#94a3b8] mt-1">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
@@ -62,7 +62,7 @@ const ESTADO_STYLES: Record<string, string> = {
 
 export function EstadoBadge({ estado }: { estado: string }) {
   return (
-    <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${ESTADO_STYLES[estado] || ESTADO_STYLES.borrador}`}>
+    <span className={`text-[11px] px-3 py-1 rounded-full font-medium ${ESTADO_STYLES[estado] || ESTADO_STYLES.borrador}`}>
       {estado}
     </span>
   )

@@ -49,9 +49,9 @@ function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean 
     <button
       onClick={onClick}
       disabled={saving}
-      className="flex items-center gap-1.5 px-4 py-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+      className="flex items-center gap-1.5 h-12 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[15px] font-semibold rounded-xl transition-colors shadow-[0_4px_12px_rgba(59,130,246,0.3)] disabled:opacity-50"
     >
-      <Save size={13} />
+      <Save size={15} />
       {saving ? 'Guardando…' : 'Guardar cambios'}
     </button>
   )
@@ -137,11 +137,11 @@ export default function Configuracion() {
   }
 
   return (
-    <div className="p-6 max-w-4xl animate-fade-in">
+    <div className="px-8 py-8 max-w-4xl animate-fade-in">
       <PageHeader title="Configuración" subtitle="Parámetros del sistema" />
 
       {/* ─── TABS ──────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-[var(--color-border)] mt-4 mb-5 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-[var(--color-border)] mt-5 mb-6 overflow-x-auto">
         {TABS.map(t => {
           const Icon = t.icon
           const active = tab === t.key
@@ -149,7 +149,7 @@ export default function Configuracion() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex items-center gap-1.5 h-11 px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 active
                   ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                   : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-gray-300'
@@ -171,7 +171,7 @@ export default function Configuracion() {
       {tab === 'sectores' && <TabListaEditable items={config.sectores} onSave={v => handleSave('sectores', v)} saving={saving} label="Sectores" placeholder="Nuevo sector…" />}
 
       {/* ─── DB STATUS (bottom) ────────────────────────────── */}
-      <div className="mt-6 bg-white rounded-lg border border-[var(--color-border)] p-3">
+      <div className="mt-6 card p-4">
         <div className="flex items-center gap-2.5">
           <Database size={14} className="text-[var(--color-text-muted)]" />
           {isSupabaseReady ? (
@@ -206,7 +206,7 @@ function TabEmpresa({ data, onSave, saving }: { data: DatosEmpresa; onSave: (v: 
   const set = (key: keyof DatosEmpresa, value: string) => setForm(prev => ({ ...prev, [key]: value }))
 
   return (
-    <div className="bg-white rounded-lg border border-[var(--color-border)] p-5 space-y-4">
+    <div className="card p-6 space-y-4">
       <div className="flex items-center justify-between mb-1">
         <h3 className="font-semibold text-sm text-[var(--color-text)]">Datos de la empresa</h3>
         <SaveButton onClick={() => onSave(form)} saving={saving} />
@@ -250,7 +250,7 @@ function TabEquipo({ data, onSave, saving }: { data: Cotizador[]; onSave: (v: Co
   }
 
   return (
-    <div className="bg-white rounded-lg border border-[var(--color-border)] p-5 space-y-4">
+    <div className="card p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-sm text-[var(--color-text)]">Equipo comercial</h3>
@@ -336,7 +336,7 @@ function TabEquipo({ data, onSave, saving }: { data: Cotizador[]; onSave: (v: Co
 
 function TabPipeline() {
   return (
-    <div className="bg-white rounded-lg border border-[var(--color-border)] p-5 space-y-4">
+    <div className="card p-6 space-y-4">
       <div>
         <h3 className="font-semibold text-sm text-[var(--color-text)]">Etapas del pipeline</h3>
         <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">Configuración actual de las etapas. Edición disponible en una fase futura.</p>
@@ -379,7 +379,7 @@ function TabCotizacion({ data, onSave, saving }: { data: DefaultsCotizacion; onS
   const [form, setForm] = useState(data)
 
   return (
-    <div className="bg-white rounded-lg border border-[var(--color-border)] p-5 space-y-5">
+    <div className="card p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-sm text-[var(--color-text)]">Defaults de cotización</h3>
@@ -412,7 +412,7 @@ function TabListaEditable({ items, onSave, saving, label, placeholder }: { items
   const [list, setList] = useState(items)
 
   return (
-    <div className="bg-white rounded-lg border border-[var(--color-border)] p-5 space-y-4">
+    <div className="card p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-sm text-[var(--color-text)]">{label}</h3>

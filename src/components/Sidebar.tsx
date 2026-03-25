@@ -52,8 +52,8 @@ function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | 
       <div className="px-5 pt-8 pb-8 flex items-center justify-between">
         <div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-white tracking-tight">DURATA</span>
-            <span className="text-2xl font-extrabold text-[var(--color-primary)]">CRM</span>
+            <span className="text-[26px] font-extrabold text-white tracking-tight">DURATA</span>
+            <span className="text-[26px] font-extrabold text-[var(--color-primary)]">CRM</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1 tracking-wider font-medium">Sistema de Cotizacion</p>
         </div>
@@ -63,15 +63,15 @@ function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | 
       </div>
 
       {/* Search */}
-      <div className="px-4 mb-6">
+      <div className="px-4 mb-7">
         <GlobalSearch />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-8 overflow-y-auto">
+      <nav className="flex-1 px-3 space-y-7 overflow-y-auto">
         {navGroups.map(group => (
           <div key={group.label}>
-            <p className="text-[11px] uppercase tracking-[0.08em] text-[#475569] px-4 mb-2.5 font-medium">{group.label}</p>
+            <p className="text-xs uppercase tracking-[0.1em] text-[#4b5563] px-5 mb-2.5 font-semibold">{group.label}</p>
             <div className="space-y-1">
               {group.items.map(l => (
                 <NavLink
@@ -80,7 +80,7 @@ function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | 
                   end={l.to === '/'}
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 h-12 rounded-lg text-[15px] font-medium transition-all duration-150 ${
+                    `flex items-center gap-3 px-5 h-12 rounded-lg text-[15px] font-medium transition-all duration-150 ${
                       isActive
                         ? 'bg-[var(--color-sidebar-active)] text-[var(--color-sidebar-text-active)] border-l-[3px] border-[var(--color-primary)] -ml-px'
                         : 'text-[var(--color-sidebar-text)] hover:bg-[var(--color-sidebar-hover)] hover:text-white'
@@ -97,15 +97,15 @@ function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | 
       </nav>
 
       {/* User section */}
-      <div className="px-4 py-6 border-t border-[var(--color-sidebar-border)]">
+      <div className="px-4 py-5 pb-5 border-t border-[var(--color-sidebar-border)]">
         {user ? (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center shrink-0">
+            <div className="w-[42px] h-[42px] rounded-full bg-[var(--color-primary)] flex items-center justify-center shrink-0">
               <span className="text-sm font-bold text-white">{getInitials(user)}</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm text-white font-medium truncate">{displayName(user)}</p>
-              <p className="text-xs text-slate-500 truncate">{user.email}</p>
+              <p className="text-xs text-[#64748b] truncate">{user.email}</p>
             </div>
             <button onClick={handleLogout} className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors shrink-0" title="Cerrar sesion">
               <LogOut size={16} />

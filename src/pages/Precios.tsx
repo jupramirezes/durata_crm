@@ -6,11 +6,11 @@ import { PageHeader } from '../components/ui'
 import { Search, Save, Upload, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
 
 const GRUPO_COLORS: Record<string, string> = {
-  INOX: 'bg-blue-50 text-blue-700 border-blue-200',
-  HIERRO: 'bg-orange-50 text-orange-700 border-orange-200',
-  ALUMINIO: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-  VIDRIO: 'bg-purple-50 text-purple-700 border-purple-200',
-  OTROS: 'bg-gray-50 text-gray-700 border-gray-200',
+  INOX: 'bg-[#f0fdf4] text-[#15803d] border-[#bbf7d0]',
+  HIERRO: 'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]',
+  ALUMINIO: 'bg-[#f0f9ff] text-[#0284c7] border-[#bae6fd]',
+  VIDRIO: 'bg-[#faf5ff] text-[#7c3aed] border-[#e9d5ff]',
+  OTROS: 'bg-gray-50 text-gray-600 border-gray-200',
   'MANO DE OBRA': 'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
@@ -95,22 +95,33 @@ export default function Precios() {
   const selectCls = 'px-2.5 py-1.5 text-[10px] rounded-md border border-[var(--color-border)] bg-white text-[var(--color-text)]'
 
   return (
-    <div className="p-6 space-y-4 animate-fade-in">
+    <div className="px-8 py-8 space-y-5 animate-fade-in">
       <PageHeader
         title="Precios Maestro"
         subtitle={`${filtered.length === state.precios.length ? state.precios.length : `${filtered.length} de ${state.precios.length}`} materiales. Clic en precio o proveedor para editar.`}
         actions={
           <button
             onClick={() => navigate('/precios/importar')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[var(--color-primary)] text-white rounded-md text-xs font-medium hover:brightness-110 transition"
+            className="flex items-center gap-1.5 h-[42px] px-6 bg-[var(--color-primary)] text-white rounded-[10px] text-sm font-medium hover:opacity-90 transition-all"
           >
             <Upload size={14} /> Importar CSV
           </button>
         }
       />
 
+      {/* Sin precio banner */}
+      {(() => {
+        const sinPrecio = state.precios.filter(p => p.precio === 0).length
+        const pct = state.precios.length > 0 ? ((sinPrecio / state.precios.length) * 100).toFixed(1) : '0'
+        return sinPrecio > 0 ? (
+          <div className="bg-[#fffbeb] border border-[#fef3c7] rounded-[10px] px-5 py-3 text-[#92400e] text-sm">
+            <strong>{sinPrecio}</strong> de {state.precios.length} materiales sin precio ({pct}%)
+          </div>
+        ) : null
+      })()}
+
       {/* Filters bar */}
-      <div className="bg-white rounded-lg border border-[var(--color-border)] p-3">
+      <div className="card p-4">
         <div className="flex items-center gap-1.5 mb-2.5">
           <Filter size={12} className="text-[var(--color-text-muted)]" />
           <span className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Filtros</span>
@@ -167,7 +178,7 @@ export default function Precios() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-[var(--color-border)] overflow-hidden">
+      <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[10px]">
             <thead>
@@ -190,12 +201,10 @@ export default function Precios() {
                   </td>
                 </tr>
               ) : (
-                paginatedData.map((p, i) => (
+                paginatedData.map((p) => (
                   <tr
                     key={p.id}
-                    className={`border-t border-[var(--color-border)] hover:bg-blue-50/40 transition-colors ${
-                      i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'
-                    } ${lastEditedId === p.id ? 'bg-yellow-50 ring-1 ring-yellow-200' : ''}`}
+                    className={`border-b border-[#f8fafc] hover:bg-[#fafbfc] transition-colors ${lastEditedId === p.id ? 'bg-yellow-50 ring-1 ring-yellow-200' : ''}`}
                   >
                     <td className="px-3 py-2">
                       <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium border whitespace-nowrap ${getGrupoColor(p.grupo)}`}>
@@ -227,9 +236,9 @@ export default function Precios() {
                         <div className="flex items-center gap-1 justify-end">
                           <span
                             onClick={() => startEdit(p.id, p.precio)}
-                            className={`cursor-pointer hover:text-[var(--color-primary)] font-medium transition-colors font-mono ${p.precio === 0 ? 'text-red-400' : 'text-[var(--color-text)]'}`}
+                            className={`cursor-pointer hover:text-[var(--color-primary)] font-medium transition-colors tabular-nums ${p.precio === 0 ? 'text-[#94a3b8]' : 'text-[var(--color-text)]'}`}
                           >
-                            {p.precio === 0 ? '$0' : formatCOP(p.precio)}
+                            {p.precio === 0 ? '—' : formatCOP(p.precio)}
                           </span>
                           {lastEditedId === p.id && (
                             <span className="text-[8px] text-green-600 font-medium animate-fade-in">OK</span>
