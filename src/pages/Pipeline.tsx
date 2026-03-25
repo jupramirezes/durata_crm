@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, Etapa, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, matchCotizador } from '../types'
 import { daysSince, formatCOP, getAvatarColor } from '../lib/utils'
-import { Plus, Clock, X, History, Search, StickyNote } from 'lucide-react'
+import { Plus, Clock, X, History, Search, StickyNote, User } from 'lucide-react'
 import OportunidadFormModal from '../components/OportunidadFormModal'
+import { supabase } from '../lib/supabase'
+import { CONFIG_DEFAULTS } from '../hooks/useConfiguracion'
 
 const ETAPAS_ACTIVAS: Set<string> = new Set([
   'nuevo_lead', 'en_cotizacion', 'cotizacion_enviada', 'en_seguimiento', 'en_negociacion',
@@ -26,6 +28,57 @@ const VALOR_PRESETS = [
 const YEARS = [2021, 2022, 2023, 2024, 2025, 2026]
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
+const DATE_RANGE_OPTIONS = [
+  { label: 'Todos', value: '' },
+  { label: 'Esta semana', value: 'week' },
+  { label: 'Este mes', value: 'month' },
+  { label: 'Este trimestre', value: 'quarter' },
+  { label: 'Este ano', value: 'year' },
+]
+
+/** Map email local part to cotizador ID */
+function emailToCotizadorId(email: string | undefined): string | null {
+  if (!email) return null
+  const local = email.split('@')[0].toLowerCase()
+  const MAP: Record<string, string> = {
+    presupuestos: 'OC', presupuestos2: 'JPR',
+    saguirre: 'SA', caraque: 'CA', dgalindo: 'DG',
+  }
+  if (MAP[local]) return MAP[local]
+  // Try matching by initials
+  for (const c of COTIZADORES) {
+    if (c.id.toLowerCase() === local || (c as any).correo?.split('@')[0]?.toLowerCase() === local) return c.id
+  }
+  return null
+}
+
+function getDateRangeFilter(range: string): (fecha: string) => boolean {
+  if (!range) return () => true
+  const now = new Date()
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  switch (range) {
+    case 'week': {
+      const day = now.getDay()
+      const monday = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (day === 0 ? 6 : day - 1)))
+      return (f) => new Date(f) >= monday
+    }
+    case 'month': {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1)
+      return (f) => new Date(f) >= first
+    }
+    case 'quarter': {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3
+      const first = new Date(now.getFullYear(), qMonth, 1)
+      return (f) => new Date(f) >= first
+    }
+    case 'year': {
+      const first = new Date(now.getFullYear(), 0, 1)
+      return (f) => new Date(f) >= first
+    }
+    default: return () => true
+  }
+}
+
 export default function Pipeline() {
   const { state, dispatch } = useStore()
   const navigate = useNavigate()
@@ -42,6 +95,20 @@ export default function Pipeline() {
   const [perdidaModal, setPerdidaModal] = useState<string | null>(null)
   const [valorAdjudicado, setValorAdjudicado] = useState(0)
   const [motivoPerdida, setMotivoPerdida] = useState<string>(MOTIVOS_PERDIDA[0])
+  // New filters
+  const [filtroMisCots, setFiltroMisCots] = useState(false)
+  const [filtroDateRange, setFiltroDateRange] = useState('')
+  const [filtroSector, setFiltroSector] = useState('')
+  const [currentUserCotId, setCurrentUserCotId] = useState<string | null>(null)
+
+  // Detect logged-in user's cotizador ID
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        setCurrentUserCotId(emailToCotizadorId(session.user.email))
+      }
+    })
+  }, [])
 
   // Build empresa name lookup for search
   const empresaMap = useMemo(() => {
@@ -57,9 +124,17 @@ export default function Pipeline() {
     return m
   }, [state.contactos])
 
+  // Build empresa sector lookup
+  const sectorMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const e of state.empresas) m.set(e.id, e.sector || '')
+    return m
+  }, [state.empresas])
+
   const filtered = useMemo(() => {
     let ops = showHistoricas ? state.oportunidades : state.oportunidades.filter(isActive)
     if (filtroCotizador) ops = ops.filter(o => matchCotizador(o.cotizador_asignado, filtroCotizador))
+    if (filtroMisCots && currentUserCotId) ops = ops.filter(o => matchCotizador(o.cotizador_asignado, currentUserCotId))
     if (filtroYear) {
       const y = Number(filtroYear)
       ops = ops.filter(o => new Date(o.fecha_ingreso).getFullYear() === y)
@@ -68,15 +143,22 @@ export default function Pipeline() {
       const m = Number(filtroMonth)
       ops = ops.filter(o => new Date(o.fecha_ingreso).getMonth() === m)
     }
+    if (filtroDateRange) {
+      const check = getDateRangeFilter(filtroDateRange)
+      ops = ops.filter(o => check(o.fecha_ingreso))
+    }
     if (filtroValorMin > 0) {
       ops = ops.filter(o => o.valor_cotizado >= filtroValorMin)
+    }
+    if (filtroSector) {
+      ops = ops.filter(o => sectorMap.get(o.empresa_id) === filtroSector)
     }
     if (searchEmpresa.trim()) {
       const q = searchEmpresa.trim().toLowerCase()
       ops = ops.filter(o => (empresaMap.get(o.empresa_id) || '').includes(q))
     }
     return ops
-  }, [state.oportunidades, showHistoricas, filtroCotizador, filtroYear, filtroMonth, filtroValorMin, searchEmpresa, empresaMap])
+  }, [state.oportunidades, showHistoricas, filtroCotizador, filtroMisCots, currentUserCotId, filtroYear, filtroMonth, filtroDateRange, filtroValorMin, filtroSector, searchEmpresa, empresaMap, sectorMap])
 
   const activeCount = useMemo(
     () => state.oportunidades.filter(isActive).length,
@@ -114,7 +196,7 @@ export default function Pipeline() {
     setPerdidaModal(null)
   }
 
-  const hasFilters = filtroCotizador || filtroYear || filtroMonth || filtroValorMin > 0 || searchEmpresa.trim()
+  const hasFilters = filtroCotizador || filtroYear || filtroMonth || filtroValorMin > 0 || searchEmpresa.trim() || filtroMisCots || filtroDateRange || filtroSector
 
   return (
     <div className="p-5 h-screen flex flex-col animate-fade-in">
@@ -196,9 +278,38 @@ export default function Pipeline() {
             >{p.label}</button>
           ))}
         </div>
+        {/* Mis cotizaciones toggle */}
+        {currentUserCotId && (
+          <button
+            onClick={() => setFiltroMisCots(!filtroMisCots)}
+            className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+              filtroMisCots ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]'
+            }`}
+          >
+            <User size={11} />
+            Mis cotizaciones
+          </button>
+        )}
+        {/* Date range */}
+        <select
+          value={filtroDateRange}
+          onChange={e => setFiltroDateRange(e.target.value)}
+          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+        >
+          {DATE_RANGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {/* Sector */}
+        <select
+          value={filtroSector}
+          onChange={e => setFiltroSector(e.target.value)}
+          className="px-2 py-1.5 rounded text-[10px] border border-[var(--color-border)] bg-white"
+        >
+          <option value="">Sector: Todos</option>
+          {CONFIG_DEFAULTS.sectores.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
         {hasFilters && (
           <button
-            onClick={() => { setFiltroCotizador(''); setFiltroYear(''); setFiltroMonth(''); setFiltroValorMin(0); setSearchEmpresa('') }}
+            onClick={() => { setFiltroCotizador(''); setFiltroYear(''); setFiltroMonth(''); setFiltroValorMin(0); setSearchEmpresa(''); setFiltroMisCots(false); setFiltroDateRange(''); setFiltroSector('') }}
             className="text-[10px] px-2 py-1 rounded font-medium text-red-500 hover:bg-red-50 border border-red-200 transition-colors"
           >Limpiar filtros</button>
         )}
