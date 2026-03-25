@@ -208,7 +208,11 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     const descText = p.descripcion_comercial || p.subtipo
     const descLines: string[] = doc.splitTextToSize(descText, descW)
     const descHeight = descLines.length * 3.5
-    const rowH = Math.max(descHeight + 6, 10)
+    // If product has a 3D render image, add space for it below description
+    const hasImage = !!(p as any).imagen_render
+    const imgH = hasImage ? 28 : 0 // ~28mm for image
+    const imgW = hasImage ? 38 : 0
+    const rowH = Math.max(descHeight + 6 + imgH, 10)
 
     checkPage(rowH + 2)
 
@@ -232,6 +236,14 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     doc.setFontSize(7)
     for (let li = 0; li < descLines.length; li++) {
       doc.text(descLines[li], colDesc + 2, topY + li * 3.5)
+    }
+
+    // Render image below description (if available)
+    if (hasImage) {
+      try {
+        const imgY = topY + descHeight + 2
+        doc.addImage((p as any).imagen_render, 'PNG', colDesc + 2, imgY, imgW, imgH)
+      } catch (_) { /* skip if image fails */ }
     }
 
     // Prices at top, right-aligned with clear separation from description

@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado, ApuLinea } from '../types'
 import { calcularApuMesa } from '../lib/calcular-apu'
 import { formatCOP } from '../lib/utils'
 import { exportApuExcel as exportApuExcelFn } from '../lib/exportar-apu'
+import type { Mesa3DViewerRef } from '../components/Mesa3DViewer'
 import {
   ArrowLeft, ShoppingCart, ChevronDown, ChevronRight, Check,
   Ruler, Layers, Shield, Package, Circle, Droplets, SlidersHorizontal, Settings, Minus, LayoutGrid,
@@ -191,6 +192,7 @@ export default function ConfiguradorMesa() {
   // If editing, load existing product config
   const productoExistente = editProductoId ? state.productos.find(p => p.id === editProductoId) : null
 
+  const viewer3DRef = useRef<Mesa3DViewerRef>(null)
   const [cfg, setCfg] = useState<ConfigMesa>(productoExistente?.configuracion ? { ...productoExistente.configuracion } : { ...CONFIG_MESA_DEFAULT })
   const [resultado, setResultado] = useState<ApuResultado | null>(null)
   const [cantidad, setCantidad] = useState(productoExistente?.cantidad || 1)
@@ -361,6 +363,9 @@ export default function ConfiguradorMesa() {
     setAdded(true)
     setToast(true)
 
+    // Capture 3D render as PNG
+    const imagenRender = viewer3DRef.current?.capturarPNG() || null
+
     if (editProductoId && productoExistente) {
       // Update existing product
       dispatch({
@@ -372,6 +377,7 @@ export default function ConfiguradorMesa() {
           precio_calculado: adjustedResultado.precio_comercial,
           descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
           cantidad,
+          imagen_render: imagenRender,
         },
       })
     } else {
@@ -387,6 +393,7 @@ export default function ConfiguradorMesa() {
           precio_calculado: adjustedResultado.precio_comercial,
           descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
           cantidad,
+          imagen_render: imagenRender,
         },
       })
     }
@@ -443,7 +450,7 @@ export default function ConfiguradorMesa() {
       {/* ── 3D Viewer ── */}
       <div className="mb-6 rounded-xl overflow-hidden border border-[var(--color-border)]" style={{ height: 420 }}>
         <Suspense fallback={<div className="flex items-center justify-center h-full bg-[#0f1520] text-[#64748b] text-sm">Cargando visualización 3D...</div>}>
-          <Mesa3DViewer config={cfg} />
+          <Mesa3DViewer ref={viewer3DRef} config={cfg} />
         </Suspense>
       </div>
 

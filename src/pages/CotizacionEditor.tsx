@@ -41,6 +41,7 @@ export default function CotizacionEditor() {
   const [incluyeTransporte, setIncluyeTransporte] = useState(cotizacion?.incluyeTransporte ?? true)
   const [condicionesText, setCondicionesText] = useState(cotizacion?.condicionesItems?.join('\n') || '')
   const [noIncluyeText, setNoIncluyeText] = useState(cotizacion?.noIncluyeItems?.join('\n') || '')
+  const [imagenModal, setImagenModal] = useState<string | null>(null)
 
   // Auto-suggest product name — short COMMERCIAL name, max 40 chars
   const suggestedProductName = useMemo(() => {
@@ -259,6 +260,7 @@ export default function CotizacionEditor() {
                     <th className="px-3 py-3 font-medium w-16 text-center">Cant</th>
                     <th className="px-3 py-3 font-medium w-16 text-center">Und</th>
                     <th className="px-3 py-3 font-medium" style={{ minWidth: 280 }}>Descripción</th>
+                    <th className="px-3 py-3 font-medium w-28 text-center">Imagen</th>
                     <th className="px-3 py-3 font-medium w-32 text-right">Precio Unit.</th>
                     <th className="px-3 py-3 font-medium w-28 text-right">Total</th>
                     <th className="px-3 py-3 w-10"></th>
@@ -292,6 +294,31 @@ export default function CotizacionEditor() {
                           rows={2}
                           className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] resize-none leading-relaxed"
                         />
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {(() => {
+                          const srcProd = productosOportunidad.find(pp =>
+                            (pp.descripcion_comercial || pp.subtipo) === p.descripcion
+                          )
+                          if (srcProd?.imagen_render) {
+                            return (
+                              <div className="relative group">
+                                <img
+                                  src={srcProd.imagen_render}
+                                  alt="Render 3D"
+                                  className="w-[100px] h-[75px] object-contain rounded-lg border border-[var(--color-border)] cursor-pointer hover:shadow-lg transition-shadow"
+                                  onClick={() => setImagenModal(srcProd.imagen_render!)}
+                                />
+                              </div>
+                            )
+                          }
+                          if (srcProd?.apu_resultado) {
+                            return (
+                              <span className="text-[10px] text-[#94a3b8] italic">Render guardado al crear</span>
+                            )
+                          }
+                          return null
+                        })()}
                       </td>
                       <td className="px-3 py-3 text-right">
                         <input
@@ -473,6 +500,24 @@ export default function CotizacionEditor() {
           onConfirm={handleGenerarPdf}
           onClose={() => setShowPdfModal(false)}
         />
+      )}
+
+      {/* Image modal */}
+      {imagenModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in"
+          onClick={() => setImagenModal(null)}
+        >
+          <div className="relative bg-white modal-card p-4 max-w-2xl" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setImagenModal(null)}
+              className="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <img src={imagenModal} alt="Render 3D completo" className="w-full rounded-lg" />
+          </div>
+        </div>
       )}
     </div>
   )

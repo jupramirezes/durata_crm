@@ -141,6 +141,7 @@ export interface ProductoCliente {
   archivo_apu_nombre?: string | null
   archivo_pdf_url?: string | null
   archivo_pdf_nombre?: string | null
+  imagen_render?: string | null
 }
 
 // ==============================

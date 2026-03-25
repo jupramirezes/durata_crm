@@ -1,8 +1,12 @@
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { ConfigMesa } from '../types'
 import { Eye, RotateCcw, ArrowUp, ArrowRight } from 'lucide-react'
+
+export interface Mesa3DViewerRef {
+  capturarPNG: () => string | null
+}
 
 /* ── Material presets ──────────────────────────── */
 const MATERIAL_PRESETS: Record<string, { color: number; metalness: number; roughness: number }> = {
@@ -23,7 +27,9 @@ interface Props {
   config: ConfigMesa
 }
 
-export default function Mesa3DViewer({ config }: Props) {
+const RUBBER_MAT_PROPS = { color: 0x222222, metalness: 0.1, roughness: 0.9 }
+
+const Mesa3DViewer = forwardRef<Mesa3DViewerRef, Props>(({ config }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -33,6 +39,31 @@ export default function Mesa3DViewer({ config }: Props) {
   const rafRef = useRef<number>(0)
   const needsRenderRef = useRef(true)
   const [webglSupported] = useState(() => !!window.WebGLRenderingContext)
+
+  // Expose capturarPNG method
+  useImperativeHandle(ref, () => ({
+    capturarPNG: () => {
+      const renderer = rendererRef.current
+      const scene = sceneRef.current
+      const camera = cameraRef.current
+      if (!renderer || !scene || !camera) return null
+      // Position camera at default isometric view
+      camera.position.set(2, 1.5, 2)
+      if (controlsRef.current) {
+        controlsRef.current.target.set(0, config.alto * 0.45, 0)
+        controlsRef.current.update()
+      }
+      // Render with white background for PDF
+      const origBg = scene.background
+      scene.background = new THREE.Color(0xffffff)
+      renderer.render(scene, camera)
+      const dataURL = renderer.domElement.toDataURL('image/png')
+      // Restore background
+      scene.background = origBg
+      renderer.render(scene, camera)
+      return dataURL
+    }
+  }))
 
   /* ── Build/rebuild mesa geometry ─────────────── */
   const buildMesa = useCallback((cfg: ConfigMesa, group: THREE.Group) => {
@@ -99,25 +130,28 @@ export default function Mesa3DViewer({ config }: Props) {
       group.add(leg)
 
       if (cfg.ruedas) {
-        // Wheel assembly
+        const rubberMat = new THREE.MeshStandardMaterial({ ...RUBBER_MAT_PROPS })
         const wheelGroup = new THREE.Group()
-        // Plate
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.003, 0.05), darkMat)
+        // Platina (mounting plate)
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.005, 0.06), steelMat.clone())
         plate.position.y = wheelH
         wheelGroup.add(plate)
-        // Axle
-        const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.04, 8), darkMat)
-        axle.position.y = wheelH / 2
-        wheelGroup.add(axle)
-        // Wheel
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.015, 16), darkMat)
+        // Horquilla (fork) — two vertical planes
+        for (const s of [-1, 1]) {
+          const fork = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.035, 0.05), darkMat)
+          fork.position.set(s * 0.018, wheelH / 2, 0)
+          wheelGroup.add(fork)
+        }
+        // Wheel (rubber)
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.018, 24), rubberMat)
         wheel.rotation.z = Math.PI / 2
-        wheel.position.y = 0.03
+        wheel.position.y = 0.038
         wheelGroup.add(wheel)
-        // Brake
-        const brake = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.02, 0.008), darkMat)
-        brake.position.set(0.025, 0.03, 0)
-        wheelGroup.add(brake)
+        // Axle through wheel
+        const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.045, 8), darkMat)
+        axle.rotation.z = Math.PI / 2
+        axle.position.y = 0.038
+        wheelGroup.add(axle)
         wheelGroup.position.set(x, 0, z)
         group.add(wheelGroup)
       } else {
@@ -199,9 +233,9 @@ export default function Mesa3DViewer({ config }: Props) {
     }
 
     // ── Pozuelos rectangular ──
-    if (cfg.pozuelos_rect > 0 && cfg.pozuelo_dims.length > 0) {
-      const poz = cfg.pozuelo_dims[0]
-      const pL = poz.largo || 0.5, pW = poz.ancho || 0.4, pD = poz.alto || 0.3
+    if (cfg.pozuelos_rect > 0) {
+      const poz = cfg.pozuelo_dims[0] || { largo: 0.50, ancho: 0.40, alto: 0.18 }
+      const pL = poz.largo || 0.5, pW = poz.ancho || 0.4, pD = poz.alto || 0.18
       const pozX = L / 2 - pL / 2 - 0.1
 
       // Cavity box (dark, sunken into mesón)
@@ -212,9 +246,9 @@ export default function Mesa3DViewer({ config }: Props) {
       cavity.position.set(pozX, H - pD / 2, 0)
       group.add(cavity)
 
-      // Rim borders
-      const rimMat = steelMat.clone()
-      const rimThick = 0.008
+      // Rim borders (chrome)
+      const rimMat = chromeMat
+      const rimThick = 0.003
       for (const side of [-1, 1]) {
         const rim = new THREE.Mesh(new THREE.BoxGeometry(pL + rimThick * 2, 0.025, rimThick), rimMat)
         rim.position.set(pozX, H + 0.003, side * (pW / 2))
@@ -287,26 +321,37 @@ export default function Mesa3DViewer({ config }: Props) {
 
     // ── Vertedero ──
     if (cfg.vertederos > 0) {
-      const vertDiam = cfg.diam_vertedero > 0 ? cfg.diam_vertedero : 0.076 // 3" default
-      const vertDepth = cfg.prof_vertedero > 0 ? cfg.prof_vertedero : 0.2
-      // Position near pozuelo, below the mesón
+      const vertDiam = 0.076 // 3" pipe
+      const vertR = vertDiam / 2
+      // Position below pozuelo area
       const vertX = cfg.pozuelos_rect > 0 ? L / 2 - 0.1 - (cfg.pozuelo_dims[0]?.largo || 0.5) / 2 : L / 2 - 0.2
+      const vertZ = W / 2 - 0.06
       for (let i = 0; i < cfg.vertederos; i++) {
+        const xPos = vertX + i * 0.15
+        // Vertical tube from mesón to near floor
+        const tubeH = H * 0.7
         const tube = new THREE.Mesh(
-          new THREE.CylinderGeometry(vertDiam / 2, vertDiam / 2, vertDepth, 16),
+          new THREE.CylinderGeometry(vertR, vertR, tubeH, 16),
           chromeMat
         )
-        tube.position.set(vertX + i * 0.15, H - 0.02 - vertDepth / 2, W / 2 - 0.06)
+        tube.position.set(xPos, H - 0.02 - tubeH / 2, vertZ)
         group.add(tube)
-
-        // Opening ring at top
+        // Opening ring at mesón level
         const ring = new THREE.Mesh(
-          new THREE.TorusGeometry(vertDiam / 2, 0.004, 8, 16),
+          new THREE.TorusGeometry(vertR, 0.004, 8, 16),
           chromeMat
         )
         ring.rotation.x = Math.PI / 2
-        ring.position.set(vertX + i * 0.15, H - 0.02, W / 2 - 0.06)
+        ring.position.set(xPos, H - 0.02, vertZ)
         group.add(ring)
+        // Codo (elbow) at bottom — horizontal exit tube
+        const codo = new THREE.Mesh(
+          new THREE.CylinderGeometry(vertR, vertR, 0.08, 12),
+          chromeMat
+        )
+        codo.rotation.z = Math.PI / 2
+        codo.position.set(xPos + 0.04, H - 0.02 - tubeH, vertZ)
+        group.add(codo)
       }
     }
 
@@ -716,4 +761,7 @@ export default function Mesa3DViewer({ config }: Props) {
       </div>
     </div>
   )
-}
+})
+
+Mesa3DViewer.displayName = 'Mesa3DViewer'
+export default Mesa3DViewer

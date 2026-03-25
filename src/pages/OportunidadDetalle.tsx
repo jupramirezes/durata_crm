@@ -642,6 +642,14 @@ export default function OportunidadDetalle() {
                   return (
                     <div key={p.id} className="bg-white rounded-xl p-5 border border-[#f1f5f9] hover:shadow-[var(--shadow-card-hover)] transition-all group">
                       <div className="flex justify-between items-start gap-3">
+                        {/* Thumbnail */}
+                        {p.imagen_render && (
+                          <img
+                            src={p.imagen_render}
+                            alt="Render 3D"
+                            className="w-[80px] h-[60px] object-contain rounded-lg border border-[var(--color-border)] shrink-0"
+                          />
+                        )}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-semibold text-base text-[var(--color-text)]">{p.subtipo}</span>
