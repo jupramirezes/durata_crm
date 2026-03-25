@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, COTIZADORES, Etapa, matchCotizador, findCotizador } from '../types'
 import { formatCOP, daysSince, getAvatarColor } from '../lib/utils'
 import { PageHeader, KPICard, EtapaBadge } from '../components/ui'
-import { Target, DollarSign, FileText, TrendingUp, Users, BarChart3, CalendarClock, Calendar, ArrowUpRight, ArrowDownRight, Minus, ChevronRight } from 'lucide-react'
+import { Target, DollarSign, FileText, TrendingUp, Users, BarChart3, CalendarClock, Calendar, ArrowUpRight, ArrowDownRight, Minus, ChevronRight, Bell, AlertTriangle } from 'lucide-react'
 
 /* ── helpers ───────────────────────────────────────────── */
 
@@ -104,6 +105,7 @@ function Section({ title, subtitle, icon: Icon, summary, children, defaultOpen =
 export default function Dashboard() {
   const { state } = useStore()
   const { oportunidades, cotizaciones, empresas } = state
+  const navigate = useNavigate()
 
   const now = new Date()
   const dateStr = now.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -111,6 +113,36 @@ export default function Dashboard() {
 
   // Pre-build lookup: oportunidad_id -> oportunidad
   const opMap = useMemo(() => new Map(oportunidades.map(o => [o.id, o])), [oportunidades])
+
+  // Pre-build lookup: empresa_id -> empresa name
+  const empresaNameMap = useMemo(() => new Map(empresas.map(e => [e.id, e.nombre])), [empresas])
+
+  /* ── ALERTAS: cotizaciones sin respuesta ────────────── */
+  const alertas = useMemo(() => {
+    const nowMs = Date.now()
+    const items = oportunidades
+      .filter(o => o.etapa === 'cotizacion_enviada')
+      .map(o => {
+        const refDate = o.fecha_envio || o.fecha_ingreso
+        const dias = Math.floor((nowMs - new Date(refDate).getTime()) / 86400000)
+        const cots = cotizaciones.filter(c => c.oportunidad_id === o.id)
+        const ultimaCot = cots.length > 0 ? cots.sort((a, b) => b.numero.localeCompare(a.numero))[0] : null
+        return {
+          id: o.id,
+          empresa: empresaNameMap.get(o.empresa_id) || '—',
+          cotizacion: ultimaCot ? `COT-${ultimaCot.numero}` : '—',
+          valor: o.valor_cotizado,
+          dias,
+          cotizador: findCotizador(o.cotizador_asignado)?.iniciales || '—',
+        }
+      })
+      .filter(a => a.dias > 7)
+      .sort((a, b) => b.dias - a.dias)
+    const over7 = items.length
+    const over14 = items.filter(a => a.dias > 14).length
+    const over30 = items.filter(a => a.dias > 30).length
+    return { items, over7, over14, over30 }
+  }, [oportunidades, cotizaciones, empresaNameMap])
 
   /* ── SECCIÓN 1: Resumen general ───────────────────── */
   const { activas, valorPipeline, cotsMes, totalMes, tasaCierre, etapaCounts, totalOps, adjOportunidades } = useMemo(() => {
@@ -354,6 +386,29 @@ export default function Dashboard() {
         subtitle={dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
       />
 
+      {/* ─── ALERTA BANNER ───────────────────────────── */}
+      {alertas.over7 > 0 && (
+        <div className="flex items-center gap-4 rounded-xl border border-[#fef3c7] bg-[#fffbeb] px-6 py-4">
+          <Bell size={20} className="text-amber-500 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#92400e]">
+              {alertas.over7} cotizacion{alertas.over7 !== 1 ? 'es' : ''} lleva{alertas.over7 === 1 ? '' : 'n'} más de 7 días sin respuesta
+            </p>
+            {(alertas.over14 > 0 || alertas.over30 > 0) && (
+              <p className="text-xs text-[#92400e] mt-0.5 opacity-80">
+                {alertas.over14 > 0 && `${alertas.over14} de más de 14 días`}
+                {alertas.over14 > 0 && alertas.over30 > 0 && ' · '}
+                {alertas.over30 > 0 && `${alertas.over30} de más de 30 días`}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => navigate('/pipeline')}
+            className="shrink-0 text-xs font-semibold text-[#92400e] hover:text-[#78350f] border border-[#fde68a] bg-white/60 rounded-lg px-4 py-2 hover:bg-white transition-colors"
+          >Ver en pipeline</button>
+        </div>
+      )}
+
       {/* ─── KPI CARDS ──────────────────────────────── */}
       <div className="grid grid-cols-4 gap-5">
         <KPICard label="Oportunidades activas" value={String(activas.length)} icon={Target} subtitle="En pipeline actual" />
@@ -390,6 +445,57 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      {/* ─── ALERTAS DE SEGUIMIENTO ──────────────── */}
+      {alertas.items.length > 0 && (
+        <Section
+          title="Alertas de seguimiento"
+          subtitle="Cotizaciones enviadas sin respuesta"
+          icon={AlertTriangle}
+          summary={`${alertas.items.length} requieren seguimiento`}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b-2 border-[#f1f5f9]">
+                  <th className={`${thCls} pl-3`}>Empresa</th>
+                  <th className={thCls}>Cotización</th>
+                  <th className={`${thCls} text-right`}>Valor</th>
+                  <th className={`${thCls} text-center`}>Días sin respuesta</th>
+                  <th className={`${thCls} text-center pr-3`}>Cot.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertas.items.map(a => {
+                  const badgeCls = a.dias > 30
+                    ? 'bg-[#fef2f2] text-[#991b1b]'
+                    : a.dias > 14
+                    ? 'bg-[#fef2f2] text-[#dc2626]'
+                    : 'bg-[#fffbeb] text-[#d97706]'
+                  return (
+                    <tr
+                      key={a.id}
+                      onClick={() => navigate(`/oportunidades/${a.id}`)}
+                      className="border-b border-[#f8fafc] last:border-0 hover:bg-[#fafbfc] transition-colors cursor-pointer"
+                    >
+                      <td className={`${tdCls} pl-3 font-semibold text-[var(--color-text)] max-w-48 truncate`}>{a.empresa}</td>
+                      <td className={`${tdCls} tabular-nums text-[#334155]`}>{a.cotizacion}</td>
+                      <td className={`${tdCls} text-right tabular-nums font-semibold text-[var(--color-text)]`}>{formatCOP(a.valor)}</td>
+                      <td className={`${tdCls} text-center`}>
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${badgeCls}`}>
+                          {a.dias > 30 && <AlertTriangle size={11} />}
+                          {a.dias}d
+                        </span>
+                      </td>
+                      <td className={`${tdCls} text-center pr-3 font-semibold text-[#64748b]`}>{a.cotizador}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
 
       {/* ─── COMPARATIVO VS AÑO ANTERIOR ─────────── */}
       <Section title="Comparativo vs año anterior" subtitle={`${prevPeriodLabel} vs ${periodLabel}`} icon={TrendingUp} summary={`${comparativo[1]?.variation > 0 ? '+' : ''}${comparativo[1]?.variation.toFixed(1)}% valor cotizado`} defaultOpen>

@@ -399,6 +399,17 @@ export default function Pipeline() {
                   const cotizador = findCotizador(o.cotizador_asignado)
                   const dias = daysSince(o.fecha_ingreso)
                   const hasNotas = o.notas && o.notas.trim().length > 0
+                  // Urgency border for cotizacion_enviada
+                  const urgencyDias = o.etapa === 'cotizacion_enviada'
+                    ? Math.floor((Date.now() - new Date(o.fecha_envio || o.fecha_ingreso).getTime()) / 86400000)
+                    : 0
+                  const urgencyBorder = urgencyDias > 30
+                    ? 'border-l-[3px] border-l-[#991b1b]'
+                    : urgencyDias > 14
+                    ? 'border-l-[3px] border-l-[#ef4444]'
+                    : urgencyDias > 7
+                    ? 'border-l-[3px] border-l-[#f59e0b]'
+                    : ''
                   return (
                     <div
                       key={o.id}
@@ -408,7 +419,7 @@ export default function Pipeline() {
                       onClick={() => navigate(`/oportunidades/${o.id}`)}
                       onMouseEnter={() => hasNotas && handleCardMouseEnter(o.id)}
                       onMouseLeave={handleCardMouseLeave}
-                      className={`relative bg-white rounded-xl p-[18px_20px] border border-[#f1f5f9] cursor-pointer transition-all duration-250 shadow-[0_1px_3px_rgba(0,0,0,0.03)] ${
+                      className={`relative bg-white rounded-xl p-[18px_20px] border border-[#f1f5f9] cursor-pointer transition-all duration-250 shadow-[0_1px_3px_rgba(0,0,0,0.03)] ${urgencyBorder} ${
                         dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-[0_8px_25px_rgba(0,0,0,0.08)] hover:-translate-y-[3px]'
                       }`}
                     >
