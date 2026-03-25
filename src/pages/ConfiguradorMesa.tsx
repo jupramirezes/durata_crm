@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado, ApuLinea } from '../types'
@@ -10,6 +10,8 @@ import {
   Ruler, Layers, Shield, Package, Circle, Droplets, SlidersHorizontal, Settings, Minus, LayoutGrid,
   Wrench, Truck, AlertCircle, Edit3, Download
 } from 'lucide-react'
+
+const Mesa3DViewer = lazy(() => import('../components/Mesa3DViewer'))
 
 const sectionIcons: Record<string, any> = {
   'Dimensiones principales': Ruler,
@@ -509,6 +511,13 @@ export default function ConfiguradorMesa() {
           <h2 className="text-2xl font-bold">{editProductoId ? 'Editar: Mesa' : 'Configurar: Mesa'}</h2>
           <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Empresa: {empresa?.nombre}</p>
         </div>
+      </div>
+
+      {/* ── 3D Viewer ── */}
+      <div className="mb-6 rounded-xl overflow-hidden border border-[var(--color-border)]" style={{ height: 420 }}>
+        <Suspense fallback={<div className="flex items-center justify-center h-full bg-[#0f1520] text-[#64748b] text-sm">Cargando visualización 3D...</div>}>
+          <Mesa3DViewer config={cfg} />
+        </Suspense>
       </div>
 
       <div className="grid grid-cols-[1fr_400px] gap-6">
