@@ -69,36 +69,56 @@ export default function Mesa3DViewer({ config }: Props) {
 
     // ── Patas ──
     const legW = 0.038
-    const legH = H - 0.02
+    // If wheels, compensate height (wheel adds ~0.06m)
+    const wheelH = cfg.ruedas ? 0.06 : 0
+    const legH = H - 0.02 - wheelH
     const offset = 0.05
+
+    // Auto-compute number of legs based on length
+    const numPatas = cfg.patas >= 8 ? 8 : cfg.patas >= 6 ? 6 : cfg.largo > 3 ? 8 : cfg.largo > 2 ? 6 : 4
     const legPositions: [number, number][] = [
       [-L / 2 + offset, -W / 2 + offset],
       [-L / 2 + offset,  W / 2 - offset],
       [ L / 2 - offset, -W / 2 + offset],
       [ L / 2 - offset,  W / 2 - offset],
     ]
-    if (cfg.patas >= 6) {
+    if (numPatas >= 6) {
       legPositions.push([0, -W / 2 + offset], [0, W / 2 - offset])
     }
+    if (numPatas >= 8) {
+      legPositions.push([-L / 3, -W / 2 + offset], [-L / 3, W / 2 - offset])
+      // Reposition middle pair
+      legPositions[4] = [L / 3, -W / 2 + offset]
+      legPositions[5] = [L / 3, W / 2 - offset]
+    }
+
     for (const [x, z] of legPositions) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(legW, legH, legW), legMat)
-      leg.position.set(x, legH / 2, z)
+      leg.position.set(x, wheelH + legH / 2, z)
       leg.castShadow = true
       group.add(leg)
 
       if (cfg.ruedas) {
-        // Wheel
+        // Wheel assembly
         const wheelGroup = new THREE.Group()
-        const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 8), darkMat)
-        wheelGroup.add(axle)
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.004, 0.03), darkMat)
-        plate.position.y = 0.03
+        // Plate
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.003, 0.05), darkMat)
+        plate.position.y = wheelH
         wheelGroup.add(plate)
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.018, 16), darkMat)
+        // Axle
+        const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.04, 8), darkMat)
+        axle.position.y = wheelH / 2
+        wheelGroup.add(axle)
+        // Wheel
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.015, 16), darkMat)
         wheel.rotation.z = Math.PI / 2
-        wheel.position.y = -0.025
+        wheel.position.y = 0.03
         wheelGroup.add(wheel)
-        wheelGroup.position.set(x, -0.01, z)
+        // Brake
+        const brake = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.02, 0.008), darkMat)
+        brake.position.set(0.025, 0.03, 0)
+        wheelGroup.add(brake)
+        wheelGroup.position.set(x, 0, z)
         group.add(wheelGroup)
       } else {
         // Nivelador
@@ -148,7 +168,7 @@ export default function Mesa3DViewer({ config }: Props) {
       }
     }
 
-    // ── Babero ──
+    // ── Babero (frontal) ──
     if (cfg.babero && cfg.alto_babero > 0) {
       const babH = cfg.alto_babero
       const babMat = new THREE.MeshStandardMaterial({ ...preset, roughness: preset.roughness * 0.7 })
@@ -161,101 +181,164 @@ export default function Mesa3DViewer({ config }: Props) {
       group.add(bab)
     }
 
-    // ── Pozuelos ──
+    // ── Baberos laterales (costados) ──
+    if (cfg.babero_costados > 0 && cfg.alto_babero > 0) {
+      const babH = cfg.alto_babero
+      const babMat = new THREE.MeshStandardMaterial({ ...preset, roughness: preset.roughness * 0.7 })
+      // Left side always if babero_costados >= 1
+      const sides = cfg.babero_costados >= 2 ? [-1, 1] : [-1]
+      for (const side of sides) {
+        const babLat = new THREE.Mesh(
+          new THREE.BoxGeometry(0.015, babH, W),
+          babMat
+        )
+        babLat.position.set(side * (L / 2 - 0.0075), H - babH / 2, 0)
+        babLat.castShadow = true
+        group.add(babLat)
+      }
+    }
+
+    // ── Pozuelos rectangular ──
     if (cfg.pozuelos_rect > 0 && cfg.pozuelo_dims.length > 0) {
       const poz = cfg.pozuelo_dims[0]
       const pL = poz.largo || 0.5, pW = poz.ancho || 0.4, pD = poz.alto || 0.3
+      const pozX = L / 2 - pL / 2 - 0.1
 
-      // Pozuelo cavity
+      // Cavity box (dark, sunken into mesón)
       const cavity = new THREE.Mesh(
         new THREE.BoxGeometry(pL, pD, pW),
         pozMat
       )
-      cavity.position.set(L / 2 - pL / 2 - 0.1, H - pD / 2, 0)
+      cavity.position.set(pozX, H - pD / 2, 0)
       group.add(cavity)
 
-      // Rim
+      // Rim borders
       const rimMat = steelMat.clone()
       const rimThick = 0.008
-      // Front/back rims
       for (const side of [-1, 1]) {
         const rim = new THREE.Mesh(new THREE.BoxGeometry(pL + rimThick * 2, 0.025, rimThick), rimMat)
-        rim.position.set(L / 2 - pL / 2 - 0.1, H + 0.003, side * (pW / 2) )
+        rim.position.set(pozX, H + 0.003, side * (pW / 2))
         group.add(rim)
       }
-      // Left/right rims
       for (const side of [-1, 1]) {
         const rim = new THREE.Mesh(new THREE.BoxGeometry(rimThick, 0.025, pW + rimThick * 2), rimMat)
-        rim.position.set(L / 2 - pL / 2 - 0.1 + side * (pL / 2), H + 0.003, 0)
+        rim.position.set(pozX + side * (pL / 2), H + 0.003, 0)
         group.add(rim)
       }
 
       // Drain
-      const drain = new THREE.Mesh(
-        new THREE.CircleGeometry(0.018, 16),
-        darkMat
-      )
+      const drain = new THREE.Mesh(new THREE.CircleGeometry(0.018, 16), darkMat)
       drain.rotation.x = -Math.PI / 2
-      drain.position.set(L / 2 - pL / 2 - 0.1, H - pD + 0.002, 0)
+      drain.position.set(pozX, H - pD + 0.002, 0)
       group.add(drain)
 
       // Faucet
       const faucetGroup = new THREE.Group()
-      // Base
       const fBase = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.02, 16), chromeMat)
       fBase.position.y = H + 0.01
       faucetGroup.add(fBase)
-      // Vertical tube
       const fTube = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 8), chromeMat)
       fTube.position.y = H + 0.09
       faucetGroup.add(fTube)
-      // Arm
       const fArm = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.08, 8), chromeMat)
       fArm.rotation.z = Math.PI / 2
       fArm.position.set(-0.04, H + 0.16, 0)
       faucetGroup.add(fArm)
-      // Spout
       const fSpout = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.035, 8), chromeMat)
       fSpout.position.set(-0.08, H + 0.143, 0)
       faucetGroup.add(fSpout)
-      // Handle
       const fHandle = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 12), chromeMat)
       fHandle.position.set(0.02, H + 0.16, 0)
       faucetGroup.add(fHandle)
-
-      faucetGroup.position.set(L / 2 - pL - 0.12, 0, -pW / 2 - 0.04)
+      faucetGroup.position.set(pozX - pL / 2 - 0.04, 0, -pW / 2 - 0.04)
       group.add(faucetGroup)
     }
 
-    // ── Escabiladero ──
-    if (cfg.escabiladero) {
-      const escGroup = new THREE.Group()
-      const barCount = 5
-      const escH = H * 0.6
-      const spacing = escH / (barCount + 1)
-      for (let i = 1; i <= barCount; i++) {
-        const bar = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.005, 0.005, W - 0.1, 8),
-          steelMat.clone()
-        )
-        bar.rotation.x = Math.PI / 2
-        bar.position.set(0, i * spacing, 0)
-        escGroup.add(bar)
-      }
-      // Side supports
-      for (const side of [-1, 1]) {
-        const support = new THREE.Mesh(
-          new THREE.BoxGeometry(0.025, escH + spacing, 0.015),
-          legMat
-        )
-        support.position.set(0, escH / 2 + spacing / 2, side * (W / 2 - 0.06))
-        escGroup.add(support)
-      }
-      escGroup.position.set(-L / 2 - 0.04, 0, 0)
-      group.add(escGroup)
+    // ── Pozuelo redondo (370mm) ──
+    if (cfg.pozuelos_redondos > 0) {
+      const radius = 0.185
+      const depth = cfg.pozuelo_dims[0]?.alto || 0.3
+      // Position to the left of the rectangular pozuelo
+      const pozRectL = cfg.pozuelos_rect > 0 && cfg.pozuelo_dims.length > 0 ? cfg.pozuelo_dims[0].largo || 0.5 : 0
+      const offsetX = cfg.pozuelos_rect > 0 ? L / 2 - pozRectL - 0.1 - radius - 0.08 : L / 2 - radius - 0.1
+
+      const roundCavity = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius, radius, depth, 24),
+        pozMat
+      )
+      roundCavity.position.set(offsetX, H - depth / 2, 0)
+      group.add(roundCavity)
+
+      // Rim ring
+      const rimRing = new THREE.Mesh(
+        new THREE.TorusGeometry(radius, 0.008, 8, 24),
+        steelMat.clone()
+      )
+      rimRing.rotation.x = Math.PI / 2
+      rimRing.position.set(offsetX, H + 0.005, 0)
+      group.add(rimRing)
+
+      // Drain
+      const drain = new THREE.Mesh(new THREE.CircleGeometry(0.015, 12), darkMat)
+      drain.rotation.x = -Math.PI / 2
+      drain.position.set(offsetX, H - depth + 0.002, 0)
+      group.add(drain)
     }
 
-    // ── Dimension lines (simple approach with line + text sprites) ──
+    // ── Vertedero ──
+    if (cfg.vertederos > 0) {
+      const vertDiam = cfg.diam_vertedero > 0 ? cfg.diam_vertedero : 0.076 // 3" default
+      const vertDepth = cfg.prof_vertedero > 0 ? cfg.prof_vertedero : 0.2
+      // Position near pozuelo, below the mesón
+      const vertX = cfg.pozuelos_rect > 0 ? L / 2 - 0.1 - (cfg.pozuelo_dims[0]?.largo || 0.5) / 2 : L / 2 - 0.2
+      for (let i = 0; i < cfg.vertederos; i++) {
+        const tube = new THREE.Mesh(
+          new THREE.CylinderGeometry(vertDiam / 2, vertDiam / 2, vertDepth, 16),
+          chromeMat
+        )
+        tube.position.set(vertX + i * 0.15, H - 0.02 - vertDepth / 2, W / 2 - 0.06)
+        group.add(tube)
+
+        // Opening ring at top
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(vertDiam / 2, 0.004, 8, 16),
+          chromeMat
+        )
+        ring.rotation.x = Math.PI / 2
+        ring.position.set(vertX + i * 0.15, H - 0.02, W / 2 - 0.06)
+        group.add(ring)
+      }
+    }
+
+    // ── Escabiladero (angle bars welded to patas) ──
+    if (cfg.escabiladero) {
+      const barCount = 5
+      const barSpacing = 0.08
+      const startY = H * 0.15
+      const leftPataX = -L / 2 + offset
+
+      for (let i = 0; i < barCount; i++) {
+        const barY = startY + i * barSpacing
+        // Horizontal bar between front and back patas on left side
+        const bar = new THREE.Mesh(
+          new THREE.BoxGeometry(legW, 0.003, W - offset * 2),
+          steelMat.clone()
+        )
+        bar.position.set(leftPataX, barY, 0)
+        bar.castShadow = true
+        group.add(bar)
+
+        // Small L-angle profile (visual detail)
+        const angleL = new THREE.Mesh(
+          new THREE.BoxGeometry(legW, 0.015, 0.003),
+          steelMat.clone()
+        )
+        angleL.position.set(leftPataX, barY + 0.009, 0)
+        group.add(angleL)
+      }
+    }
+
+    // ── Dimension lines ──
     addDimensionLine(group, 'largo', L, W, H)
     addDimensionLine(group, 'ancho', L, W, H)
     addDimensionLine(group, 'alto', L, W, H)
@@ -265,20 +348,36 @@ export default function Mesa3DViewer({ config }: Props) {
   /* ── Dimension text sprites ──────────────────── */
   function addDimensionLine(group: THREE.Group, axis: 'largo' | 'ancho' | 'alto', L: number, W: number, H: number) {
     const lineMat = new THREE.LineBasicMaterial({ color: 0x5599cc, transparent: true, opacity: 0.6 })
+    const arrowSize = 0.015
 
     if (axis === 'largo') {
       const y = -0.06
       const z = W / 2 + 0.15
+      // Main line from corner to corner
       const pts = [new THREE.Vector3(-L / 2, y, z), new THREE.Vector3(L / 2, y, z)]
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat)
-      group.add(line)
-      // End ticks
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
+      // End ticks (vertical)
       for (const x of [-L / 2, L / 2]) {
-        const tick = new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z - 0.02), new THREE.Vector3(x, y, z + 0.02)]),
-          lineMat
-        )
-        group.add(tick)
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x, y - 0.03, z), new THREE.Vector3(x, y + 0.03, z)
+        ]), lineMat))
+      }
+      // Extension lines from mesa corners down to dimension line
+      for (const x of [-L / 2, L / 2]) {
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x, 0, W / 2), new THREE.Vector3(x, y, z)
+        ]), new THREE.LineBasicMaterial({ color: 0x5599cc, transparent: true, opacity: 0.2 })))
+      }
+      // Arrows
+      for (const dir of [-1, 1]) {
+        const tipX = dir * L / 2
+        const arrowPts = [
+          new THREE.Vector3(tipX, y, z),
+          new THREE.Vector3(tipX - dir * arrowSize * 2, y + arrowSize, z),
+          new THREE.Vector3(tipX - dir * arrowSize * 2, y - arrowSize, z),
+          new THREE.Vector3(tipX, y, z),
+        ]
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arrowPts), lineMat))
       }
       group.add(makeTextSprite(`${(L * 100).toFixed(0)}cm`, new THREE.Vector3(0, y - 0.04, z)))
     }
@@ -287,14 +386,28 @@ export default function Mesa3DViewer({ config }: Props) {
       const y = -0.06
       const x = L / 2 + 0.15
       const pts = [new THREE.Vector3(x, y, -W / 2), new THREE.Vector3(x, y, W / 2)]
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat)
-      group.add(line)
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
       for (const z of [-W / 2, W / 2]) {
-        const tick = new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 0.02, y, z), new THREE.Vector3(x + 0.02, y, z)]),
-          lineMat
-        )
-        group.add(tick)
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x, y, z - 0.03), new THREE.Vector3(x, y, z + 0.03)
+        ]), lineMat))
+      }
+      // Extension lines
+      for (const z of [-W / 2, W / 2]) {
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(L / 2, 0, z), new THREE.Vector3(x, y, z)
+        ]), new THREE.LineBasicMaterial({ color: 0x5599cc, transparent: true, opacity: 0.2 })))
+      }
+      // Arrows
+      for (const dir of [-1, 1]) {
+        const tipZ = dir * W / 2
+        const arrowPts = [
+          new THREE.Vector3(x, y, tipZ),
+          new THREE.Vector3(x, y, tipZ - dir * arrowSize * 2),
+          new THREE.Vector3(x, y + arrowSize, tipZ - dir * arrowSize * 1),
+          new THREE.Vector3(x, y, tipZ),
+        ]
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arrowPts), lineMat))
       }
       group.add(makeTextSprite(`${(W * 100).toFixed(0)}cm`, new THREE.Vector3(x + 0.04, y, 0)))
     }
@@ -303,14 +416,30 @@ export default function Mesa3DViewer({ config }: Props) {
       const x = -L / 2 - 0.15
       const z = W / 2 + 0.05
       const pts = [new THREE.Vector3(x, 0, z), new THREE.Vector3(x, H + 0.01, z)]
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat)
-      group.add(line)
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat))
       for (const y of [0, H + 0.01]) {
-        const tick = new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 0.02, y, z), new THREE.Vector3(x + 0.02, y, z)]),
-          lineMat
-        )
-        group.add(tick)
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x - 0.03, y, z), new THREE.Vector3(x + 0.03, y, z)
+        ]), lineMat))
+      }
+      // Extension lines
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-L / 2, 0, W / 2), new THREE.Vector3(x, 0, z)
+      ]), new THREE.LineBasicMaterial({ color: 0x5599cc, transparent: true, opacity: 0.2 })))
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-L / 2, H, W / 2), new THREE.Vector3(x, H + 0.01, z)
+      ]), new THREE.LineBasicMaterial({ color: 0x5599cc, transparent: true, opacity: 0.2 })))
+      // Arrows
+      for (const dir of [0, 1]) {
+        const tipY = dir === 0 ? 0 : H + 0.01
+        const sign = dir === 0 ? 1 : -1
+        const arrowPts = [
+          new THREE.Vector3(x, tipY, z),
+          new THREE.Vector3(x - arrowSize, tipY + sign * arrowSize * 2, z),
+          new THREE.Vector3(x + arrowSize, tipY + sign * arrowSize * 2, z),
+          new THREE.Vector3(x, tipY, z),
+        ]
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arrowPts), lineMat))
       }
       group.add(makeTextSprite(`${(H * 100).toFixed(0)}cm`, new THREE.Vector3(x - 0.06, H / 2, z)))
     }
@@ -373,9 +502,9 @@ export default function Mesa3DViewer({ config }: Props) {
     const w = container.clientWidth
     const h = container.clientHeight
 
-    // Scene
+    // Scene — light background to match app
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x0f1520)
+    scene.background = new THREE.Color(0xe8edf2)
     sceneRef.current = scene
 
     // Camera
@@ -390,7 +519,7 @@ export default function Mesa3DViewer({ config }: Props) {
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.2
+    renderer.toneMappingExposure = 1.4
     container.appendChild(renderer.domElement)
     rendererRef.current = renderer
 
@@ -406,14 +535,14 @@ export default function Mesa3DViewer({ config }: Props) {
     controls.update()
     controlsRef.current = controls
 
-    // Lighting
-    const ambient = new THREE.AmbientLight(0x404040, 0.6)
+    // Lighting — brighter for light background
+    const ambient = new THREE.AmbientLight(0x606060, 0.8)
     scene.add(ambient)
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4)
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 0.5)
     scene.add(hemi)
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8)
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0)
     dirLight.position.set(3, 5, 3)
     dirLight.castShadow = true
     dirLight.shadow.mapSize.set(1024, 1024)
@@ -426,13 +555,13 @@ export default function Mesa3DViewer({ config }: Props) {
     scene.add(dirLight)
 
     // Secondary fill light
-    const fillLight = new THREE.DirectionalLight(0x8899bb, 0.3)
+    const fillLight = new THREE.DirectionalLight(0x8899bb, 0.4)
     fillLight.position.set(-2, 3, -2)
     scene.add(fillLight)
 
-    // Floor
+    // Floor — light
     const floorGeo = new THREE.PlaneGeometry(6, 6)
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x141a24, metalness: 0, roughness: 0.9 })
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xd0d4da, metalness: 0, roughness: 0.9 })
     const floor = new THREE.Mesh(floorGeo, floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.y = -0.001
@@ -440,7 +569,7 @@ export default function Mesa3DViewer({ config }: Props) {
     scene.add(floor)
 
     // Grid
-    const grid = new THREE.GridHelper(4, 20, 0x1e2a3a, 0x171f2e)
+    const grid = new THREE.GridHelper(4, 20, 0xbcc4cc, 0xc8d0d8)
     grid.position.y = 0.001
     scene.add(grid)
 
@@ -509,7 +638,7 @@ export default function Mesa3DViewer({ config }: Props) {
 
   if (!webglSupported) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#0f1520] rounded-xl text-[#64748b] text-sm">
+      <div className="flex items-center justify-center h-full bg-[#e8edf2] rounded-xl text-[#64748b] text-sm">
         WebGL no disponible en este navegador
       </div>
     )
@@ -519,53 +648,70 @@ export default function Mesa3DViewer({ config }: Props) {
   const matLabel = `${config.tipo_acero === '304' ? '304' : '430'} ${config.acabado.charAt(0).toUpperCase() + config.acabado.slice(1)}`
   const calLabel = config.calibre.replace('cal_', 'Cal ')
 
+  // Suggested patas
+  const suggestedPatas = config.largo > 3 ? 8 : config.largo > 2 ? 6 : 4
+  const patasLabel = config.patas !== suggestedPatas && suggestedPatas > 4
+    ? `${Math.max(config.patas, suggestedPatas)} patas`
+    : config.patas > 4 ? `${config.patas} patas` : ''
+
   // Active accessories
   const accessories: string[] = []
   if (config.entrepaños > 0) accessories.push(`${config.entrepaños} entrepaño${config.entrepaños > 1 ? 's' : ''}`)
   if (config.salp_long > 0) accessories.push('Salpicadero')
   if (config.babero) accessories.push('Babero')
+  if (config.babero_costados > 0) accessories.push(`Babero lat. ×${config.babero_costados}`)
   if (config.pozuelos_rect > 0) accessories.push(`${config.pozuelos_rect} pozuelo${config.pozuelos_rect > 1 ? 's' : ''}`)
+  if (config.pozuelos_redondos > 0) accessories.push(`Poz. redondo`)
+  if (config.vertederos > 0) accessories.push(`${config.vertederos} vertedero${config.vertederos > 1 ? 's' : ''}`)
   if (config.escabiladero) accessories.push('Escabiladero')
   if (config.ruedas) accessories.push('Ruedas')
+  if (patasLabel) accessories.push(patasLabel)
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-[#0f1520]" style={{ height: '100%', minHeight: 400 }}>
+    <div className="relative rounded-xl overflow-hidden bg-[#e8edf2] border border-[#d0d4da]" style={{ height: '100%', minHeight: 400 }}>
       <div ref={containerRef} className="w-full h-full" />
 
       {/* Info badge top-left */}
       <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-        <span className="px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-[11px] font-semibold text-white/80">
+        <span className="px-2.5 py-1 rounded-lg bg-white/80 backdrop-blur-sm text-[11px] font-semibold text-[#334155] shadow-sm border border-[#e2e8f0]">
           {matLabel} — {calLabel}
         </span>
         {accessories.map(a => (
-          <span key={a} className="px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-sm text-[10px] text-white/60">
+          <span key={a} className="px-2 py-0.5 rounded-md bg-white/60 backdrop-blur-sm text-[10px] text-[#64748b] shadow-sm border border-[#e2e8f0]">
             {a}
           </span>
         ))}
       </div>
 
+      {/* Auto-patas suggestion */}
+      {suggestedPatas > config.patas && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-amber-50/90 border border-amber-200 text-[11px] text-amber-700 font-medium shadow-sm backdrop-blur-sm">
+          Sugerido: {suggestedPatas} patas (largo {'>'} {suggestedPatas === 8 ? '3' : '2'}m)
+        </div>
+      )}
+
       {/* Camera controls top-right */}
       <div className="absolute top-3 right-3 flex gap-1.5">
-        <button onClick={resetCamera} className="p-2 rounded-lg bg-black/50 backdrop-blur-sm text-white/70 hover:text-white hover:bg-black/70 transition-colors" title="Vista isométrica">
+        <button onClick={resetCamera} className="p-2 rounded-lg bg-white/80 backdrop-blur-sm text-[#64748b] hover:text-[#1e293b] hover:bg-white transition-colors shadow-sm border border-[#e2e8f0]" title="Vista isométrica">
           <RotateCcw size={14} />
         </button>
-        <button onClick={topView} className="p-2 rounded-lg bg-black/50 backdrop-blur-sm text-white/70 hover:text-white hover:bg-black/70 transition-colors" title="Vista superior">
+        <button onClick={topView} className="p-2 rounded-lg bg-white/80 backdrop-blur-sm text-[#64748b] hover:text-[#1e293b] hover:bg-white transition-colors shadow-sm border border-[#e2e8f0]" title="Vista superior">
           <ArrowUp size={14} />
         </button>
-        <button onClick={frontView} className="p-2 rounded-lg bg-black/50 backdrop-blur-sm text-white/70 hover:text-white hover:bg-black/70 transition-colors" title="Vista frontal">
+        <button onClick={frontView} className="p-2 rounded-lg bg-white/80 backdrop-blur-sm text-[#64748b] hover:text-[#1e293b] hover:bg-white transition-colors shadow-sm border border-[#e2e8f0]" title="Vista frontal">
           <ArrowRight size={14} />
         </button>
       </div>
 
       {/* Dimensions badge bottom-left */}
       <div className="absolute bottom-3 left-3">
-        <span className="px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm text-[11px] font-mono text-[#88bbdd]">
+        <span className="px-2.5 py-1 rounded-lg bg-white/80 backdrop-blur-sm text-[11px] font-mono text-[#3b82f6] shadow-sm border border-[#e2e8f0]">
           {(config.largo * 100).toFixed(0)} × {(config.ancho * 100).toFixed(0)} × {(config.alto * 100).toFixed(0)} cm
         </span>
       </div>
 
       {/* Interaction hint bottom-right */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] text-white/30">
+      <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] text-[#94a3b8]">
         <Eye size={12} /> Arrastra para rotar · Scroll para zoom
       </div>
     </div>

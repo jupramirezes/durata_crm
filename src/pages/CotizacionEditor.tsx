@@ -41,28 +41,38 @@ export default function CotizacionEditor() {
   const [condicionesText, setCondicionesText] = useState(cotizacion?.condicionesItems?.join('\n') || '')
   const [noIncluyeText, setNoIncluyeText] = useState(cotizacion?.noIncluyeItems?.join('\n') || '')
 
-  // Auto-suggest product name based on products
+  // Auto-suggest product name — short COMMERCIAL name, max 40 chars
   const suggestedProductName = useMemo(() => {
     if (productos.length === 0) return 'Producto'
+
+    function getCategory(desc: string): string {
+      const d = desc.toLowerCase()
+      if (d.includes('mesa')) return 'Mesa'
+      if (d.includes('pozuelo') || d.includes('poceta')) return 'Pozuelo'
+      if (d.includes('campana')) return 'Campana'
+      if (d.includes('estante') || d.includes('repisa')) return 'Estantería'
+      if (d.includes('autoservicio')) return 'Autoservicio'
+      if (d.includes('pasamanos')) return 'Pasamanos'
+      return 'Mobiliario'
+    }
+
     if (productos.length === 1) {
       const desc = productos[0].descripcion || ''
-      // Try to extract meaningful short name
-      const dimMatch = desc.match(/(\d+[.,]\d+\s*x\s*\d+[.,]\d+)/i)
-      if (dimMatch) return `Mesa ${dimMatch[1].replace(/\s/g, '')}`
-      return desc.length > 40 ? desc.substring(0, 40) : desc || 'Mesa Inoxidable'
+      const cat = getCategory(desc)
+      // Extract dimensions like "2.00x0.70" or "200x70"
+      const dimMatch = desc.match(/(\d+[.,]\d+)\s*x\s*(\d+[.,]\d+)/i)
+      if (dimMatch) {
+        const name = `${cat} Inoxidable ${dimMatch[1]}x${dimMatch[2]}`
+        return name.length <= 40 ? name : `${cat} ${dimMatch[1]}x${dimMatch[2]}`
+      }
+      return `${cat} Inoxidable`
     }
+
     // Multiple products: combine categories
-    const cats = new Set(productos.map(p => {
-      const d = p.descripcion.toLowerCase()
-      if (d.includes('mesa')) return 'Mesas'
-      if (d.includes('pozuelo') || d.includes('poceta')) return 'Pozuelos'
-      if (d.includes('campana')) return 'Campanas'
-      if (d.includes('estante') || d.includes('repisa')) return 'Estantería'
-      return 'Mobiliario'
-    }))
-    const arr = [...cats]
-    if (arr.length === 1) return `${arr[0]} Inoxidables`
-    if (arr.length === 2) return `${arr[0]} y ${arr[1]}`
+    const cats = [...new Set(productos.map(p => getCategory(p.descripcion)))]
+    const pluralize = (s: string) => s.endsWith('a') ? s + 's' : s.endsWith('l') ? s + 'es' : s + 's'
+    if (cats.length === 1) return `${pluralize(cats[0])} Inoxidables`
+    if (cats.length === 2) return `${pluralize(cats[0])} y ${pluralize(cats[1])}`
     return 'Mobiliario Inoxidable'
   }, [productos])
 

@@ -46,7 +46,9 @@ export async function fetchCotizaciones(): Promise<{ data: Cotizacion[]; error: 
 export async function createCotizacion(cot: Omit<Cotizacion, 'id'> & { id?: string }): Promise<{ error: string | null }> {
   if (!isSupabaseReady) return { error: 'supabase_not_ready' }
   const row = toDbRow(cot)
-  const { error } = await supabase.from('cotizaciones').insert(row)
+  // Use upsert on id (PK) to handle races where the same cotización is created twice
+  // onConflict 'id' means: if a row with this id already exists, update it instead of erroring
+  const { error } = await supabase.from('cotizaciones').upsert(row, { onConflict: 'id' })
   return { error: error?.message ?? null }
 }
 
@@ -70,6 +72,6 @@ export async function duplicateCotizacion(original: Cotizacion, nuevoNumero: str
   const dup = { ...original, numero: nuevoNumero, estado: 'borrador' as const, fecha: new Date().toISOString().split('T')[0] }
   const row = toDbRow(dup)
   delete row.id // let DB generate new id
-  const { error } = await supabase.from('cotizaciones').insert(row)
+  const { error } = await supabase.from('cotizaciones').upsert(row, { onConflict: 'numero' })
   return { error: error?.message ?? null }
 }

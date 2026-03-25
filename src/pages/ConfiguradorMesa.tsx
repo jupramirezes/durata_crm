@@ -734,7 +734,19 @@ export default function ConfiguradorMesa() {
               <div className="bg-emerald-50 rounded-2xl border-2 border-emerald-200 p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Margen comercial</h4>
-                  <span className="text-2xl font-extrabold text-emerald-700">{(adjustedResultado.margen * 100).toFixed(0)}%</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={15} max={60} step={1}
+                      value={Math.round(cfg.margen * 100)}
+                      onChange={e => {
+                        const v = Math.max(15, Math.min(60, Number(e.target.value) || 15))
+                        upd('margen', v / 100)
+                      }}
+                      className="w-[60px] text-center text-lg font-extrabold text-emerald-700 bg-white border border-emerald-300 rounded-lg px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    />
+                    <span className="text-2xl font-extrabold text-emerald-700">%</span>
+                  </div>
                 </div>
                 <input
                   type="range"
