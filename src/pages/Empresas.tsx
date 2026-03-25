@@ -101,7 +101,7 @@ export default function Empresas() {
   const thBtn = 'flex items-center gap-1 cursor-pointer select-none hover:text-[var(--color-primary)] transition-colors'
 
   return (
-    <div className="p-6 space-y-4 animate-fade-in">
+    <div className="px-8 py-8 space-y-5 animate-fade-in">
       <PageHeader
         title="Empresas"
         subtitle={`${state.empresas.length} empresas registradas`}
@@ -127,45 +127,43 @@ export default function Empresas() {
         </select>
       </div>
 
-      <div className="bg-white rounded-lg border border-[var(--color-border)] overflow-hidden">
-        <table className="w-full text-xs">
+      <div className="card overflow-hidden">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[var(--color-surface)] text-[var(--color-text-muted)] text-left">
-              <th className="px-4 py-2.5 font-medium">
+            <tr className="border-b-2 border-[#f1f5f9] text-left">
+              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8]">
                 <button onClick={() => toggleSort('nombre')} className={thBtn}>
                   Empresa <SortIcon col="nombre" />
                 </button>
               </th>
-              <th className="px-4 py-2.5 font-medium">Sector</th>
-              <th className="px-4 py-2.5 font-medium text-center">
+              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8]">Sector</th>
+              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-center">
                 <button onClick={() => toggleSort('opCount')} className={`${thBtn} justify-center`}>
                   Oportunidades <SortIcon col="opCount" />
                 </button>
               </th>
-              <th className="px-4 py-2.5 font-medium text-right">
+              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-right">
                 <button onClick={() => toggleSort('valorCotizado')} className={`${thBtn} justify-end ml-auto`}>
                   Valor cotizado <SortIcon col="valorCotizado" />
                 </button>
               </th>
-              <th className="px-4 py-2.5 font-medium text-right">
+              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-right">
                 <button onClick={() => toggleSort('valorAdjudicado')} className={`${thBtn} justify-end ml-auto`}>
                   Valor adjudicado <SortIcon col="valorAdjudicado" />
                 </button>
               </th>
-              <th className="px-4 py-2.5 font-medium text-center w-12"></th>
+              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-center w-12"></th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((e, i) => {
+            {visible.map((e) => {
               const stats = empresaStats.get(e.id)
               return (
                 <tr
                   key={e.id}
-                  className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors ${
-                    i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'
-                  }`}
+                  className={`border-b border-[#f8fafc] hover:bg-[#fafbfc] transition-colors`}
                 >
-                  <td className="px-4 py-2.5 cursor-pointer" onClick={() => navigate(`/empresas/${e.id}`)}>
+                  <td className="px-5 py-4 cursor-pointer" onClick={() => navigate(`/empresas/${e.id}`)}>
                     <div className="flex items-center gap-2.5">
                       <div
                         className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
@@ -179,13 +177,13 @@ export default function Empresas() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-5 py-4">
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-surface)] text-[var(--color-text-muted)] font-medium">{e.sector}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-center font-medium text-[var(--color-text)]">{stats?.opCount ?? 0}</td>
-                  <td className="px-4 py-2.5 text-right text-[var(--color-text)] font-mono">{formatCOP(stats?.valorCotizado ?? 0)}</td>
-                  <td className="px-4 py-2.5 text-right font-bold text-[var(--color-accent-green)] font-mono">{formatCOP(stats?.valorAdjudicado ?? 0)}</td>
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="px-5 py-4 text-center font-medium text-[var(--color-text)]">{stats?.opCount ?? 0}</td>
+                  <td className="px-5 py-4 text-right text-[var(--color-text)] font-mono">{formatCOP(stats?.valorCotizado ?? 0)}</td>
+                  <td className="px-5 py-4 text-right font-bold text-[var(--color-accent-green)] font-mono">{formatCOP(stats?.valorAdjudicado ?? 0)}</td>
+                  <td className="px-5 py-4 text-center">
                     <button
                       onClick={(ev) => { ev.stopPropagation(); setDeleteModal(e.id) }}
                       className="p-1 rounded text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
@@ -199,7 +197,7 @@ export default function Empresas() {
             })}
           </tbody>
         </table>
-        <div className="px-4 py-2.5 border-t border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface)]">
+        <div className="px-5 py-4 border-t border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface)]">
           <span className="text-[10px] text-[var(--color-text-muted)]">
             Mostrando {visible.length} de {filtered.length} empresas
           </span>
@@ -216,8 +214,8 @@ export default function Empresas() {
 
       {/* Fix 13: Delete confirmation modal */}
       {deleteModal && deleteEmpresa && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-white rounded-lg border border-[var(--color-border)] w-full max-w-md p-5 shadow-xl">
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white modal-card w-full max-w-md">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
                 <AlertTriangle size={20} className="text-red-500" />

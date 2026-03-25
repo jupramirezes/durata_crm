@@ -410,14 +410,14 @@ export default function OportunidadDetalle() {
   // ══════════════════════════════════════════════════
 
   return (
-    <div className="p-6 animate-fade-in max-w-[1400px]">
+    <div className="px-8 py-8 animate-fade-in max-w-[1400px]">
       {/* Back */}
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors mb-4">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[13px] text-[#94a3b8] hover:text-[var(--color-text)] transition-colors mb-5">
         <ArrowLeft size={14} /> Volver
       </button>
 
       {/* ═══ CAMBIO 1: HEADER FUERTE ═══ */}
-      <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 mb-5">
+      <div className="card p-6 mb-6">
         <div className="flex items-start justify-between gap-4">
           {/* Left: company info */}
           <div className="flex items-start gap-4 min-w-0">
@@ -425,12 +425,15 @@ export default function OportunidadDetalle() {
               <Building2 size={22} className="text-[var(--color-primary)]" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-[var(--color-text)] truncate">{emp.nombre}</h1>
-              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                Contacto: <span className="font-medium text-[var(--color-text)]">{contacto?.nombre || '—'}</span>
-                {contacto?.cargo && <span> — {contacto.cargo}</span>}
-              </p>
-              <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
+              <h1 className="text-[28px] font-bold text-[var(--color-text)] truncate tracking-tight">{emp.nombre}</h1>
+              {contacto ? (
+                <p className="text-base text-[#64748b] mt-1">
+                  {contacto.nombre}{contacto.cargo && ` — ${contacto.cargo}`}
+                </p>
+              ) : (
+                <button className="text-[13px] text-[var(--color-primary)] hover:underline mt-1">Agregar contacto</button>
+              )}
+              <p className="text-[13px] text-[#94a3b8] mt-1">
                 Fuente: {opp.fuente_lead} &bull; Ingreso: {formatDate(opp.fecha_ingreso)} &bull; Cotizador: {cotizador?.nombre || opp.cotizador_asignado}
               </p>
             </div>
@@ -440,29 +443,29 @@ export default function OportunidadDetalle() {
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-right">
               <EtapaBadge etapa={opp.etapa} size="md" />
-              <div className="flex items-center gap-1 mt-1.5 justify-end">
-                <Clock size={11} className="text-[var(--color-text-muted)]" />
-                <span className="text-[10px] text-[var(--color-text-muted)] font-medium">{diasEnPipeline} dias en pipeline</span>
+              <div className="flex items-center gap-1 mt-2 justify-end">
+                <Clock size={12} className="text-[#94a3b8]" />
+                <span className="text-[13px] text-[#94a3b8] font-medium">{diasEnPipeline} dias en pipeline</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Action bar */}
-        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[var(--color-border)]">
+        <div className="flex items-center gap-2.5 mt-5 pt-5 border-t border-[#f1f5f9]">
           <button
             onClick={() => document.getElementById('nota-input')?.focus()}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[var(--color-border)] hover:bg-[var(--color-surface)] transition-colors"
+            className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium border border-[#e2e8f0] text-[#334155] hover:shadow-sm hover:opacity-90 transition-all"
           >
-            <StickyNote size={13} /> + Nota
+            <StickyNote size={14} /> + Nota
           </button>
 
           <div className="relative">
             <button
               onClick={() => setShowAddMenu(!showAddMenu)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[var(--color-border)] hover:bg-[var(--color-surface)] transition-colors"
+              className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium border border-[#e2e8f0] text-[#334155] hover:shadow-sm hover:opacity-90 transition-all"
             >
-              <Package size={13} /> + Producto
+              <Package size={14} /> + Producto
             </button>
             {showAddMenu && (
               <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-[var(--color-border)] z-20 overflow-hidden">
@@ -485,9 +488,9 @@ export default function OportunidadDetalle() {
           {productos.length > 0 && (
             <button
               onClick={() => setShowCotModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+              className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium bg-[#059669] hover:opacity-90 text-white transition-all shadow-sm"
             >
-              <FileText size={13} /> Generar cotizacion
+              <FileText size={14} /> Generar cotizacion
             </button>
           )}
 
@@ -495,7 +498,7 @@ export default function OportunidadDetalle() {
           <div className="relative ml-auto">
             <button
               onClick={() => setShowEtapaDropdown(!showEtapaDropdown)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--color-primary)] hover:opacity-90 text-white transition-colors"
+              className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium bg-[var(--color-primary)] hover:opacity-90 text-white transition-all shadow-sm"
             >
               Mover etapa <ChevronDown size={13} />
             </button>
@@ -536,12 +539,12 @@ export default function OportunidadDetalle() {
       </div>
 
       {/* ═══ CAMBIO 2: LAYOUT 2 COLUMNAS ═══ */}
-      <div className="flex gap-5 items-start">
+      <div className="flex gap-6 items-start">
         {/* ─── LEFT COLUMN (70%) ─── */}
         <div className="flex-[7] min-w-0 space-y-5">
 
           {/* ═══ CAMBIO 3: TIMELINE UNIFICADO ═══ */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
+          <div className="card p-6">
             <div className="flex items-center gap-2 mb-4">
               <Clock size={14} className="text-[var(--color-primary)]" />
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Actividad</h3>
@@ -551,21 +554,21 @@ export default function OportunidadDetalle() {
             </div>
 
             {/* Add note input */}
-            <div className="flex gap-2 mb-4">
+            <div className="relative mb-5">
               <input
                 id="nota-input"
                 value={notaTexto}
                 onChange={e => setNotaTexto(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNota() } }}
                 placeholder="Escribir una nota..."
-                className="flex-1 px-3 py-2.5 rounded-lg text-xs border border-[var(--color-border)] bg-[var(--color-bg)] focus:border-[var(--color-primary)] focus:outline-none transition-colors"
+                className="w-full h-14 px-5 pr-28 rounded-xl text-[15px] border border-[#e2e8f0] focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] focus:outline-none transition-all placeholder:text-[#94a3b8]"
               />
               <button
                 onClick={handleAddNota}
                 disabled={!notaTexto.trim()}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--color-primary)] text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
-                <Send size={12} /> Agregar
+                <Send size={13} /> Agregar
               </button>
             </div>
 
@@ -573,42 +576,53 @@ export default function OportunidadDetalle() {
             {timelineEvents.length === 0 ? (
               <p className="text-[10px] text-[var(--color-text-muted)] text-center py-6">Sin actividad registrada. Agrega la primera nota arriba.</p>
             ) : (
-              <div className="space-y-0 max-h-[400px] overflow-y-auto pr-1">
-                {timelineEvents.map((ev, i) => {
-                  const Icon = ev.icon
-                  return (
-                    <div key={ev.id} className="flex gap-3">
-                      <div className="flex flex-col items-center">
+              <div className="relative ml-4 max-h-[500px] overflow-y-auto pr-1">
+                {/* Vertical line */}
+                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#f1f5f9]" />
+                <div className="space-y-5 pl-8">
+                  {timelineEvents.map((ev) => {
+                    const Icon = ev.icon
+                    const bgCard = ev.type === 'nota' ? 'bg-[#fffbeb] border-[#fef3c7]'
+                      : ev.type === 'producto' ? 'bg-[#f5f3ff] border-[#ede9fe]'
+                      : ev.type === 'cotizacion' ? 'bg-[#ecfdf5] border-[#d1fae5]'
+                      : ''
+                    const isInline = ev.type === 'etapa'
+                    return (
+                      <div key={ev.id} className="relative">
+                        {/* Dot on the timeline line */}
                         <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10"
-                          style={{ background: ev.color + '18' }}
-                        >
-                          <Icon size={13} style={{ color: ev.color }} />
-                        </div>
-                        {i < timelineEvents.length - 1 && <div className="w-0.5 flex-1 bg-[var(--color-border)] min-h-[12px]" />}
+                          className="absolute -left-8 top-1 w-3 h-3 rounded-full border-2 border-white z-10"
+                          style={{ background: ev.color, marginLeft: '-2px' }}
+                        />
+                        {isInline ? (
+                          <div>
+                            <span className="text-sm text-[#64748b]">{ev.title}</span>
+                            {ev.timestamp && <span className="text-xs text-[#94a3b8] ml-3">{formatDate(ev.timestamp)}</span>}
+                          </div>
+                        ) : (
+                          <div className={`rounded-[10px] border p-3.5 ${bgCard}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-2 min-w-0">
+                                <Icon size={14} style={{ color: ev.color }} className="shrink-0 mt-0.5" />
+                                <span className="text-sm text-[#334155]">{ev.title}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {ev.detail && <span className="text-xs font-semibold tabular-nums" style={{ color: ev.color }}>{ev.detail}</span>}
+                                {ev.timestamp && <span className="text-xs text-[#94a3b8]">{ev.type === 'cotizacion' ? formatDate(ev.timestamp) : ev.timestamp}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="pb-3 pt-1 min-w-0 flex-1">
-                        <div className="text-xs text-[var(--color-text)] leading-relaxed">{ev.title}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {ev.timestamp && (
-                            <span className="text-[10px] text-[var(--color-text-muted)]">
-                              {ev.type === 'etapa' ? formatDate(ev.timestamp) : ev.timestamp}
-                            </span>
-                          )}
-                          {ev.detail && (
-                            <span className="text-[10px] font-semibold font-mono" style={{ color: ev.color }}>{ev.detail}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
 
           {/* ═══ CAMBIO 4: PRODUCTOS MEJORADOS ═══ */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
+          <div className="card p-6">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <Package size={14} className="text-purple-500" />
@@ -640,12 +654,12 @@ export default function OportunidadDetalle() {
                       : p.descripcion_comercial
                     : ''
                   return (
-                    <div key={p.id} className="bg-[var(--color-surface)] rounded-lg p-4 border border-[var(--color-border)] hover:border-gray-300 transition-all">
+                    <div key={p.id} className="bg-white rounded-xl p-5 border border-[#f1f5f9] hover:shadow-[var(--shadow-card-hover)] transition-all group">
                       <div className="flex justify-between items-start gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-xs text-[var(--color-text)]">{p.subtipo}</span>
-                            <span className="text-[9px] text-[var(--color-text-muted)] bg-gray-100 px-1.5 py-0.5 rounded">{p.categoria}</span>
+                            <span className="font-semibold text-base text-[var(--color-text)]">{p.subtipo}</span>
+                            <span className="text-xs text-[#64748b] bg-[#f1f5f9] px-2.5 py-0.5 rounded-full">{p.categoria}</span>
                           </div>
                           {descShort && (
                             <p className="text-[10px] text-[var(--color-text-muted)] leading-relaxed mb-2">{descShort}</p>
@@ -653,18 +667,18 @@ export default function OportunidadDetalle() {
                           {specs.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {specs.map((s, i) => (
-                                <span key={i} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{s}</span>
+                                <span key={i} className="text-xs font-medium px-2.5 py-0.5 rounded-xl bg-[#f0f9ff] text-[#0369a1]">{s}</span>
                               ))}
                             </div>
                           )}
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="font-bold text-sm text-[var(--color-text)] font-mono">{formatCOP(p.precio_calculado || 0)}</div>
-                          <div className="text-[10px] text-[var(--color-text-muted)]">{'\u00d7'} {p.cantidad} = <span className="font-semibold font-mono">{formatCOP((p.precio_calculado || 0) * p.cantidad)}</span></div>
-                          <div className="flex items-center justify-end gap-1 mt-2">
+                          <div className="font-bold text-lg text-[var(--color-text)] tabular-nums">{formatCOP(p.precio_calculado || 0)}</div>
+                          <div className="text-[13px] text-[#94a3b8] tabular-nums">{'\u00d7'} {p.cantidad} = <span className="font-semibold text-[var(--color-text)]">{formatCOP((p.precio_calculado || 0) * p.cantidad)}</span></div>
+                          <div className="flex items-center justify-end gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => navigate(`/oportunidades/${id}/configurar?editar=${p.id}`)}
-                              className="p-1.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] transition-all"
                               title="Editar"
                             >
                               <Edit3 size={13} />
@@ -771,7 +785,7 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 5: COTIZACIONES MEJORADAS ═══ */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
+          <div className="card p-6">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <FileText size={14} className="text-[var(--color-primary)]" />
@@ -801,11 +815,11 @@ export default function OportunidadDetalle() {
                 {cotizaciones.map(c => {
                   const prodCount = c.productos_snapshot?.length || 0
                   return (
-                    <div key={c.id} className="bg-[var(--color-surface)] rounded-lg p-4 border border-[var(--color-border)] hover:border-gray-300 transition-all">
+                    <div key={c.id} className="bg-white rounded-xl p-5 border border-[#f1f5f9] hover:shadow-[var(--shadow-card-hover)] transition-all group">
                       <div className="flex justify-between items-start gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-xs text-[var(--color-text)] font-mono">{c.numero}</span>
+                            <span className="font-semibold text-[15px] text-[var(--color-text)] font-mono">{c.numero}</span>
                             <EstadoBadge estado={c.estado} />
                           </div>
                           <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
@@ -814,7 +828,7 @@ export default function OportunidadDetalle() {
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="font-bold text-sm text-[var(--color-text)] font-mono">{formatCOP(c.total)}</div>
+                          <div className="font-bold text-lg text-[var(--color-text)] tabular-nums">{formatCOP(c.total)}</div>
                           <div className="text-[9px] text-[var(--color-text-muted)]">con IVA</div>
                           <div className="flex items-center justify-end gap-1 mt-2">
                             <button
@@ -857,12 +871,12 @@ export default function OportunidadDetalle() {
         </div>
 
         {/* ─── RIGHT COLUMN - SIDEBAR (30%) ─── */}
-        <div className="flex-[3] min-w-[260px] max-w-[340px] space-y-4 sticky top-6">
+        <div className="flex-[3] min-w-[280px] max-w-[340px] space-y-4 sticky top-6">
           {/* ═══ CAMBIO 2: SIDEBAR RESUMEN ═══ */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5">
-            <div className="text-center mb-4 pb-4 border-b border-[var(--color-border)]">
-              <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider font-semibold mb-1">Valor cotizado</p>
-              <p className="text-2xl font-bold text-[var(--color-text)] font-mono">{formatCOP(opp.valor_cotizado)}</p>
+          <div className="card p-7">
+            <div className="mb-6 pb-6 border-b border-[#f1f5f9]">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8] mb-1">Valor cotizado</p>
+              <p className="text-[32px] font-extrabold text-[#059669] tabular-nums leading-tight">{formatCOP(opp.valor_cotizado)}</p>
               {opp.valor_adjudicado > 0 && (
                 <p className="text-sm font-bold text-[var(--color-accent-green)] font-mono mt-1">
                   Adjudicado: {formatCOP(opp.valor_adjudicado)}
@@ -870,13 +884,13 @@ export default function OportunidadDetalle() {
               )}
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-4 text-sm">
               <div className="flex justify-between items-center">
-                <span className="text-[var(--color-text-muted)]">Etapa</span>
+                <span className="text-xs font-medium text-[#94a3b8]">Etapa</span>
                 <EtapaBadge etapa={opp.etapa} size="sm" />
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[var(--color-text-muted)]">Cotizador</span>
+                <span className="text-xs font-medium text-[#94a3b8]">Cotizador</span>
                 <select
                   value={opp.cotizador_asignado}
                   onChange={e => {
@@ -892,7 +906,7 @@ export default function OportunidadDetalle() {
                 </select>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[var(--color-text-muted)]">Empresa</span>
+                <span className="text-xs font-medium text-[#94a3b8]">Empresa</span>
                 <button
                   onClick={() => navigate(`/empresas/${emp.id}`)}
                   className="font-medium text-[var(--color-primary)] hover:underline truncate max-w-[150px]"
@@ -941,7 +955,7 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 6: EMPRESA CARD ═══ */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-4">
+          <div className="card p-5">
             <div className="flex items-center gap-1.5 mb-3">
               <Building2 size={12} className="text-[var(--color-primary)]" />
               <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Empresa</span>
@@ -964,7 +978,7 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 6: CONTACTO CARD ═══ */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-4">
+          <div className="card p-5">
             <div className="flex items-center gap-1.5 mb-3">
               <User size={12} className="text-[var(--color-primary)]" />
               <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Contacto</span>
@@ -1015,7 +1029,7 @@ export default function OportunidadDetalle() {
 
       {/* Adjudicada modal */}
       {showAdjudicadaModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowAdjudicadaModal(false)}>
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50" onClick={() => setShowAdjudicadaModal(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Marcar como Adjudicada</h3>
@@ -1051,7 +1065,7 @@ export default function OportunidadDetalle() {
 
       {/* Perdida modal */}
       {showPerdidaModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowPerdidaModal(false)}>
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50" onClick={() => setShowPerdidaModal(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Marcar como Perdida</h3>
@@ -1087,7 +1101,7 @@ export default function OportunidadDetalle() {
 
       {/* Manual product modal */}
       {showManualForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowManualForm(false)}>
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50" onClick={() => setShowManualForm(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Producto manual</h3>
