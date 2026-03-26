@@ -29,6 +29,9 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
+const AUTH_EMAIL = env['MIGRATION_AUTH_EMAIL'] || 'saguirre@durata.co'
+const AUTH_PASS = env['MIGRATION_AUTH_PASS'] || 'Durata2026!'
+
 const TABLES = [
   'empresas',
   'contactos',
@@ -42,6 +45,9 @@ const TABLES = [
 ]
 
 async function main() {
+  const { error: authErr } = await supabase.auth.signInWithPassword({ email: AUTH_EMAIL, password: AUTH_PASS })
+  if (authErr) { console.error('Auth failed:', authErr.message); process.exit(1) }
+
   console.log('=== DURATA CRM — Conteo de registros ===\n')
   console.log(`Fecha: ${new Date().toLocaleString('es-CO')}\n`)
 

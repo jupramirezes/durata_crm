@@ -42,6 +42,9 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
+const AUTH_EMAIL = env['MIGRATION_AUTH_EMAIL'] || 'saguirre@durata.co'
+const AUTH_PASS = env['MIGRATION_AUTH_PASS'] || 'Durata2026!'
+
 // ── Helpers ─────────────────────────────────────────────
 function toStr(v: unknown): string {
   if (v == null) return ''
@@ -98,6 +101,14 @@ async function fetchAll<T>(
 // ── MAIN ────────────────────────────────────────────────
 async function main() {
   console.log('=== CORREGIR FECHAS HISTÓRICAS — DURATA CRM ===\n')
+
+  // Authenticate to pass RLS
+  const { error: authErr } = await sb.auth.signInWithPassword({ email: AUTH_EMAIL, password: AUTH_PASS })
+  if (authErr) {
+    console.error('Auth failed:', authErr.message)
+    process.exit(1)
+  }
+  console.log(`Autenticado como ${AUTH_EMAIL}\n`)
 
   // ── PASO 1: Read Excel ──────────────────────────────
   console.log('PASO 1: Leyendo REGISTRO_MAESTRO.xlsx...')

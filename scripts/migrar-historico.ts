@@ -44,6 +44,10 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
+// ── Auth: sign in to pass RLS policies ──────────────────────────
+const AUTH_EMAIL = env['MIGRATION_AUTH_EMAIL'] || 'saguirre@durata.co'
+const AUTH_PASS = env['MIGRATION_AUTH_PASS'] || 'Durata2026!'
+
 // ── Cotizador map ─────────────────────────────────────────────────
 // Map Excel initials → app COTIZADORES id (used in cotizador_asignado)
 const COTIZADOR: Record<string, string> = {
@@ -126,6 +130,14 @@ async function fetchAll<T>(
 // ── MAIN ──────────────────────────────────────────────────────────
 async function main() {
   console.log('=== MIGRAR HISTÓRICO — DURATA CRM ===\n')
+
+  // Authenticate to pass RLS
+  const { error: authErr } = await sb.auth.signInWithPassword({ email: AUTH_EMAIL, password: AUTH_PASS })
+  if (authErr) {
+    console.error('Auth failed:', authErr.message)
+    process.exit(1)
+  }
+  console.log(`Autenticado como ${AUTH_EMAIL}\n`)
 
   // ── PASO 0: Clean slate — delete all migration-created oportunidades
   // Cotizaciones linked to them CASCADE delete automatically
