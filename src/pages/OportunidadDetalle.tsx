@@ -624,24 +624,24 @@ export default function OportunidadDetalle() {
         <div className="flex-[7] min-w-0 space-y-7">
 
           {/* ═══ CAMBIO 3: TIMELINE UNIFICADO ═══ */}
-          <div className="card p-7">
-            <div className="flex items-center gap-2.5 mb-5">
-              <Clock size={16} className="text-[var(--color-primary)]" />
-              <h3 className="font-bold text-lg text-[var(--color-text)]">Actividad</h3>
+          <div className="card p-7 mb-8">
+            <div className="flex items-center gap-2.5 mb-2 pb-4 border-b border-[#e2e8f0]">
+              <Clock size={18} className="text-[var(--color-primary)]" />
+              <h3 className="font-bold text-xl text-[var(--color-text)]">Actividad</h3>
               {timelineEvents.length > 0 && (
-                <span className="text-[9px] font-bold text-[var(--color-primary)] bg-blue-50 px-1.5 py-0.5 rounded">{timelineEvents.length}</span>
+                <span className="text-[10px] font-bold text-[var(--color-primary)] bg-blue-50 px-2 py-0.5 rounded">{timelineEvents.length}</span>
               )}
             </div>
 
             {/* Add note input */}
-            <div className="relative mb-5">
+            <div className="relative mb-6 mt-5">
               <input
                 id="nota-input"
                 value={notaTexto}
                 onChange={e => setNotaTexto(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNota() } }}
                 placeholder="Escribir una nota..."
-                className="w-full h-14 px-5 pr-28 rounded-xl text-[15px] border border-[#e2e8f0] focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] focus:outline-none transition-all placeholder:text-[#94a3b8]"
+                className="w-full h-[52px] px-5 pr-28 rounded-xl text-[15px] border border-[#e2e8f0] focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] focus:outline-none transition-all placeholder:text-[#94a3b8]"
               />
               <button
                 onClick={handleAddNota}
@@ -654,14 +654,15 @@ export default function OportunidadDetalle() {
 
             {/* Timeline feed */}
             {timelineEvents.length === 0 ? (
-              <p className="text-[10px] text-[var(--color-text-muted)] text-center py-6">Sin actividad registrada. Agrega la primera nota arriba.</p>
+              <p className="text-sm text-[var(--color-text-muted)] text-center py-8">Sin actividad registrada. Agrega la primera nota arriba.</p>
             ) : (
-              <div className="relative ml-4 max-h-[500px] overflow-y-auto pr-1">
+              <div className="relative ml-5 max-h-[600px] overflow-y-auto pr-2">
                 {/* Vertical line */}
-                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#f1f5f9]" />
-                <div className="space-y-5 pl-8">
+                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#e2e8f0]" />
+                <div className="space-y-3 pl-8">
                   {timelineEvents.map((ev) => {
                     const Icon = ev.icon
+                    const isCotTitle = ev.type === 'nota' && ev.title.startsWith('COT:')
                     const bgCard = ev.type === 'nota' ? 'bg-[#fffbeb] border-[#fef3c7]'
                       : ev.type === 'producto' ? 'bg-[#f5f3ff] border-[#ede9fe]'
                       : ev.type === 'cotizacion' ? 'bg-[#ecfdf5] border-[#d1fae5]'
@@ -675,15 +676,15 @@ export default function OportunidadDetalle() {
                           style={{ background: ev.color, marginLeft: '-2px' }}
                         />
                         {isInline ? (
-                          <div>
-                            <span className="text-sm text-[#64748b]">{ev.title}</span>
-                            {ev.timestamp && <span className="text-xs text-[#94a3b8] ml-3">{formatDate(ev.timestamp)}</span>}
+                          <div className="py-1">
+                            <span className="text-[14px] text-[#64748b]">{ev.title}</span>
+                            {ev.timestamp && <span className="text-[13px] text-[#94a3b8] ml-3">{formatDate(ev.timestamp)}</span>}
                           </div>
                         ) : (
-                          <div className={`rounded-[10px] border p-3.5 ${bgCard} group/note`}>
+                          <div className={`rounded-[12px] border ${isCotTitle ? 'p-4 mb-4' : 'p-[14px]'} ${bgCard} group/note`}>
                             <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2 min-w-0 flex-1">
-                                <Icon size={14} style={{ color: ev.color }} className="shrink-0 mt-0.5" />
+                              <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                <Icon size={isCotTitle ? 16 : 14} style={{ color: ev.color }} className="shrink-0 mt-0.5" />
                                 {ev.type === 'nota' && editingNotaIdx !== null && ev.id === `nota-${editingNotaIdx}` ? (
                                   <div className="flex-1 flex gap-1.5">
                                     <input value={editingNotaText} onChange={e => setEditingNotaText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveEditNota(); if (e.key === 'Escape') setEditingNotaIdx(null) }} autoFocus className="flex-1 text-sm px-2 py-1 rounded border border-amber-300 bg-white" />
@@ -691,7 +692,7 @@ export default function OportunidadDetalle() {
                                     <button onClick={() => setEditingNotaIdx(null)} className="text-xs px-2 py-1 rounded text-[var(--color-text-muted)] hover:bg-white">✕</button>
                                   </div>
                                 ) : (
-                                  <span className="text-sm text-[#334155]">{ev.title}</span>
+                                  <span className={isCotTitle ? 'text-[16px] font-bold text-slate-800' : 'text-[14px] text-[#334155]'}>{ev.title}</span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -716,11 +717,11 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 4: PRODUCTOS MEJORADOS ═══ */}
-          <div className="card p-7">
-            <div className="flex justify-between items-center mb-5">
+          <div className="card p-7 mb-8">
+            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
               <div className="flex items-center gap-2.5">
-                <Package size={16} className="text-purple-500" />
-                <h3 className="font-bold text-lg text-[var(--color-text)]">Productos</h3>
+                <Package size={18} className="text-purple-500" />
+                <h3 className="font-bold text-xl text-[var(--color-text)]">Productos</h3>
                 {productos.length > 0 && (
                   <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{productos.length}</span>
                 )}
@@ -905,22 +906,22 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ ARCHIVOS ADJUNTOS ═══ */}
-          <div className="card p-7">
-            <div className="flex justify-between items-center mb-5">
+          <div className="card p-7 mb-8">
+            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
               <div className="flex items-center gap-2.5">
-                <Paperclip size={16} className="text-slate-500" />
-                <h3 className="font-bold text-lg text-[var(--color-text)]">Archivos adjuntos</h3>
+                <Paperclip size={18} className="text-slate-500" />
+                <h3 className="font-bold text-xl text-[var(--color-text)]">Archivos adjuntos</h3>
                 {archivos.length > 0 && (
                   <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{archivos.length}</span>
                 )}
               </div>
-              <label className={`flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer transition-all ${uploadingFile ? 'bg-gray-100 text-gray-400' : 'bg-[var(--color-primary)] text-white hover:opacity-90'}`}>
-                <Paperclip size={12} /> {uploadingFile ? 'Subiendo...' : '+ Subir archivo'}
+              <label className={`flex items-center gap-1.5 h-10 px-5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${uploadingFile ? 'bg-gray-100 text-gray-400' : 'bg-[var(--color-primary)] text-white hover:opacity-90'}`}>
+                <Paperclip size={13} /> {uploadingFile ? 'Subiendo...' : '+ Subir archivo'}
                 <input type="file" className="hidden" accept=".pdf,.xlsx,.xlsm,.xls,.png,.jpg,.jpeg,.doc,.docx" disabled={uploadingFile} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); e.target.value = '' }} />
               </label>
             </div>
             {archivos.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-muted)] text-center py-4">Sin archivos adjuntos</p>
+              <p className="text-[14px] text-slate-400 text-center py-6">Sin archivos adjuntos</p>
             ) : (
               <div className="space-y-2">
                 {archivos.map(f => {
@@ -948,10 +949,10 @@ export default function OportunidadDetalle() {
 
           {/* ═══ CAMBIO 5: COTIZACIONES MEJORADAS ═══ */}
           <div className="card p-7">
-            <div className="flex justify-between items-center mb-5">
+            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
               <div className="flex items-center gap-2.5">
-                <FileText size={16} className="text-[var(--color-primary)]" />
-                <h3 className="font-bold text-lg text-[var(--color-text)]">Cotizaciones</h3>
+                <FileText size={18} className="text-[var(--color-primary)]" />
+                <h3 className="font-bold text-xl text-[var(--color-text)]">Cotizaciones</h3>
                 {cotizaciones.length > 0 && (
                   <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{cotizaciones.length}</span>
                 )}
@@ -1089,13 +1090,13 @@ export default function OportunidadDetalle() {
               )}
             </div>
 
-            <div className="space-y-4 text-sm">
+            <div className="space-y-3.5 text-[14px]">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-[#94a3b8]">Etapa</span>
+                <span className="text-[13px] font-medium text-slate-500">Etapa</span>
                 <EtapaBadge etapa={opp.etapa} size="sm" />
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-[#94a3b8]">Cotizador</span>
+                <span className="text-[13px] font-medium text-slate-500">Cotizador</span>
                 <select
                   value={opp.cotizador_asignado}
                   onChange={e => {
@@ -1103,7 +1104,7 @@ export default function OportunidadDetalle() {
                     const c = findCotizador(e.target.value)
                     showToast('success', `Cotizador actualizado a ${c?.nombre || e.target.value}`)
                   }}
-                  className="text-sm font-medium bg-transparent border-none cursor-pointer text-right pr-0 focus:ring-0 focus:outline-none hover:text-[var(--color-primary)] transition-colors"
+                  className="text-[14px] font-medium bg-transparent border-none cursor-pointer text-right pr-0 focus:ring-0 focus:outline-none hover:text-[var(--color-primary)] transition-colors"
                 >
                   {COTIZADORES.map(c => (
                     <option key={c.id} value={c.id}>{c.iniciales} — {c.nombre}</option>
@@ -1111,31 +1112,31 @@ export default function OportunidadDetalle() {
                 </select>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-[#94a3b8]">Empresa</span>
+                <span className="text-[13px] font-medium text-slate-500">Empresa</span>
                 <button
                   onClick={() => navigate(`/empresas/${emp.id}`)}
-                  className="font-medium text-[var(--color-primary)] hover:underline truncate max-w-[150px]"
+                  className="text-[14px] font-medium text-[var(--color-primary)] hover:underline truncate max-w-[180px]"
                 >
                   {emp.nombre}
                 </button>
               </div>
 
-              <div className="pt-2 border-t border-[var(--color-border)] space-y-2">
+              <div className="pt-3 border-t border-[var(--color-border)] space-y-3.5">
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Dias en pipeline</span>
-                  <span className="font-medium">{diasEnPipeline}</span>
+                  <span className="text-[13px] text-slate-500">Dias en pipeline</span>
+                  <span className="text-[14px] font-medium">{diasEnPipeline}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Fecha ingreso</span>
-                  <span className="font-medium">{formatDate(opp.fecha_ingreso)}</span>
+                  <span className="text-[13px] text-slate-500">Fecha ingreso</span>
+                  <span className="text-[14px] font-medium">{formatDate(opp.fecha_ingreso)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Fecha envio</span>
-                  <span className="font-medium">{opp.fecha_envio ? formatDate(opp.fecha_envio) : 'Sin fecha de envio'}</span>
+                  <span className="text-[13px] text-slate-500">Fecha envio</span>
+                  <span className="text-[14px] font-medium">{opp.fecha_envio ? formatDate(opp.fecha_envio) : 'Sin fecha de envio'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Fuente</span>
-                  <span className="font-medium">{opp.fuente_lead}</span>
+                  <span className="text-[13px] text-slate-500">Fuente</span>
+                  <span className="text-[14px] font-medium">{opp.fuente_lead}</span>
                 </div>
                 {emp.sector && (
                   <div className="flex justify-between">
@@ -1148,16 +1149,16 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 6: EMPRESA CARD ═══ */}
-          <div className="card p-5">
+          <div className="card p-5 mt-5">
             <div className="flex items-center gap-1.5 mb-3">
-              <Building2 size={12} className="text-[var(--color-primary)]" />
-              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Empresa</span>
+              <Building2 size={14} className="text-[var(--color-primary)]" />
+              <span className="text-[13px] font-bold text-[var(--color-text)]">Empresa</span>
             </div>
-            <div className="space-y-1 text-[10px]">
-              <div className="font-medium text-xs text-[var(--color-text)]">{emp.nombre}</div>
-              <div className="text-[var(--color-text-muted)]">NIT: {emp.nit || '—'}</div>
-              <div className="text-[var(--color-text-muted)]">{emp.direccion || '—'}</div>
-              <div className="text-[var(--color-text-muted)]">{emp.sector}</div>
+            <div className="space-y-1.5 text-[13px]">
+              <div className="font-medium text-[14px] text-[var(--color-text)]">{emp.nombre}</div>
+              <div className="text-slate-500">NIT: {emp.nit || '—'}</div>
+              <div className="text-slate-500">{emp.direccion || '—'}</div>
+              <div className="text-slate-500">{emp.sector}</div>
             </div>
             <button onClick={() => navigate(`/empresas/${emp.id}`)} className="text-[10px] text-[var(--color-primary)] hover:underline mt-2 block">
               Ver todas las oportunidades
@@ -1171,11 +1172,11 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 6: CONTACTO CARD (editable) ═══ */}
-          <div className="card p-5">
+          <div className="card p-5 mt-5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
-                <User size={12} className="text-[var(--color-primary)]" />
-                <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Contacto</span>
+                <User size={14} className="text-[var(--color-primary)]" />
+                <span className="text-[13px] font-bold text-[var(--color-text)]">Contacto</span>
               </div>
               {contacto && !editingContacto && (
                 <button
@@ -1209,8 +1210,8 @@ export default function OportunidadDetalle() {
                   <div className="text-[10px] text-[var(--color-text-muted)]">Sin teléfono</div>
                 )}
                 {(!contacto.correo || !contacto.whatsapp) && (
-                  <div className="flex items-center gap-1 mt-1 text-[9px] text-amber-600">
-                    <AlertCircle size={10} /> Datos incompletos
+                  <div className="flex items-center gap-1 mt-1.5 text-[13px] text-amber-600">
+                    <AlertCircle size={12} /> Datos incompletos
                   </div>
                 )}
               </div>
