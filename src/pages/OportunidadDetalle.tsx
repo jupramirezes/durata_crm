@@ -42,6 +42,7 @@ export default function OportunidadDetalle() {
   const oportunidad = state.oportunidades.find(o => o.id === id)
   const empresa = oportunidad ? state.empresas.find(e => e.id === oportunidad.empresa_id) : null
   const contacto = oportunidad ? state.contactos.find(c => c.id === oportunidad.contacto_id) : null
+  const empContactos = oportunidad ? state.contactos.filter(c => c.empresa_id === oportunidad.empresa_id) : []
   const historial = state.historial.filter(h => h.oportunidad_id === id)
   const productos = state.productos.filter(p => p.oportunidad_id === id)
   const cotizaciones = state.cotizaciones.filter(c => c.oportunidad_id === id)
@@ -57,6 +58,11 @@ export default function OportunidadDetalle() {
   const [showProductModal, setShowProductModal] = useState(false)
   const [editingContacto, setEditingContacto] = useState(false)
   const [contactoForm, setContactoForm] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '' })
+  // Note editing state
+  const [editingNotaIdx, setEditingNotaIdx] = useState<number | null>(null)
+  const [editingNotaText, setEditingNotaText] = useState('')
+  // Assign contact state
+  const [showAssignContacto, setShowAssignContacto] = useState(false)
   const [valorAdjudicado, setValorAdjudicado] = useState('')
   const [motivoPerdida, setMotivoPerdida] = useState('')
   const [manualForm, setManualForm] = useState({
@@ -265,6 +271,42 @@ export default function OportunidadDetalle() {
     setNotaTexto('')
   }
 
+  function handleEditNota(lineIdx: number) {
+    if (!opp.notas) return
+    const lines = opp.notas.split('\n').filter(l => l.trim())
+    if (lineIdx >= lines.length) return
+    const line = lines[lineIdx]
+    const match = line.match(/^\[(.+?)\]\s*(.*)$/)
+    setEditingNotaText(match ? match[2] : line)
+    setEditingNotaIdx(lineIdx)
+  }
+
+  function handleSaveEditNota() {
+    if (!opp.notas || editingNotaIdx === null) return
+    const lines = opp.notas.split('\n').filter(l => l.trim())
+    if (editingNotaIdx >= lines.length) return
+    const line = lines[editingNotaIdx]
+    const match = line.match(/^\[(.+?)\]\s*(.*)$/)
+    lines[editingNotaIdx] = match ? `[${match[1]}] ${editingNotaText.trim()}` : editingNotaText.trim()
+    dispatch({ type: 'UPDATE_OPORTUNIDAD', payload: { id: opp.id, notas: lines.join('\n') } })
+    setEditingNotaIdx(null)
+    setEditingNotaText('')
+  }
+
+  function handleDeleteNota(lineIdx: number) {
+    if (!opp.notas) return
+    if (!window.confirm('¿Eliminar esta nota?')) return
+    const lines = opp.notas.split('\n').filter(l => l.trim())
+    lines.splice(lineIdx, 1)
+    dispatch({ type: 'UPDATE_OPORTUNIDAD', payload: { id: opp.id, notas: lines.join('\n') } })
+  }
+
+  function handleAssignContacto(contactoId: string) {
+    dispatch({ type: 'UPDATE_OPORTUNIDAD', payload: { id: opp.id, contacto_id: contactoId } })
+    setShowAssignContacto(false)
+    showToast('success', 'Contacto asignado')
+  }
+
   function handleMoveEtapa(nuevaEtapa: Etapa) {
     setShowEtapaDropdown(false)
     if (nuevaEtapa === opp.etapa) return
@@ -455,6 +497,16 @@ export default function OportunidadDetalle() {
           </div>
         </div>
 
+        {/* Motivo pérdida banner */}
+        {opp.etapa === 'perdida' && (
+          <div className="mt-4 rounded-lg p-3 bg-[#FEF2F2] border border-[#FECACA] flex items-center gap-2">
+            <AlertCircle size={16} className="text-[#991B1B] shrink-0" />
+            <span className="text-sm text-[#991B1B] font-medium">
+              Oportunidad perdida — Motivo: {opp.motivo_perdida || 'No registrado'}
+            </span>
+          </div>
+        )}
+
         {/* Action bar */}
         <div className="flex items-center gap-2.5 mt-5 pt-5 border-t border-[#f1f5f9]">
           <button
@@ -586,13 +638,27 @@ export default function OportunidadDetalle() {
                             {ev.timestamp && <span className="text-xs text-[#94a3b8] ml-3">{formatDate(ev.timestamp)}</span>}
                           </div>
                         ) : (
-                          <div className={`rounded-[10px] border p-3.5 ${bgCard}`}>
+                          <div className={`rounded-[10px] border p-3.5 ${bgCard} group/note`}>
                             <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2 min-w-0">
+                              <div className="flex items-start gap-2 min-w-0 flex-1">
                                 <Icon size={14} style={{ color: ev.color }} className="shrink-0 mt-0.5" />
-                                <span className="text-sm text-[#334155]">{ev.title}</span>
+                                {ev.type === 'nota' && editingNotaIdx !== null && ev.id === `nota-${editingNotaIdx}` ? (
+                                  <div className="flex-1 flex gap-1.5">
+                                    <input value={editingNotaText} onChange={e => setEditingNotaText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveEditNota(); if (e.key === 'Escape') setEditingNotaIdx(null) }} autoFocus className="flex-1 text-sm px-2 py-1 rounded border border-amber-300 bg-white" />
+                                    <button onClick={handleSaveEditNota} className="text-xs px-2 py-1 rounded bg-amber-500 text-white hover:bg-amber-600">OK</button>
+                                    <button onClick={() => setEditingNotaIdx(null)} className="text-xs px-2 py-1 rounded text-[var(--color-text-muted)] hover:bg-white">✕</button>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-[#334155]">{ev.title}</span>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
+                                {ev.type === 'nota' && editingNotaIdx === null && (
+                                  <div className="flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                                    <button onClick={(e) => { e.stopPropagation(); const idx = Number(ev.id.replace('nota-', '')); handleEditNota(idx) }} className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-amber-600 hover:bg-amber-50" title="Editar nota"><Edit3 size={11} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); const idx = Number(ev.id.replace('nota-', '')); handleDeleteNota(idx) }} className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-50" title="Eliminar nota"><X size={11} /></button>
+                                  </div>
+                                )}
                                 {ev.detail && <span className="text-xs font-semibold tabular-nums" style={{ color: ev.color }}>{ev.detail}</span>}
                                 {ev.timestamp && <span className="text-xs text-[#94a3b8]">{ev.type === 'cotizacion' ? formatDate(ev.timestamp) : ev.timestamp}</span>}
                               </div>
@@ -937,6 +1003,10 @@ export default function OportunidadDetalle() {
                   <span className="font-medium">{formatDate(opp.fecha_ingreso)}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Fecha envio</span>
+                  <span className="font-medium">{opp.fecha_envio ? formatDate(opp.fecha_envio) : 'Sin fecha de envio'}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-[var(--color-text-muted)]">Fuente</span>
                   <span className="font-medium">{opp.fuente_lead}</span>
                 </div>
@@ -1042,10 +1112,24 @@ export default function OportunidadDetalle() {
                 <div className="flex items-center justify-center gap-1 text-[10px] text-amber-600 mb-2">
                   <AlertCircle size={12} /> Sin contacto asignado
                 </div>
-                <button
-                  onClick={() => showToast('warning', 'Asigna un contacto desde la creación de oportunidad')}
-                  className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
-                >Asignar contacto</button>
+                {!showAssignContacto ? (
+                  <button
+                    onClick={() => setShowAssignContacto(true)}
+                    className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
+                  >Asignar contacto</button>
+                ) : (
+                  <div className="space-y-1.5 text-left">
+                    {empContactos.length === 0 ? (
+                      <p className="text-[10px] text-[var(--color-text-muted)]">No hay contactos para esta empresa</p>
+                    ) : empContactos.map(c => (
+                      <button key={c.id} onClick={() => handleAssignContacto(c.id)} className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors border border-[var(--color-border)]">
+                        <div className="font-medium">{c.nombre}</div>
+                        {c.cargo && <div className="text-[10px] text-[var(--color-text-muted)]">{c.cargo}</div>}
+                      </button>
+                    ))}
+                    <button onClick={() => setShowAssignContacto(false)} className="text-[10px] text-[var(--color-text-muted)] hover:underline mt-1">Cancelar</button>
+                  </div>
+                )}
               </div>
             )}
           </div>
