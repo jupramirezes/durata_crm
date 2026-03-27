@@ -221,7 +221,7 @@ export interface Cotizacion {
   oportunidad_id: string
   numero: string
   fecha: string
-  estado: 'borrador' | 'enviada' | 'aprobada' | 'rechazada'
+  estado: 'borrador' | 'enviada' | 'aprobada' | 'rechazada' | 'descartada'
   total: number
   fecha_envio?: string
   // Editor fields (optional, populated when editing)

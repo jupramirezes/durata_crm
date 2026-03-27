@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
@@ -6,7 +6,7 @@ import { formatDate, formatCOP, daysSince } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
-import { uploadProductFile, getSignedUrl, acceptString } from '../hooks/useStorage'
+import { uploadProductFile, getSignedUrl, acceptString, uploadOppFile, listOppFiles, deleteProductFile } from '../hooks/useStorage'
 import { showToast } from '../components/Toast'
 import { exportApuExcel } from '../lib/exportar-apu'
 import * as svcOportunidades from '../hooks/useOportunidades'
@@ -63,6 +63,9 @@ export default function OportunidadDetalle() {
   const [editingNotaText, setEditingNotaText] = useState('')
   // Assign contact state
   const [showAssignContacto, setShowAssignContacto] = useState(false)
+  // Archivos state
+  const [archivos, setArchivos] = useState<{ name: string; path: string; size: number; created: string }[]>([])
+  const [uploadingFile, setUploadingFile] = useState(false)
   const [valorAdjudicado, setValorAdjudicado] = useState('')
   const [motivoPerdida, setMotivoPerdida] = useState('')
   const [manualForm, setManualForm] = useState({
@@ -105,6 +108,45 @@ export default function OportunidadDetalle() {
   // ══════════════════════════════════════════════════
   // TIMELINE UNIFICADO (CAMBIO 3)
   // ══════════════════════════════════════════════════
+  // Load archivos from storage
+  useEffect(() => {
+    if (opp?.id) listOppFiles(opp.id).then(setArchivos)
+  }, [opp?.id])
+
+  async function handleUploadFile(file: File) {
+    if (!opp) return
+    setUploadingFile(true)
+    const result = await uploadOppFile(opp.id, file)
+    if ('error' in result) {
+      showToast('error', result.error)
+    } else {
+      showToast('success', `${file.name} subido`)
+      listOppFiles(opp.id).then(setArchivos)
+    }
+    setUploadingFile(false)
+  }
+
+  async function handleDeleteFile(path: string, name: string) {
+    if (!window.confirm(`¿Eliminar "${name}"?`)) return
+    const { error } = await deleteProductFile(path)
+    if (error) showToast('error', error)
+    else {
+      showToast('success', 'Archivo eliminado')
+      if (opp) listOppFiles(opp.id).then(setArchivos)
+    }
+  }
+
+  async function handleDownloadFile(path: string, name: string) {
+    const url = await getSignedUrl(path)
+    if (url) {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name
+      a.target = '_blank'
+      a.click()
+    } else showToast('error', 'No se pudo obtener enlace de descarga')
+  }
+
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
     const events: TimelineEvent[] = []
 
@@ -456,14 +498,14 @@ export default function OportunidadDetalle() {
   // ══════════════════════════════════════════════════
 
   return (
-    <div className="px-8 py-8 animate-fade-in max-w-[1400px]">
+    <div className="px-10 py-8 animate-fade-in max-w-[1400px]">
       {/* Back */}
       <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[13px] text-[#94a3b8] hover:text-[var(--color-text)] transition-colors mb-5">
         <ArrowLeft size={14} /> Volver
       </button>
 
       {/* ═══ CAMBIO 1: HEADER FUERTE ═══ */}
-      <div className="card p-6 mb-6">
+      <div className="card p-7 mb-7">
         <div className="flex items-start justify-between gap-4">
           {/* Left: company info */}
           <div className="flex items-start gap-4 min-w-0">
@@ -471,7 +513,7 @@ export default function OportunidadDetalle() {
               <Building2 size={22} className="text-[var(--color-primary)]" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-[28px] font-bold text-[var(--color-text)] truncate tracking-tight">{emp.nombre}</h1>
+              <h1 className="text-[32px] font-bold text-[var(--color-text)] truncate tracking-tight leading-tight mb-1">{emp.nombre}</h1>
               {contacto ? (
                 <p className="text-base text-[#64748b] mt-1">
                   {contacto.nombre}{contacto.cargo && ` — ${contacto.cargo}`}
@@ -577,29 +619,29 @@ export default function OportunidadDetalle() {
       </div>
 
       {/* ═══ CAMBIO 2: LAYOUT 2 COLUMNAS ═══ */}
-      <div className="flex gap-6 items-start">
+      <div className="flex gap-8 items-start">
         {/* ─── LEFT COLUMN (70%) ─── */}
-        <div className="flex-[7] min-w-0 space-y-5">
+        <div className="flex-[7] min-w-0 space-y-7">
 
           {/* ═══ CAMBIO 3: TIMELINE UNIFICADO ═══ */}
-          <div className="card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock size={14} className="text-[var(--color-primary)]" />
-              <h3 className="font-semibold text-sm text-[var(--color-text)]">Actividad</h3>
+          <div className="card p-7 mb-8">
+            <div className="flex items-center gap-2.5 mb-2 pb-4 border-b border-[#e2e8f0]">
+              <Clock size={18} className="text-[var(--color-primary)]" />
+              <h3 className="font-bold text-xl text-[var(--color-text)]">Actividad</h3>
               {timelineEvents.length > 0 && (
-                <span className="text-[9px] font-bold text-[var(--color-primary)] bg-blue-50 px-1.5 py-0.5 rounded">{timelineEvents.length}</span>
+                <span className="text-[10px] font-bold text-[var(--color-primary)] bg-blue-50 px-2 py-0.5 rounded">{timelineEvents.length}</span>
               )}
             </div>
 
             {/* Add note input */}
-            <div className="relative mb-5">
+            <div className="relative mb-6 mt-5">
               <input
                 id="nota-input"
                 value={notaTexto}
                 onChange={e => setNotaTexto(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNota() } }}
                 placeholder="Escribir una nota..."
-                className="w-full h-14 px-5 pr-28 rounded-xl text-[15px] border border-[#e2e8f0] focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] focus:outline-none transition-all placeholder:text-[#94a3b8]"
+                className="w-full h-[52px] px-5 pr-28 rounded-xl text-[15px] border border-[#e2e8f0] focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] focus:outline-none transition-all placeholder:text-[#94a3b8]"
               />
               <button
                 onClick={handleAddNota}
@@ -612,14 +654,15 @@ export default function OportunidadDetalle() {
 
             {/* Timeline feed */}
             {timelineEvents.length === 0 ? (
-              <p className="text-[10px] text-[var(--color-text-muted)] text-center py-6">Sin actividad registrada. Agrega la primera nota arriba.</p>
+              <p className="text-sm text-[var(--color-text-muted)] text-center py-8">Sin actividad registrada. Agrega la primera nota arriba.</p>
             ) : (
-              <div className="relative ml-4 max-h-[500px] overflow-y-auto pr-1">
+              <div className="relative ml-5 max-h-[600px] overflow-y-auto pr-2">
                 {/* Vertical line */}
-                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#f1f5f9]" />
-                <div className="space-y-5 pl-8">
+                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#e2e8f0]" />
+                <div className="space-y-3 pl-8">
                   {timelineEvents.map((ev) => {
                     const Icon = ev.icon
+                    const isCotTitle = ev.type === 'nota' && ev.title.startsWith('COT:')
                     const bgCard = ev.type === 'nota' ? 'bg-[#fffbeb] border-[#fef3c7]'
                       : ev.type === 'producto' ? 'bg-[#f5f3ff] border-[#ede9fe]'
                       : ev.type === 'cotizacion' ? 'bg-[#ecfdf5] border-[#d1fae5]'
@@ -633,15 +676,15 @@ export default function OportunidadDetalle() {
                           style={{ background: ev.color, marginLeft: '-2px' }}
                         />
                         {isInline ? (
-                          <div>
-                            <span className="text-sm text-[#64748b]">{ev.title}</span>
-                            {ev.timestamp && <span className="text-xs text-[#94a3b8] ml-3">{formatDate(ev.timestamp)}</span>}
+                          <div className="py-1">
+                            <span className="text-[14px] text-[#64748b]">{ev.title}</span>
+                            {ev.timestamp && <span className="text-[13px] text-[#94a3b8] ml-3">{formatDate(ev.timestamp)}</span>}
                           </div>
                         ) : (
-                          <div className={`rounded-[10px] border p-3.5 ${bgCard} group/note`}>
+                          <div className={`rounded-[12px] border ${isCotTitle ? 'p-4 mb-4' : 'p-[14px]'} ${bgCard} group/note`}>
                             <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2 min-w-0 flex-1">
-                                <Icon size={14} style={{ color: ev.color }} className="shrink-0 mt-0.5" />
+                              <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                <Icon size={isCotTitle ? 16 : 14} style={{ color: ev.color }} className="shrink-0 mt-0.5" />
                                 {ev.type === 'nota' && editingNotaIdx !== null && ev.id === `nota-${editingNotaIdx}` ? (
                                   <div className="flex-1 flex gap-1.5">
                                     <input value={editingNotaText} onChange={e => setEditingNotaText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveEditNota(); if (e.key === 'Escape') setEditingNotaIdx(null) }} autoFocus className="flex-1 text-sm px-2 py-1 rounded border border-amber-300 bg-white" />
@@ -649,7 +692,7 @@ export default function OportunidadDetalle() {
                                     <button onClick={() => setEditingNotaIdx(null)} className="text-xs px-2 py-1 rounded text-[var(--color-text-muted)] hover:bg-white">✕</button>
                                   </div>
                                 ) : (
-                                  <span className="text-sm text-[#334155]">{ev.title}</span>
+                                  <span className={isCotTitle ? 'text-[16px] font-bold text-slate-800' : 'text-[14px] text-[#334155]'}>{ev.title}</span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -674,11 +717,11 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 4: PRODUCTOS MEJORADOS ═══ */}
-          <div className="card p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <Package size={14} className="text-purple-500" />
-                <h3 className="font-semibold text-sm text-[var(--color-text)]">Productos</h3>
+          <div className="card p-7 mb-8">
+            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
+              <div className="flex items-center gap-2.5">
+                <Package size={18} className="text-purple-500" />
+                <h3 className="font-bold text-xl text-[var(--color-text)]">Productos</h3>
                 {productos.length > 0 && (
                   <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{productos.length}</span>
                 )}
@@ -862,94 +905,179 @@ export default function OportunidadDetalle() {
             )}
           </div>
 
-          {/* ═══ CAMBIO 5: COTIZACIONES MEJORADAS ═══ */}
-          <div className="card p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <FileText size={14} className="text-[var(--color-primary)]" />
-                <h3 className="font-semibold text-sm text-[var(--color-text)]">Cotizaciones</h3>
-                {cotizaciones.length > 0 && (
-                  <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{cotizaciones.length}</span>
+          {/* ═══ ARCHIVOS ADJUNTOS ═══ */}
+          <div className="card p-7 mb-8">
+            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
+              <div className="flex items-center gap-2.5">
+                <Paperclip size={18} className="text-slate-500" />
+                <h3 className="font-bold text-xl text-[var(--color-text)]">Archivos adjuntos</h3>
+                {archivos.length > 0 && (
+                  <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{archivos.length}</span>
                 )}
               </div>
+              <label className={`flex items-center gap-1.5 h-10 px-5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${uploadingFile ? 'bg-gray-100 text-gray-400' : 'bg-[var(--color-primary)] text-white hover:opacity-90'}`}>
+                <Paperclip size={13} /> {uploadingFile ? 'Subiendo...' : '+ Subir archivo'}
+                <input type="file" className="hidden" accept=".pdf,.xlsx,.xlsm,.xls,.png,.jpg,.jpeg,.doc,.docx" disabled={uploadingFile} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); e.target.value = '' }} />
+              </label>
             </div>
-
-            {cotizaciones.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText size={28} className="text-[var(--color-border)] mx-auto mb-2" />
-                <p className="text-xs text-[var(--color-text-muted)] mb-1">Sin cotizaciones.</p>
-                <p className="text-[10px] text-[var(--color-text-muted)] mb-3">Agrega productos y genera una.</p>
-                {productos.length > 0 && (
-                  <button
-                    onClick={() => setShowCotModal(true)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
-                  >
-                    <FileText size={13} /> Generar primera cotizacion
-                  </button>
-                )}
-              </div>
+            {archivos.length === 0 ? (
+              <p className="text-[14px] text-slate-400 text-center py-6">Sin archivos adjuntos</p>
             ) : (
-              <div className="space-y-3">
-                {cotizaciones.map(c => {
-                  const prodCount = c.productos_snapshot?.length || 0
+              <div className="space-y-2">
+                {archivos.map(f => {
+                  const ext = f.name.split('.').pop()?.toLowerCase() || ''
+                  const isExcel = ['xlsx', 'xlsm', 'xls'].includes(ext)
+                  const isPdf = ext === 'pdf'
+                  const iconColor = isExcel ? 'text-emerald-500' : isPdf ? 'text-red-500' : 'text-slate-400'
+                  const IconFile = isExcel ? FileSpreadsheet : isPdf ? File : Paperclip
+                  const sizeStr = f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : f.size > 0 ? `${Math.round(f.size / 1024)} KB` : ''
                   return (
-                    <div key={c.id} className="bg-white rounded-xl p-5 border border-[#f1f5f9] hover:shadow-[var(--shadow-card-hover)] transition-all group">
-                      <div className="flex justify-between items-start gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-[15px] text-[var(--color-text)] font-mono">{c.numero}</span>
-                            <EstadoBadge estado={c.estado} />
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
-                            <span>{formatDate(c.fecha)}</span>
-                            <span>{prodCount} producto{prodCount !== 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <div className="font-bold text-lg text-[var(--color-text)] tabular-nums">{formatCOP(c.total)}</div>
-                          <div className="text-[9px] text-[var(--color-text-muted)]">con IVA</div>
-                          <div className="flex items-center justify-end gap-1 mt-2">
-                            <button
-                              onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
-                              className="p-1.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                              title="Ver/Editar"
-                            >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              onClick={() => handleDescargarPdf(c.id)}
-                              className="p-1.5 rounded text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
-                              title="Descargar PDF"
-                            >
-                              <Download size={13} />
-                            </button>
-                            <button
-                              onClick={() => handleDuplicarCotizacion(c.id)}
-                              className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
-                              title="Duplicar"
-                            >
-                              <Copy size={13} />
-                            </button>
-                            <button
-                              onClick={() => { if (window.confirm('\u00bfEliminar esta cotizacion?')) dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } }) }}
-                              className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
+                    <div key={f.path} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-surface)] group transition-colors">
+                      <IconFile size={18} className={iconColor} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{f.name}</div>
+                        <div className="text-[10px] text-[var(--color-text-muted)]">{sizeStr}</div>
                       </div>
+                      <button onClick={() => handleDownloadFile(f.path, f.name)} className="text-xs text-[var(--color-primary)] hover:underline opacity-0 group-hover:opacity-100 transition-opacity" title="Descargar"><Download size={14} /></button>
+                      <button onClick={() => handleDeleteFile(f.path, f.name)} className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Eliminar"><Trash2 size={14} /></button>
                     </div>
                   )
                 })}
               </div>
             )}
           </div>
+
+          {/* ═══ CAMBIO 5: COTIZACIONES MEJORADAS ═══ */}
+          <div className="card p-7">
+            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
+              <div className="flex items-center gap-2.5">
+                <FileText size={18} className="text-[var(--color-primary)]" />
+                <h3 className="font-bold text-xl text-[var(--color-text)]">Cotizaciones</h3>
+                {cotizaciones.length > 0 && (
+                  <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{cotizaciones.length}</span>
+                )}
+              </div>
+            </div>
+
+            {(() => {
+              const activeCots = cotizaciones.filter(c => c.estado !== 'descartada')
+              const discardedCots = cotizaciones.filter(c => c.estado === 'descartada')
+
+              function handleRecotizar(cotId: string) {
+                const cot = cotizaciones.find(c => c.id === cotId)
+                if (!cot) return
+                // Calculate next version letter
+                const base = cot.numero.replace(/[A-Z]$/, '')
+                const currentLetter = cot.numero.match(/([A-Z])$/)?.[1]
+                const nextLetter = currentLetter ? String.fromCharCode(currentLetter.charCodeAt(0) + 1) : 'A'
+                const nuevoNumero = base + nextLetter
+                dispatch({ type: 'RECOTIZAR', payload: { cotizacionId: cotId, nuevoNumero } })
+                showToast('success', `Recotización ${nuevoNumero} creada. La ${cot.numero} fue descartada.`)
+              }
+
+              function renderCotCard(c: typeof cotizaciones[0], isDiscarded: boolean) {
+                const prodCount = c.productos_snapshot?.length || 0
+                return (
+                  <div key={c.id} className={`bg-white rounded-xl p-5 border border-[#f1f5f9] transition-all group ${isDiscarded ? 'opacity-50' : 'hover:shadow-[var(--shadow-card-hover)]'}`}>
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`font-semibold text-[15px] font-mono ${isDiscarded ? 'text-gray-400 line-through' : 'text-[var(--color-text)]'}`}>{c.numero}</span>
+                          <EstadoBadge estado={c.estado} />
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
+                          <span>{formatDate(c.fecha)}</span>
+                          <span>{prodCount} producto{prodCount !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className={`font-bold text-lg tabular-nums ${isDiscarded ? 'text-gray-400' : 'text-[var(--color-text)]'}`}>{formatCOP(c.total)}</div>
+                        <div className="text-[9px] text-[var(--color-text-muted)]">con IVA</div>
+                        <div className="flex items-center justify-end gap-1 mt-2">
+                          {!isDiscarded && (c.estado === 'enviada' || c.estado === 'borrador') && (
+                            <button
+                              onClick={() => handleRecotizar(c.id)}
+                              className="p-1.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-all"
+                              title="Recotizar (crear nueva versión)"
+                            >
+                              <ArrowRightLeft size={13} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
+                            className="p-1.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                            title="Ver/Editar"
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleDescargarPdf(c.id)}
+                            className="p-1.5 rounded text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                            title="Descargar PDF"
+                          >
+                            <Download size={13} />
+                          </button>
+                          {!isDiscarded && (
+                            <>
+                              <button
+                                onClick={() => handleDuplicarCotizacion(c.id)}
+                                className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                                title="Duplicar"
+                              >
+                                <Copy size={13} />
+                              </button>
+                              <button
+                                onClick={() => { if (window.confirm('\u00bfEliminar esta cotizacion?')) dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } }) }}
+                                className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                                title="Eliminar"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+
+              if (cotizaciones.length === 0) return (
+                <div className="text-center py-8">
+                  <FileText size={28} className="text-[var(--color-border)] mx-auto mb-2" />
+                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Sin cotizaciones.</p>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mb-3">Agrega productos y genera una.</p>
+                  {productos.length > 0 && (
+                    <button
+                      onClick={() => setShowCotModal(true)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
+                    >
+                      <FileText size={13} /> Generar primera cotizacion
+                    </button>
+                  )}
+                </div>
+              )
+              return (
+                <div className="space-y-3">
+                  {activeCots.map(c => renderCotCard(c, false))}
+                  {discardedCots.length > 0 && (
+                    <details className="group/versions">
+                      <summary className="cursor-pointer text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] py-2 select-none">
+                        Ver versiones anteriores ({discardedCots.length})
+                      </summary>
+                      <div className="space-y-2 mt-2">
+                        {discardedCots.map(c => renderCotCard(c, true))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
         </div>
 
         {/* ─── RIGHT COLUMN - SIDEBAR (30%) ─── */}
-        <div className="flex-[3] min-w-[280px] max-w-[340px] space-y-4 sticky top-6">
+        <div className="flex-[3] min-w-[340px] max-w-[380px] space-y-5 sticky top-6">
           {/* ═══ CAMBIO 2: SIDEBAR RESUMEN ═══ */}
           <div className="card p-7">
             <div className="mb-6 pb-6 border-b border-[#f1f5f9]">
@@ -962,13 +1090,13 @@ export default function OportunidadDetalle() {
               )}
             </div>
 
-            <div className="space-y-4 text-sm">
+            <div className="space-y-3.5 text-[14px]">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-[#94a3b8]">Etapa</span>
+                <span className="text-[13px] font-medium text-slate-500">Etapa</span>
                 <EtapaBadge etapa={opp.etapa} size="sm" />
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-[#94a3b8]">Cotizador</span>
+                <span className="text-[13px] font-medium text-slate-500">Cotizador</span>
                 <select
                   value={opp.cotizador_asignado}
                   onChange={e => {
@@ -976,7 +1104,7 @@ export default function OportunidadDetalle() {
                     const c = findCotizador(e.target.value)
                     showToast('success', `Cotizador actualizado a ${c?.nombre || e.target.value}`)
                   }}
-                  className="text-sm font-medium bg-transparent border-none cursor-pointer text-right pr-0 focus:ring-0 focus:outline-none hover:text-[var(--color-primary)] transition-colors"
+                  className="text-[14px] font-medium bg-transparent border-none cursor-pointer text-right pr-0 focus:ring-0 focus:outline-none hover:text-[var(--color-primary)] transition-colors"
                 >
                   {COTIZADORES.map(c => (
                     <option key={c.id} value={c.id}>{c.iniciales} — {c.nombre}</option>
@@ -984,31 +1112,31 @@ export default function OportunidadDetalle() {
                 </select>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-[#94a3b8]">Empresa</span>
+                <span className="text-[13px] font-medium text-slate-500">Empresa</span>
                 <button
                   onClick={() => navigate(`/empresas/${emp.id}`)}
-                  className="font-medium text-[var(--color-primary)] hover:underline truncate max-w-[150px]"
+                  className="text-[14px] font-medium text-[var(--color-primary)] hover:underline truncate max-w-[180px]"
                 >
                   {emp.nombre}
                 </button>
               </div>
 
-              <div className="pt-2 border-t border-[var(--color-border)] space-y-2">
+              <div className="pt-3 border-t border-[var(--color-border)] space-y-3.5">
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Dias en pipeline</span>
-                  <span className="font-medium">{diasEnPipeline}</span>
+                  <span className="text-[13px] text-slate-500">Dias en pipeline</span>
+                  <span className="text-[14px] font-medium">{diasEnPipeline}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Fecha ingreso</span>
-                  <span className="font-medium">{formatDate(opp.fecha_ingreso)}</span>
+                  <span className="text-[13px] text-slate-500">Fecha ingreso</span>
+                  <span className="text-[14px] font-medium">{formatDate(opp.fecha_ingreso)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Fecha envio</span>
-                  <span className="font-medium">{opp.fecha_envio ? formatDate(opp.fecha_envio) : 'Sin fecha de envio'}</span>
+                  <span className="text-[13px] text-slate-500">Fecha envio</span>
+                  <span className="text-[14px] font-medium">{opp.fecha_envio ? formatDate(opp.fecha_envio) : 'Sin fecha de envio'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Fuente</span>
-                  <span className="font-medium">{opp.fuente_lead}</span>
+                  <span className="text-[13px] text-slate-500">Fuente</span>
+                  <span className="text-[14px] font-medium">{opp.fuente_lead}</span>
                 </div>
                 {emp.sector && (
                   <div className="flex justify-between">
@@ -1021,16 +1149,16 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 6: EMPRESA CARD ═══ */}
-          <div className="card p-5">
+          <div className="card p-5 mt-5">
             <div className="flex items-center gap-1.5 mb-3">
-              <Building2 size={12} className="text-[var(--color-primary)]" />
-              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Empresa</span>
+              <Building2 size={14} className="text-[var(--color-primary)]" />
+              <span className="text-[13px] font-bold text-[var(--color-text)]">Empresa</span>
             </div>
-            <div className="space-y-1 text-[10px]">
-              <div className="font-medium text-xs text-[var(--color-text)]">{emp.nombre}</div>
-              <div className="text-[var(--color-text-muted)]">NIT: {emp.nit || '—'}</div>
-              <div className="text-[var(--color-text-muted)]">{emp.direccion || '—'}</div>
-              <div className="text-[var(--color-text-muted)]">{emp.sector}</div>
+            <div className="space-y-1.5 text-[13px]">
+              <div className="font-medium text-[14px] text-[var(--color-text)]">{emp.nombre}</div>
+              <div className="text-slate-500">NIT: {emp.nit || '—'}</div>
+              <div className="text-slate-500">{emp.direccion || '—'}</div>
+              <div className="text-slate-500">{emp.sector}</div>
             </div>
             <button onClick={() => navigate(`/empresas/${emp.id}`)} className="text-[10px] text-[var(--color-primary)] hover:underline mt-2 block">
               Ver todas las oportunidades
@@ -1044,11 +1172,11 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 6: CONTACTO CARD (editable) ═══ */}
-          <div className="card p-5">
+          <div className="card p-5 mt-5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
-                <User size={12} className="text-[var(--color-primary)]" />
-                <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Contacto</span>
+                <User size={14} className="text-[var(--color-primary)]" />
+                <span className="text-[13px] font-bold text-[var(--color-text)]">Contacto</span>
               </div>
               {contacto && !editingContacto && (
                 <button
@@ -1082,8 +1210,8 @@ export default function OportunidadDetalle() {
                   <div className="text-[10px] text-[var(--color-text-muted)]">Sin teléfono</div>
                 )}
                 {(!contacto.correo || !contacto.whatsapp) && (
-                  <div className="flex items-center gap-1 mt-1 text-[9px] text-amber-600">
-                    <AlertCircle size={10} /> Datos incompletos
+                  <div className="flex items-center gap-1 mt-1.5 text-[13px] text-amber-600">
+                    <AlertCircle size={12} /> Datos incompletos
                   </div>
                 )}
               </div>

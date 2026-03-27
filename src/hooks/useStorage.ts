@@ -100,6 +100,36 @@ export async function getSignedUrl(path: string): Promise<string | null> {
   return data.signedUrl
 }
 
+/** Upload a general file to an oportunidad folder (any type allowed) */
+export async function uploadOppFile(
+  oportunidadId: string,
+  file: File,
+): Promise<{ url: string; nombre: string; size: number } | { error: string }> {
+  if (!isSupabaseReady) return { error: 'Supabase no disponible' }
+  if (file.size > MAX_SIZE) return { error: 'Archivo excede 10MB' }
+  const ts = Date.now()
+  const path = `${oportunidadId}/archivos/${ts}_${file.name}`
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type || 'application/octet-stream',
+  })
+  if (error) return { error: error.message }
+  return { url: path, nombre: file.name, size: file.size }
+}
+
+/** List files in an oportunidad's archivos folder */
+export async function listOppFiles(oportunidadId: string): Promise<{ name: string; path: string; size: number; created: string }[]> {
+  if (!isSupabaseReady) return []
+  const { data, error } = await supabase.storage.from(BUCKET).list(`${oportunidadId}/archivos`, { limit: 100 })
+  if (error || !data) return []
+  return data.map(f => ({
+    name: f.name.replace(/^\d+_/, ''), // strip timestamp prefix
+    path: `${oportunidadId}/archivos/${f.name}`,
+    size: (f.metadata as any)?.size || 0,
+    created: f.created_at || '',
+  }))
+}
+
 export async function deleteProductFile(path: string): Promise<{ error: string | null }> {
   if (!isSupabaseReady) return { error: 'Supabase no disponible' }
   const { error } = await supabase.storage.from(BUCKET).remove([path])
