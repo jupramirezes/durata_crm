@@ -8,7 +8,7 @@ function makeState(overrides: Partial<ReturnType<typeof reducer>> = {}) {
     empresas: [],
     contactos: [],
     oportunidades: [
-      { id: 'opp1', empresa_id: 'e1', contacto_id: 'c1', etapa: 'cotizacion_enviada' as const, valor_cotizado: 100000, valor_adjudicado: 0, cotizador_asignado: 'OC', fecha_ingreso: '2026-01-01', fecha_envio: '2026-01-02', fuente_lead: 'Test', motivo_perdida: '', notas: '', ubicacion: '', sector_cliente: '', fecha_adjudicacion: null, fecha_ultimo_contacto: '' },
+      { id: 'opp1', empresa_id: 'e1', contacto_id: 'c1', etapa: 'cotizacion_enviada' as const, valor_cotizado: 100000, valor_adjudicado: 0, cotizador_asignado: 'OC', fecha_ingreso: '2026-01-01', fecha_envio: '2026-01-02', fuente_lead: 'Otro' as const, motivo_perdida: '', notas: '', ubicacion: '', sector_cliente: '', fecha_adjudicacion: undefined, fecha_ultimo_contacto: '', valor_estimado: 0, created_at: '2026-01-01' },
     ],
     historial: [],
     productos: [],
