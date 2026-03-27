@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, Etapa, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, matchCotizador } from '../types'
@@ -89,22 +89,7 @@ const ETAPA_GRADIENT: Record<string, string> = {
   perdida: 'from-red-50 to-white',
 }
 
-/* ── Tooltip component ─────── */
-function NotesTooltip({ notas }: { notas: string }) {
-  const lines = notas.split('\n').filter(l => l.trim()).slice(-2)
-  if (lines.length === 0) return null
-  return (
-    <div className="absolute left-0 right-0 top-full mt-2 z-50 animate-tooltip">
-      <div className="bg-white rounded-[10px] p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-[#f1f5f9]" style={{ maxWidth: 300 }}>
-        {lines.map((line, i) => (
-          <div key={i} className={i > 0 ? 'mt-2 pt-2 border-t border-[#f1f5f9]' : ''}>
-            <p className="text-[13px] text-[#334155] leading-relaxed">{line}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+/* Tooltip is now rendered as a fixed-position portal at the end of the component */
 
 export default function Pipeline() {
   const { state, dispatch } = useStore()
@@ -127,8 +112,8 @@ export default function Pipeline() {
   const [filtroDateRange, setFiltroDateRange] = useState('')
   const [filtroSector, setFiltroSector] = useState('')
   const [currentUserCotId, setCurrentUserCotId] = useState<string | null>(null)
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
-  const [hoverTimer, setHoverTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [tooltipData, setTooltipData] = useState<{ id: string; x: number; y: number } | null>(null)
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Detect logged-in user's cotizador ID
   useEffect(() => {
@@ -225,14 +210,16 @@ export default function Pipeline() {
     setPerdidaModal(null)
   }
 
-  function handleCardMouseEnter(id: string) {
-    const timer = setTimeout(() => setHoveredCard(id), 400)
-    setHoverTimer(timer)
+  function handleCardMouseEnter(e: React.MouseEvent, id: string) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    tooltipTimerRef.current = setTimeout(() => {
+      setTooltipData({ id, x: rect.left, y: rect.bottom + 6 })
+    }, 400)
   }
   function handleCardMouseLeave() {
-    if (hoverTimer) clearTimeout(hoverTimer)
-    setHoverTimer(null)
-    setHoveredCard(null)
+    if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current)
+    tooltipTimerRef.current = null
+    setTooltipData(null)
   }
 
   const hasFilters = filtroCotizador || filtroYear || filtroMonth || filtroValorMin > 0 || searchEmpresa.trim() || filtroMisCots || filtroDateRange || filtroSector
@@ -417,7 +404,7 @@ export default function Pipeline() {
                       onDragStart={e => onDragStart(e, o.id)}
                       onDragEnd={onDragEnd}
                       onClick={() => navigate(`/oportunidades/${o.id}`)}
-                      onMouseEnter={() => hasNotas && handleCardMouseEnter(o.id)}
+                      onMouseEnter={(e) => hasNotas && handleCardMouseEnter(e, o.id)}
                       onMouseLeave={handleCardMouseLeave}
                       className={`relative bg-white rounded-xl p-[18px_20px] border border-[#f1f5f9] cursor-pointer transition-all duration-250 shadow-[0_1px_3px_rgba(0,0,0,0.03)] ${urgencyBorder} ${
                         dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-[0_8px_25px_rgba(0,0,0,0.08)] hover:-translate-y-[3px]'
@@ -439,8 +426,7 @@ export default function Pipeline() {
                           <Clock size={10} /> {dias}d
                         </span>
                       </div>
-                      {/* Tooltip */}
-                      {hoveredCard === o.id && hasNotas && <NotesTooltip notas={o.notas!} />}
+                      {/* Tooltip rendered via fixed portal below */}
                     </div>
                   )
                 })}
@@ -451,6 +437,36 @@ export default function Pipeline() {
       </div>
 
       {showModal && <OportunidadFormModal onClose={() => setShowModal(false)} />}
+
+      {/* Fixed-position tooltip portal for notes */}
+      {tooltipData && (() => {
+        const opp = state.oportunidades.find(o => o.id === tooltipData.id)
+        if (!opp?.notas) return null
+        const notas = opp.notas.split('\n').filter(Boolean).slice(-2)
+        if (notas.length === 0) return null
+        const empresa = state.empresas.find(e => e.id === opp.empresa_id)
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              left: Math.min(tooltipData.x, window.innerWidth - 320),
+              top: Math.min(tooltipData.y, window.innerHeight - 120),
+              zIndex: 9999,
+              pointerEvents: 'none',
+            }}
+            className="animate-tooltip"
+          >
+            <div className="bg-white rounded-[10px] p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-[#e2e8f0]" style={{ maxWidth: 300 }}>
+              <div className="text-[12px] font-semibold text-[#334155] mb-1.5">{empresa?.nombre || '—'}</div>
+              {notas.map((n, i) => (
+                <div key={i} className={`text-[12px] text-[#64748b] py-1 ${i > 0 ? 'border-t border-[#f1f5f9]' : ''}`}>
+                  {n}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Adjudicada modal */}
       {adjudicadaModal && (
