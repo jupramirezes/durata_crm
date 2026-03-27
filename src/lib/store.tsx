@@ -44,6 +44,7 @@ export type Action =
   | { type: 'DELETE_COTIZACION'; payload: { id: string } }
   | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string; newId?: string } }
   | { type: 'UPDATE_COTIZACION'; payload: Partial<Cotizacion> & { id: string } }
+  | { type: 'RECOTIZAR'; payload: { cotizacionId: string; nuevoNumero: string; newCotId?: string } }
   | { type: 'BULK_UPSERT_PRECIOS'; payload: PrecioMaestro[] }
   | { type: '_HYDRATE'; payload: Partial<State> }
 
@@ -53,6 +54,14 @@ export type Action =
 
 function newId(): string {
   return crypto.randomUUID()
+}
+
+/** Get valor_cotizado from the latest ACTIVE cotizacion (not descartada) */
+export function getActiveCotizacionValor(cotizaciones: Cotizacion[], oportunidadId: string): number {
+  const oppCots = cotizaciones
+    .filter(c => c.oportunidad_id === oportunidadId && c.estado !== 'descartada')
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+  return oppCots[0]?.total || 0
 }
 
 const STORAGE_KEY = 'durata_crm_state'
@@ -181,8 +190,23 @@ export function reducer(state: State, action: Action): State {
       const updates: Partial<Oportunidad> = { etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
       if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) updates.valor_adjudicado = valor_adjudicado
       if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
+      // Auto-discard cotizaciones on adjudicación: approve latest active, discard rest
+      let updCots = state.cotizaciones
+      if (nuevaEtapa === 'adjudicada') {
+        const oppCots = state.cotizaciones.filter(c => c.oportunidad_id === oportunidadId)
+        const activeCot = oppCots
+          .filter(c => c.estado === 'enviada' || c.estado === 'borrador')
+          .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+        updCots = state.cotizaciones.map(c => {
+          if (c.oportunidad_id !== oportunidadId) return c
+          if (activeCot && c.id === activeCot.id) return { ...c, estado: 'aprobada' as const }
+          if (c.estado !== 'aprobada') return { ...c, estado: 'descartada' as const }
+          return c
+        })
+      }
       return {
         ...state,
+        cotizaciones: updCots,
         oportunidades: state.oportunidades.map(o => o.id === oportunidadId ? { ...o, ...updates } : o),
         historial: [...state.historial, entry],
       }
@@ -234,7 +258,7 @@ export function reducer(state: State, action: Action): State {
     case 'ADD_COTIZACION': {
       const newCot = { ...action.payload, id: action.payload.id || newId() }
       const newCotizaciones = [...state.cotizaciones, newCot]
-      const valorCot = newCotizaciones.filter(c => c.oportunidad_id === newCot.oportunidad_id).reduce((s, c) => s + (c.total || 0), 0)
+      const valorCot = getActiveCotizacionValor(newCotizaciones, newCot.oportunidad_id)
       return {
         ...state,
         cotizaciones: newCotizaciones,
@@ -271,7 +295,7 @@ export function reducer(state: State, action: Action): State {
       const delCot = state.cotizaciones.find(c => c.id === action.payload.id)
       const filteredCots = state.cotizaciones.filter(c => c.id !== action.payload.id)
       if (!delCot) return { ...state, cotizaciones: filteredCots }
-      const valorCotDel = filteredCots.filter(c => c.oportunidad_id === delCot.oportunidad_id).reduce((s, c) => s + (c.total || 0), 0)
+      const valorCotDel = getActiveCotizacionValor(filteredCots, delCot.oportunidad_id)
       return {
         ...state,
         cotizaciones: filteredCots,
@@ -288,11 +312,33 @@ export function reducer(state: State, action: Action): State {
       const updCots = state.cotizaciones.map(c => c.id === action.payload.id ? { ...c, ...action.payload } : c)
       const updCot = updCots.find(c => c.id === action.payload.id)
       if (!updCot) return { ...state, cotizaciones: updCots }
-      const valorCotUpd = updCots.filter(c => c.oportunidad_id === updCot.oportunidad_id).reduce((s, c) => s + (c.total || 0), 0)
+      const valorCotUpd = getActiveCotizacionValor(updCots, updCot.oportunidad_id)
       return {
         ...state,
         cotizaciones: updCots,
         oportunidades: state.oportunidades.map(o => o.id === updCot.oportunidad_id ? { ...o, valor_cotizado: valorCotUpd } : o),
+      }
+    }
+    case 'RECOTIZAR': {
+      const { cotizacionId, nuevoNumero, newCotId } = action.payload
+      const original = state.cotizaciones.find(c => c.id === cotizacionId)
+      if (!original) return state
+      // Discard the original
+      const updatedCots = state.cotizaciones.map(c => c.id === cotizacionId ? { ...c, estado: 'descartada' as const } : c)
+      // Create new version copying products and conditions
+      const newCot: Cotizacion = {
+        ...original,
+        id: newCotId || newId(),
+        numero: nuevoNumero,
+        estado: 'borrador',
+        fecha: new Date().toISOString().split('T')[0],
+      }
+      const allCots = [...updatedCots, newCot]
+      const valor = getActiveCotizacionValor(allCots, original.oportunidad_id)
+      return {
+        ...state,
+        cotizaciones: allCots,
+        oportunidades: state.oportunidades.map(o => o.id === original.oportunidad_id ? { ...o, valor_cotizado: valor } : o),
       }
     }
     default: return state
@@ -396,6 +442,16 @@ function syncToSupabase(action: Action, stateBefore: State) {
     case 'UPDATE_COTIZACION':
       svcCotizaciones.updateCotizacion(action.payload).then(r => log('UPDATE_COTIZACION', r))
       break
+    case 'RECOTIZAR': {
+      const origCot = stateBefore.cotizaciones.find(c => c.id === action.payload.cotizacionId)
+      if (origCot) {
+        // Discard original in DB
+        svcCotizaciones.updateCotizacion({ id: origCot.id, estado: 'descartada' }).then(r => log('RECOTIZAR discard', r))
+        // Create new version in DB
+        svcCotizaciones.duplicateCotizacion(origCot, action.payload.nuevoNumero).then(r => log('RECOTIZAR new', r))
+      }
+      break
+    }
     case 'BULK_UPSERT_PRECIOS':
     case '_HYDRATE':
       break

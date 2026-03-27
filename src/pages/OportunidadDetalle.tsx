@@ -958,77 +958,120 @@ export default function OportunidadDetalle() {
               </div>
             </div>
 
-            {cotizaciones.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText size={28} className="text-[var(--color-border)] mx-auto mb-2" />
-                <p className="text-xs text-[var(--color-text-muted)] mb-1">Sin cotizaciones.</p>
-                <p className="text-[10px] text-[var(--color-text-muted)] mb-3">Agrega productos y genera una.</p>
-                {productos.length > 0 && (
-                  <button
-                    onClick={() => setShowCotModal(true)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
-                  >
-                    <FileText size={13} /> Generar primera cotizacion
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {cotizaciones.map(c => {
-                  const prodCount = c.productos_snapshot?.length || 0
-                  return (
-                    <div key={c.id} className="bg-white rounded-xl p-5 border border-[#f1f5f9] hover:shadow-[var(--shadow-card-hover)] transition-all group">
-                      <div className="flex justify-between items-start gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-[15px] text-[var(--color-text)] font-mono">{c.numero}</span>
-                            <EstadoBadge estado={c.estado} />
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
-                            <span>{formatDate(c.fecha)}</span>
-                            <span>{prodCount} producto{prodCount !== 1 ? 's' : ''}</span>
-                          </div>
+            {(() => {
+              const activeCots = cotizaciones.filter(c => c.estado !== 'descartada')
+              const discardedCots = cotizaciones.filter(c => c.estado === 'descartada')
+
+              function handleRecotizar(cotId: string) {
+                const cot = cotizaciones.find(c => c.id === cotId)
+                if (!cot) return
+                // Calculate next version letter
+                const base = cot.numero.replace(/[A-Z]$/, '')
+                const currentLetter = cot.numero.match(/([A-Z])$/)?.[1]
+                const nextLetter = currentLetter ? String.fromCharCode(currentLetter.charCodeAt(0) + 1) : 'A'
+                const nuevoNumero = base + nextLetter
+                dispatch({ type: 'RECOTIZAR', payload: { cotizacionId: cotId, nuevoNumero } })
+                showToast('success', `Recotización ${nuevoNumero} creada. La ${cot.numero} fue descartada.`)
+              }
+
+              function renderCotCard(c: typeof cotizaciones[0], isDiscarded: boolean) {
+                const prodCount = c.productos_snapshot?.length || 0
+                return (
+                  <div key={c.id} className={`bg-white rounded-xl p-5 border border-[#f1f5f9] transition-all group ${isDiscarded ? 'opacity-50' : 'hover:shadow-[var(--shadow-card-hover)]'}`}>
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`font-semibold text-[15px] font-mono ${isDiscarded ? 'text-gray-400 line-through' : 'text-[var(--color-text)]'}`}>{c.numero}</span>
+                          <EstadoBadge estado={c.estado} />
                         </div>
-                        <div className="shrink-0 text-right">
-                          <div className="font-bold text-lg text-[var(--color-text)] tabular-nums">{formatCOP(c.total)}</div>
-                          <div className="text-[9px] text-[var(--color-text-muted)]">con IVA</div>
-                          <div className="flex items-center justify-end gap-1 mt-2">
+                        <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
+                          <span>{formatDate(c.fecha)}</span>
+                          <span>{prodCount} producto{prodCount !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className={`font-bold text-lg tabular-nums ${isDiscarded ? 'text-gray-400' : 'text-[var(--color-text)]'}`}>{formatCOP(c.total)}</div>
+                        <div className="text-[9px] text-[var(--color-text-muted)]">con IVA</div>
+                        <div className="flex items-center justify-end gap-1 mt-2">
+                          {!isDiscarded && (c.estado === 'enviada' || c.estado === 'borrador') && (
                             <button
-                              onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
-                              className="p-1.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                              title="Ver/Editar"
+                              onClick={() => handleRecotizar(c.id)}
+                              className="p-1.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-all"
+                              title="Recotizar (crear nueva versión)"
                             >
-                              <Edit3 size={13} />
+                              <ArrowRightLeft size={13} />
                             </button>
-                            <button
-                              onClick={() => handleDescargarPdf(c.id)}
-                              className="p-1.5 rounded text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
-                              title="Descargar PDF"
-                            >
-                              <Download size={13} />
-                            </button>
-                            <button
-                              onClick={() => handleDuplicarCotizacion(c.id)}
-                              className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
-                              title="Duplicar"
-                            >
-                              <Copy size={13} />
-                            </button>
-                            <button
-                              onClick={() => { if (window.confirm('\u00bfEliminar esta cotizacion?')) dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } }) }}
-                              className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
+                          )}
+                          <button
+                            onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
+                            className="p-1.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                            title="Ver/Editar"
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleDescargarPdf(c.id)}
+                            className="p-1.5 rounded text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                            title="Descargar PDF"
+                          >
+                            <Download size={13} />
+                          </button>
+                          {!isDiscarded && (
+                            <>
+                              <button
+                                onClick={() => handleDuplicarCotizacion(c.id)}
+                                className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                                title="Duplicar"
+                              >
+                                <Copy size={13} />
+                              </button>
+                              <button
+                                onClick={() => { if (window.confirm('\u00bfEliminar esta cotizacion?')) dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } }) }}
+                                className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                                title="Eliminar"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
+                  </div>
+                )
+              }
+
+              if (cotizaciones.length === 0) return (
+                <div className="text-center py-8">
+                  <FileText size={28} className="text-[var(--color-border)] mx-auto mb-2" />
+                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Sin cotizaciones.</p>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mb-3">Agrega productos y genera una.</p>
+                  {productos.length > 0 && (
+                    <button
+                      onClick={() => setShowCotModal(true)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
+                    >
+                      <FileText size={13} /> Generar primera cotizacion
+                    </button>
+                  )}
+                </div>
+              )
+              return (
+                <div className="space-y-3">
+                  {activeCots.map(c => renderCotCard(c, false))}
+                  {discardedCots.length > 0 && (
+                    <details className="group/versions">
+                      <summary className="cursor-pointer text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] py-2 select-none">
+                        Ver versiones anteriores ({discardedCots.length})
+                      </summary>
+                      <div className="space-y-2 mt-2">
+                        {discardedCots.map(c => renderCotCard(c, true))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
 

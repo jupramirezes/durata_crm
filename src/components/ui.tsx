@@ -58,6 +58,7 @@ const ESTADO_STYLES: Record<string, string> = {
   enviada: 'bg-blue-50 text-blue-700',
   aprobada: 'bg-emerald-50 text-emerald-700',
   rechazada: 'bg-red-50 text-red-700',
+  descartada: 'bg-gray-100 text-gray-400 line-through',
 }
 
 export function EstadoBadge({ estado }: { estado: string }) {

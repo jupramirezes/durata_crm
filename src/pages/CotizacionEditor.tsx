@@ -202,6 +202,9 @@ export default function CotizacionEditor() {
           <div>
             <h2 className="text-xl font-semibold">Editar Cotizacion <span className="font-mono text-[var(--color-primary)]">{cotizacion.numero}</span></h2>
             <p className="text-xs text-[var(--color-text-muted)]">Fecha: {formatDate(cotizacion.fecha)} &bull; Estado: {cotizacion.estado}</p>
+            {/[A-Z]$/.test(cotizacion.numero) && (
+              <p className="text-[10px] text-amber-600 mt-0.5">Recotización de COT-{cotizacion.numero.replace(/[A-Z]$/, '')}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
