@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { ETAPAS, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
@@ -6,7 +6,7 @@ import { formatDate, formatCOP, daysSince } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
-import { uploadProductFile, getSignedUrl, acceptString } from '../hooks/useStorage'
+import { uploadProductFile, getSignedUrl, acceptString, uploadOppFile, listOppFiles, deleteProductFile } from '../hooks/useStorage'
 import { showToast } from '../components/Toast'
 import { exportApuExcel } from '../lib/exportar-apu'
 import * as svcOportunidades from '../hooks/useOportunidades'
@@ -63,6 +63,9 @@ export default function OportunidadDetalle() {
   const [editingNotaText, setEditingNotaText] = useState('')
   // Assign contact state
   const [showAssignContacto, setShowAssignContacto] = useState(false)
+  // Archivos state
+  const [archivos, setArchivos] = useState<{ name: string; path: string; size: number; created: string }[]>([])
+  const [uploadingFile, setUploadingFile] = useState(false)
   const [valorAdjudicado, setValorAdjudicado] = useState('')
   const [motivoPerdida, setMotivoPerdida] = useState('')
   const [manualForm, setManualForm] = useState({
@@ -105,6 +108,45 @@ export default function OportunidadDetalle() {
   // ══════════════════════════════════════════════════
   // TIMELINE UNIFICADO (CAMBIO 3)
   // ══════════════════════════════════════════════════
+  // Load archivos from storage
+  useEffect(() => {
+    if (opp?.id) listOppFiles(opp.id).then(setArchivos)
+  }, [opp?.id])
+
+  async function handleUploadFile(file: File) {
+    if (!opp) return
+    setUploadingFile(true)
+    const result = await uploadOppFile(opp.id, file)
+    if ('error' in result) {
+      showToast('error', result.error)
+    } else {
+      showToast('success', `${file.name} subido`)
+      listOppFiles(opp.id).then(setArchivos)
+    }
+    setUploadingFile(false)
+  }
+
+  async function handleDeleteFile(path: string, name: string) {
+    if (!window.confirm(`¿Eliminar "${name}"?`)) return
+    const { error } = await deleteProductFile(path)
+    if (error) showToast('error', error)
+    else {
+      showToast('success', 'Archivo eliminado')
+      if (opp) listOppFiles(opp.id).then(setArchivos)
+    }
+  }
+
+  async function handleDownloadFile(path: string, name: string) {
+    const url = await getSignedUrl(path)
+    if (url) {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name
+      a.target = '_blank'
+      a.click()
+    } else showToast('error', 'No se pudo obtener enlace de descarga')
+  }
+
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
     const events: TimelineEvent[] = []
 
@@ -456,14 +498,14 @@ export default function OportunidadDetalle() {
   // ══════════════════════════════════════════════════
 
   return (
-    <div className="px-8 py-8 animate-fade-in max-w-[1400px]">
+    <div className="px-10 py-8 animate-fade-in max-w-[1400px]">
       {/* Back */}
       <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[13px] text-[#94a3b8] hover:text-[var(--color-text)] transition-colors mb-5">
         <ArrowLeft size={14} /> Volver
       </button>
 
       {/* ═══ CAMBIO 1: HEADER FUERTE ═══ */}
-      <div className="card p-6 mb-6">
+      <div className="card p-7 mb-7">
         <div className="flex items-start justify-between gap-4">
           {/* Left: company info */}
           <div className="flex items-start gap-4 min-w-0">
@@ -471,7 +513,7 @@ export default function OportunidadDetalle() {
               <Building2 size={22} className="text-[var(--color-primary)]" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-[28px] font-bold text-[var(--color-text)] truncate tracking-tight">{emp.nombre}</h1>
+              <h1 className="text-[32px] font-bold text-[var(--color-text)] truncate tracking-tight leading-tight mb-1">{emp.nombre}</h1>
               {contacto ? (
                 <p className="text-base text-[#64748b] mt-1">
                   {contacto.nombre}{contacto.cargo && ` — ${contacto.cargo}`}
@@ -577,15 +619,15 @@ export default function OportunidadDetalle() {
       </div>
 
       {/* ═══ CAMBIO 2: LAYOUT 2 COLUMNAS ═══ */}
-      <div className="flex gap-6 items-start">
+      <div className="flex gap-8 items-start">
         {/* ─── LEFT COLUMN (70%) ─── */}
-        <div className="flex-[7] min-w-0 space-y-5">
+        <div className="flex-[7] min-w-0 space-y-7">
 
           {/* ═══ CAMBIO 3: TIMELINE UNIFICADO ═══ */}
-          <div className="card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock size={14} className="text-[var(--color-primary)]" />
-              <h3 className="font-semibold text-sm text-[var(--color-text)]">Actividad</h3>
+          <div className="card p-7">
+            <div className="flex items-center gap-2.5 mb-5">
+              <Clock size={16} className="text-[var(--color-primary)]" />
+              <h3 className="font-bold text-lg text-[var(--color-text)]">Actividad</h3>
               {timelineEvents.length > 0 && (
                 <span className="text-[9px] font-bold text-[var(--color-primary)] bg-blue-50 px-1.5 py-0.5 rounded">{timelineEvents.length}</span>
               )}
@@ -674,11 +716,11 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 4: PRODUCTOS MEJORADOS ═══ */}
-          <div className="card p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <Package size={14} className="text-purple-500" />
-                <h3 className="font-semibold text-sm text-[var(--color-text)]">Productos</h3>
+          <div className="card p-7">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2.5">
+                <Package size={16} className="text-purple-500" />
+                <h3 className="font-bold text-lg text-[var(--color-text)]">Productos</h3>
                 {productos.length > 0 && (
                   <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{productos.length}</span>
                 )}
@@ -862,12 +904,54 @@ export default function OportunidadDetalle() {
             )}
           </div>
 
+          {/* ═══ ARCHIVOS ADJUNTOS ═══ */}
+          <div className="card p-7">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2.5">
+                <Paperclip size={16} className="text-slate-500" />
+                <h3 className="font-bold text-lg text-[var(--color-text)]">Archivos adjuntos</h3>
+                {archivos.length > 0 && (
+                  <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{archivos.length}</span>
+                )}
+              </div>
+              <label className={`flex items-center gap-1.5 h-9 px-4 rounded-lg text-xs font-semibold cursor-pointer transition-all ${uploadingFile ? 'bg-gray-100 text-gray-400' : 'bg-[var(--color-primary)] text-white hover:opacity-90'}`}>
+                <Paperclip size={12} /> {uploadingFile ? 'Subiendo...' : '+ Subir archivo'}
+                <input type="file" className="hidden" accept=".pdf,.xlsx,.xlsm,.xls,.png,.jpg,.jpeg,.doc,.docx" disabled={uploadingFile} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); e.target.value = '' }} />
+              </label>
+            </div>
+            {archivos.length === 0 ? (
+              <p className="text-sm text-[var(--color-text-muted)] text-center py-4">Sin archivos adjuntos</p>
+            ) : (
+              <div className="space-y-2">
+                {archivos.map(f => {
+                  const ext = f.name.split('.').pop()?.toLowerCase() || ''
+                  const isExcel = ['xlsx', 'xlsm', 'xls'].includes(ext)
+                  const isPdf = ext === 'pdf'
+                  const iconColor = isExcel ? 'text-emerald-500' : isPdf ? 'text-red-500' : 'text-slate-400'
+                  const IconFile = isExcel ? FileSpreadsheet : isPdf ? File : Paperclip
+                  const sizeStr = f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : f.size > 0 ? `${Math.round(f.size / 1024)} KB` : ''
+                  return (
+                    <div key={f.path} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-surface)] group transition-colors">
+                      <IconFile size={18} className={iconColor} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{f.name}</div>
+                        <div className="text-[10px] text-[var(--color-text-muted)]">{sizeStr}</div>
+                      </div>
+                      <button onClick={() => handleDownloadFile(f.path, f.name)} className="text-xs text-[var(--color-primary)] hover:underline opacity-0 group-hover:opacity-100 transition-opacity" title="Descargar"><Download size={14} /></button>
+                      <button onClick={() => handleDeleteFile(f.path, f.name)} className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Eliminar"><Trash2 size={14} /></button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* ═══ CAMBIO 5: COTIZACIONES MEJORADAS ═══ */}
-          <div className="card p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <FileText size={14} className="text-[var(--color-primary)]" />
-                <h3 className="font-semibold text-sm text-[var(--color-text)]">Cotizaciones</h3>
+          <div className="card p-7">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2.5">
+                <FileText size={16} className="text-[var(--color-primary)]" />
+                <h3 className="font-bold text-lg text-[var(--color-text)]">Cotizaciones</h3>
                 {cotizaciones.length > 0 && (
                   <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{cotizaciones.length}</span>
                 )}
@@ -949,7 +1033,7 @@ export default function OportunidadDetalle() {
         </div>
 
         {/* ─── RIGHT COLUMN - SIDEBAR (30%) ─── */}
-        <div className="flex-[3] min-w-[280px] max-w-[340px] space-y-4 sticky top-6">
+        <div className="flex-[3] min-w-[340px] max-w-[380px] space-y-5 sticky top-6">
           {/* ═══ CAMBIO 2: SIDEBAR RESUMEN ═══ */}
           <div className="card p-7">
             <div className="mb-6 pb-6 border-b border-[#f1f5f9]">

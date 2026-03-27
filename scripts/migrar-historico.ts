@@ -389,9 +389,11 @@ async function main() {
     if (estadoI === 'ADJUDICADA') {
       etapa = 'adjudicada'
     } else if (estadoI === 'COTIZADA' && anio < 2026) {
-      etapa = 'perdida'
+      etapa = 'perdida' // old cotizaciones without adjudication assumed lost
     } else if (estadoI === 'COTIZADA' && anio >= 2026) {
       etapa = 'cotizacion_enviada'
+    } else if (anio >= 2026 && (!estadoI || estadoI === '')) {
+      etapa = 'nuevo_lead' // 2026+ without status → pending
     } else {
       etapa = 'perdida'
     }
@@ -490,6 +492,9 @@ async function main() {
       etapa = 'cotizacion_enviada'
     } else if (estadoQ === 'COTIZADA') {
       etapa = 'en_cotizacion'
+    } else if (!estadoQ || estadoQ === '') {
+      // No status in Excel → pending, not yet quoted
+      etapa = 'nuevo_lead'
     }
 
     const updates: Record<string, unknown> = {}
