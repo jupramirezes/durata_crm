@@ -78,19 +78,31 @@ export async function fetchProductos(): Promise<{ data: ProductoCliente[]; error
   return fetchAllRows<ProductoCliente>(supabase.from('productos_oportunidad').select('*').order('created_at', { ascending: true }))
 }
 
+/** Strip fields that may not exist as columns yet to prevent INSERT failures */
+function sanitizeProducto(p: Record<string, unknown>): Record<string, unknown> {
+  const KNOWN_COLUMNS = ['id', 'oportunidad_id', 'categoria', 'subtipo', 'configuracion', 'apu_resultado', 'precio_calculado', 'descripcion_comercial', 'cantidad', 'imagen_render', 'archivo_apu_url', 'archivo_apu_nombre', 'archivo_pdf_url', 'archivo_pdf_nombre']
+  const row: Record<string, unknown> = {}
+  for (const key of KNOWN_COLUMNS) {
+    if (key in p && p[key] !== undefined) row[key] = p[key]
+  }
+  return row
+}
+
 export async function createProducto(p: Omit<ProductoCliente, 'id'> & { id?: string }): Promise<{ error: string | null }> {
   if (!isSupabaseReady) return { error: 'supabase_not_ready' }
-  const { id, ...rest } = p
-  const row: Record<string, unknown> = { ...rest }
-  if (id) row.id = id
+  const row = sanitizeProducto(p as Record<string, unknown>)
   const { error } = await supabase.from('productos_oportunidad').insert(row)
+  if (error) console.error('[createProducto] INSERT failed:', error.message, 'Row keys:', Object.keys(row))
   return { error: error?.message ?? null }
 }
 
 export async function updateProducto(updates: Partial<ProductoCliente> & { id: string }): Promise<{ error: string | null }> {
   if (!isSupabaseReady) return { error: 'supabase_not_ready' }
   const { id, ...rest } = updates
-  const { error } = await supabase.from('productos_oportunidad').update(rest).eq('id', id)
+  const row = sanitizeProducto(rest as Record<string, unknown>)
+  delete row.id // id is in the WHERE clause, not in the UPDATE
+  const { error } = await supabase.from('productos_oportunidad').update(row).eq('id', id)
+  if (error) console.error('[updateProducto] UPDATE failed:', error.message)
   return { error: error?.message ?? null }
 }
 
