@@ -3,6 +3,10 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado, ApuLinea } from '../types'
 import { calcularApuMesa } from '../lib/calcular-apu'
+import { calcularApuGenerico, preloadProductData, isMotorGenericoReady } from '../lib/motor-generico'
+
+/** Feature flag: set to true to use data-driven formula engine instead of hardcoded calcularApuMesa */
+const USE_MOTOR_GENERICO = false
 import { formatCOP } from '../lib/utils'
 import { exportApuExcel as exportApuExcelFn } from '../lib/exportar-apu'
 import type { Mesa3DViewerRef } from '../components/Mesa3DViewer'
@@ -199,6 +203,14 @@ export default function ConfiguradorMesa() {
   const [showApu, setShowApu] = useState(true)
   const [added, setAdded] = useState(false)
   const [toast, setToast] = useState(false)
+
+  // Preload motor genérico data (fire once)
+  const [motorReady, setMotorReady] = useState(false)
+  useEffect(() => {
+    if (USE_MOTOR_GENERICO) {
+      preloadProductData('mesa').then(ok => setMotorReady(ok))
+    }
+  }, [])
   const [descripcionEdit, setDescripcionEdit] = useState(productoExistente?.descripcion_comercial || '')
   const [descOverridden, setDescOverridden] = useState(!!productoExistente?.descripcion_comercial)
 
@@ -301,7 +313,14 @@ export default function ConfiguradorMesa() {
       const dims = [...cfg.pozuelo_dims]
       while (dims.length < cfg.pozuelos_rect) dims.push({ largo: 0.50, ancho: 0.40, alto: 0.18 })
       const cfgFinal = { ...cfg, pozuelo_dims: dims.slice(0, cfg.pozuelos_rect) }
-      const res = calcularApuMesa(cfgFinal, state.precios)
+      // Feature flag: use generic engine or legacy
+      let res: ApuResultado | null
+      if (USE_MOTOR_GENERICO && motorReady && isMotorGenericoReady('mesa')) {
+        res = calcularApuGenerico(cfgFinal, state.precios)
+        if (!res) res = calcularApuMesa(cfgFinal, state.precios) // fallback
+      } else {
+        res = calcularApuMesa(cfgFinal, state.precios)
+      }
       setResultado(res)
       setLineaOverrides({})
       if (!descOverridden) {
@@ -309,7 +328,7 @@ export default function ConfiguradorMesa() {
       }
     }, 500)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [cfg, state.precios])
+  }, [cfg, state.precios, motorReady])
 
   // Compute adjusted resultado with overrides
   const adjustedResultado = resultado ? (() => {
