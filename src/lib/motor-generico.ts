@@ -204,3 +204,73 @@ export function calcularApuGenerico(
     descripcion_comercial: descripcion,
   }
 }
+
+/* ── Generic function for non-mesa products ── */
+
+/**
+ * Calculates APU from raw variables (no ConfigMesa mapping needed).
+ * Used by ConfiguradorGenerico for carcamo, estanteria, etc.
+ */
+export function calcularApuRaw(
+  productoNombre: string,
+  variables: Variables,
+  precios: PrecioMaestro[],
+  margen: number,
+): ApuResultado | null {
+  if (!_cachedLineas || !_cachedMateriales || !_cachedTarifasMO) return null
+
+  // Evaluate calculated variables
+  const vars = { ...variables }
+  // Import evalFormula for calculated vars is already available
+  // (calculated vars are pre-evaluated by the caller)
+
+  const precioByName: Record<string, number> = {}
+  const precioByCodigo: Record<string, number> = {}
+  for (const p of precios) {
+    if (p.nombre) precioByName[p.nombre] = p.precio
+    if (p.codigo) precioByCodigo[p.codigo] = p.precio
+  }
+
+  const result = calcularAPUGenerico(
+    _cachedLineas, vars, _cachedMateriales, precioByName, _cachedTarifasMO, precioByCodigo,
+  )
+
+  // Only insumos in lineas (matching legacy format)
+  const lineas: ApuLinea[] = result.lineas
+    .filter(l => l.seccion === 'insumos' && l.condicion_activa && l.total > 0)
+    .map(l => ({
+      descripcion: l.descripcion,
+      material: l.material_nombre || '',
+      cantidad: l.cantidad,
+      unidad: 'm²',
+      precio_unitario: l.precio_unitario,
+      desperdicio: l.desperdicio,
+      total: l.total,
+    }))
+
+  const costoTotal = result.costoTotal
+  const precioVenta = Math.round(costoTotal / (1 - margen))
+  const precioComercial = Math.ceil(precioVenta / 1000) * 1000
+
+  const L = Number(vars.largo) || 1
+  const W = Number(vars.ancho) || 0.5
+  const H = Number(vars.alto) || 0.5
+  const inst = !!vars.instalacion
+  const pol = !!vars.poliza
+
+  const descripcion = `${inst ? 'Suministro e instalación de' : 'Suministro de'} ${productoNombre} en acero inoxidable, de ${L.toFixed(2)} m × ${W.toFixed(2)} m × ${H.toFixed(2)} m. Soldadura TIG con argón, acabado pulido satinado${pol ? '. Con póliza' : '. Sin póliza'}.`
+
+  return {
+    lineas,
+    costo_insumos: result.totalInsumos,
+    costo_mo: result.totalMO,
+    costo_transporte: result.totalTransporte,
+    costo_laser: result.totalLaser,
+    costo_poliza: result.totalPoliza,
+    costo_total: costoTotal,
+    precio_venta: precioVenta,
+    precio_comercial: precioComercial,
+    margen,
+    descripcion_comercial: descripcion,
+  }
+}

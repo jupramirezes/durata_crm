@@ -9,9 +9,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { calcularApuGenerico, preloadProductData, isMotorGenericoReady } from '../lib/motor-generico'
+import { calcularApuRaw, preloadProductData, isMotorGenericoReady } from '../lib/motor-generico'
+import { evalFormula } from '../lib/evaluar-formula'
 import type { Variables } from '../lib/evaluar-formula'
-import type { ConfigMesa, ApuResultado } from '../types'
+import type { ApuResultado } from '../types'
 import { formatCOP } from '../lib/utils'
 import { showToast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -117,49 +118,22 @@ export default function ConfiguradorGenerico() {
     load()
   }, [productoId])
 
-  // Calculate APU
+  // Calculate APU using raw variables (generic, works for any product)
   const resultado: ApuResultado | null = useMemo(() => {
     if (!motorReady || !isMotorGenericoReady(productoId)) return null
 
-    // Build a ConfigMesa-compatible object from generic variables
-    // The motor-generico.ts configToVariables function handles the mapping
-    const cfg: ConfigMesa = {
-      largo: Number(valores.largo) || 2,
-      ancho: Number(valores.ancho) || 0.7,
-      alto: Number(valores.alto) || 0.9,
-      tipo_acero: (String(valores.tipo_acero || '304')) as '304' | '430',
-      acabado: (String(valores.acabado || 'mate').toLowerCase()) as 'mate' | 'satinado' | 'brillante',
-      calibre: `cal_${valores.calibre || '18'}`,
-      refuerzo: Number(valores.refuerzo_rh) ? 'rh_15mm' : 'omegas',
-      ancho_omegas: Number(valores.desarrollo_omegas) || 0.15,
-      salp_long: Number(valores.salp_longitudinal) || 0,
-      salp_lat: Number(valores.salp_costado) || 0,
-      alto_salp: Number(valores.alto_salpicadero) || 0.10,
-      babero: !!valores.babero,
-      alto_babero: Number(valores.alto_babero) || 0.25,
-      babero_costados: Number(valores.babero_costados) || 0,
-      entrepaños: Number(valores.entrepanos) || 0,
-      patas: Number(valores.patas) || 4,
-      ruedas: !!valores.ruedas,
-      tipo_rueda: 'inox_3_freno',
-      cant_ruedas: Number(valores.num_ruedas) || 4,
-      tipo_nivelador: 'inox_cuadrado',
-      pozuelos_rect: Number(valores.pozuelos_rect) || 0,
-      pozuelo_dims: [{ largo: Number(valores.poz_largo) || 0.54, ancho: Number(valores.poz_ancho) || 0.39, alto: Number(valores.poz_alto) || 0.18 }],
-      pozuelos_redondos: Number(valores.pozuelo_redondo) || 0,
-      escabiladero: !!valores.escabiladero,
-      bandejeros: Number(valores.cant_bandejeros) || 3,
-      vertederos: Number(valores.vertedero) || 0,
-      diam_vertedero: Number(valores.diametro_vertedero) || 0.45,
-      prof_vertedero: Number(valores.prof_vertedero) || 0.50,
-      push_pedal: !!valores.push_pedal,
-      poliza,
-      instalado,
-      margen,
+    // Merge user values with common parameters
+    const vars: Variables = { ...valores, instalacion: instalado ? 1 : 0, poliza: poliza ? 1 : 0 }
+
+    // Evaluate calculated variables
+    for (const v of variables) {
+      if (v.tipo === 'calculado' && v.default_valor) {
+        try { vars[v.nombre] = evalFormula(v.default_valor, vars) } catch { /* keep default */ }
+      }
     }
 
-    return calcularApuGenerico(cfg, preciosMaestro)
-  }, [valores, motorReady, productoId, preciosMaestro, margen, poliza, instalado])
+    return calcularApuRaw(productoNombre, vars, preciosMaestro, margen)
+  }, [valores, motorReady, productoId, preciosMaestro, margen, poliza, instalado, productoNombre, variables])
 
   const customTotal = customLineas.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0)
   const precioFinal = resultado ? resultado.precio_comercial + Math.ceil(customTotal / (1 - margen) / 1000) * 1000 : 0
@@ -190,17 +164,14 @@ export default function ConfiguradorGenerico() {
     return groupOrder.map(g => [g, map.get(g)!] as [string, ProductoVariable[]])
   }, [variables])
 
-  // Computed vars (calculated variables evaluated)
+  // Computed vars (calculated variables evaluated synchronously)
   const computedVars = useMemo(() => {
     const cv = { ...valores }
-    // Import evalFormula dynamically to avoid circular deps
-    import('../lib/evaluar-formula').then(m => {
-      for (const v of variables) {
-        if (v.tipo === 'calculado' && v.default_valor) {
-          try { cv[v.nombre] = m.evalFormula(v.default_valor, cv) } catch { /* ignore */ }
-        }
+    for (const v of variables) {
+      if (v.tipo === 'calculado' && v.default_valor) {
+        try { cv[v.nombre] = evalFormula(v.default_valor, cv) } catch { /* ignore */ }
       }
-    })
+    }
     return cv
   }, [valores, variables])
 
