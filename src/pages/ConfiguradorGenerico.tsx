@@ -84,6 +84,9 @@ export default function ConfiguradorGenerico() {
   const [showAPU, setShowAPU] = useState(true)
   const [customLines, setCustomLines] = useState<CustomLine[]>([])
   const [motorReady, setMotorReady] = useState(false)
+  // Line overrides: key = "seccion-orden", value = { cant?, pu? }
+  const [lineOverrides, setLineOverrides] = useState<Record<string, { cant?: number; pu?: number }>>({})
+  const [prevVarHash, setPrevVarHash] = useState('')
 
   // Load product
   useEffect(() => {
@@ -137,8 +140,36 @@ export default function ConfiguradorGenerico() {
 
   const resultado = calcResult?.resultado || null
   const full = calcResult?.full || null
+
+  // Reset overrides when variables change
+  useEffect(() => {
+    const hash = JSON.stringify(computedVars)
+    if (prevVarHash && hash !== prevVarHash && Object.keys(lineOverrides).length > 0) {
+      setLineOverrides({})
+      showToast('warning', 'Overrides reseteados por cambio de configuración')
+    }
+    setPrevVarHash(hash)
+  }, [computedVars])
+
+  // Compute override-adjusted totals
+  const overrideDelta = useMemo(() => {
+    if (!full) return 0
+    let delta = 0
+    for (const [key, ov] of Object.entries(lineOverrides)) {
+      const line = full.allLineas.find((l, i) => `${l.seccion}-${i}` === key)
+      if (!line || !line.activa) continue
+      const origTotal = line.total
+      const newCant = ov.cant ?? line.cantidad
+      const newPu = ov.pu ?? line.precio_unitario
+      const newTotal = newCant * newPu * (1 + (line.desperdicio || 0))
+      delta += newTotal - origTotal
+    }
+    return delta
+  }, [full, lineOverrides])
+
   const customTotal = customLines.reduce((s, l) => s + l.cant * l.pu, 0)
-  const precioFinal = resultado ? resultado.precio_comercial + Math.ceil(customTotal / (1 - margen) / 1000) * 1000 : 0
+  const adjustedCostoTotal = resultado ? resultado.costo_total + overrideDelta + customTotal : 0
+  const precioFinal = resultado ? Math.ceil(Math.round(adjustedCostoTotal / (1 - margen)) / 1000) * 1000 : 0
 
   // Auto-description
   useEffect(() => {
@@ -241,7 +272,7 @@ export default function ConfiguradorGenerico() {
                 <input type="number" value={Math.round(margen * 100)} min={5} max={60} onChange={e => setMargen(Math.max(0.05, Math.min(0.60, (parseInt(e.target.value) || 38) / 100)))} className="w-12 px-1.5 py-0.5 text-sm text-right bg-white/20 border border-white/30 rounded font-bold text-white" /><span className="text-xs font-bold">%</span>
               </div>
               <div className="flex justify-between mt-2 text-xs opacity-70">
-                <span>Costo: {resultado ? formatCOP(Math.round(resultado.costo_total + customTotal)) : '—'}</span>
+                <span>Costo: {formatCOP(Math.round(adjustedCostoTotal))}</span>
                 <span>Cant: <input type="number" value={cantidad} min={1} max={99} onChange={e => setCantidad(Math.max(1, parseInt(e.target.value) || 1))} className="w-8 bg-white/20 border border-white/30 rounded text-center text-white font-bold" /></span>
               </div>
             </div>
@@ -258,30 +289,51 @@ export default function ConfiguradorGenerico() {
                 <div className="max-h-[500px] overflow-y-auto">
                   {SEC_ORDER.map(sec => {
                     const s = SEC[sec]
-                    const lines = full.allLineas.filter(l => l.seccion === sec && l.activa && l.total > 0)
+                    // Show ALL active lines, including $0 ones
+                    const lines = full.allLineas.map((l, gi) => ({ ...l, gi })).filter(l => l.seccion === sec && l.activa)
                     if (!lines.length) return null
-                    const subtotal = lines.reduce((a, l) => a + l.total, 0)
+                    const subtotal = lines.reduce((a, l) => {
+                      const key = `${l.seccion}-${l.gi}`
+                      const ov = lineOverrides[key]
+                      if (ov) { const c = ov.cant ?? l.cantidad; const p = ov.pu ?? l.precio_unitario; return a + c * p * (1 + (l.desperdicio || 0)) }
+                      return a + l.total
+                    }, 0)
                     return (
                       <div key={sec}>
                         <div className={`${s.bg} px-4 py-1.5 flex items-center justify-between ${s.border} border-y`}>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                            <span className={`text-[10px] font-bold uppercase tracking-wider ${s.color}`}>{s.label}</span>
-                          </div>
+                          <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${s.dot}`} /><span className={`text-[10px] font-bold uppercase tracking-wider ${s.color}`}>{s.label}</span></div>
                           <span className={`text-[10px] font-bold tabular-nums ${s.color}`}>{formatCOP(Math.round(subtotal))}</span>
                         </div>
-                        <table className="w-full text-[11px]">
-                          <tbody>
-                            {lines.map((l, i) => (
-                              <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
-                                <td className="py-1.5 pl-4 text-slate-600 max-w-[120px] truncate">{l.descripcion}</td>
-                                <td className="py-1.5 text-right tabular-nums w-12 text-slate-500">{l.cantidad < 10 ? l.cantidad.toFixed(2) : Math.round(l.cantidad)}</td>
-                                <td className="py-1.5 text-right tabular-nums w-16 text-slate-400">{formatCOP(Math.round(l.precio_unitario))}</td>
-                                <td className="py-1.5 text-right tabular-nums w-18 font-medium pr-4">{formatCOP(Math.round(l.total))}</td>
+                        <table className="w-full text-[11px]"><tbody>
+                          {lines.map(l => {
+                            const key = `${l.seccion}-${l.gi}`
+                            const ov = lineOverrides[key]
+                            const isOverridden = !!ov
+                            const dispCant = ov?.cant ?? l.cantidad
+                            const dispPu = ov?.pu ?? l.precio_unitario
+                            const dispTotal = dispCant * dispPu * (1 + (l.desperdicio || 0))
+                            const isMissing = l.precio_unitario === 0 && l.cantidad > 0 && !ov?.pu
+                            return (
+                              <tr key={l.gi} className={`border-b border-slate-50 ${isOverridden ? 'bg-amber-50/40' : 'hover:bg-slate-50/50'}`}>
+                                <td className="py-1 pl-4 text-slate-600 max-w-[100px] truncate text-[10px]">
+                                  {l.descripcion}
+                                  {isMissing && <span className="text-red-500 ml-1" title="Precio no encontrado en precios_maestro">⚠</span>}
+                                </td>
+                                <td className="py-1 w-14 pr-1">
+                                  <input type="number" value={Number(dispCant.toFixed(4))} step={0.01}
+                                    onChange={e => setLineOverrides(p => ({ ...p, [key]: { ...p[key], cant: parseFloat(e.target.value) || 0 } }))}
+                                    className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isOverridden ? 'text-amber-700 font-semibold' : 'text-slate-500'} hover:bg-white hover:border hover:border-slate-200 hover:rounded px-1`} />
+                                </td>
+                                <td className="py-1 w-16 pr-1">
+                                  <input type="number" value={Math.round(dispPu)} step={100}
+                                    onChange={e => setLineOverrides(p => ({ ...p, [key]: { ...p[key], pu: parseFloat(e.target.value) || 0 } }))}
+                                    className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isMissing ? 'text-red-500' : isOverridden ? 'text-amber-700 font-semibold' : 'text-slate-400'} hover:bg-white hover:border hover:border-slate-200 hover:rounded px-1`} />
+                                </td>
+                                <td className={`py-1 text-right tabular-nums text-[10px] font-medium pr-3 ${isMissing ? 'text-red-400' : ''}`}>{formatCOP(Math.round(dispTotal))}</td>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            )
+                          })}
+                        </tbody></table>
                       </div>
                     )
                   })}
@@ -310,8 +362,9 @@ export default function ConfiguradorGenerico() {
                     <div className="flex justify-between"><span className="text-slate-500">Transporte</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalTransporte))}</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Corte láser</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalLaser))}</span></div>
                     {full.totalPoliza > 0 && <div className="flex justify-between"><span className="text-slate-500">Póliza</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalPoliza))}</span></div>}
+                    {overrideDelta !== 0 && <div className="flex justify-between text-amber-600"><span>Ajustes manuales</span><span className="font-semibold tabular-nums">{overrideDelta > 0 ? '+' : ''}{formatCOP(Math.round(overrideDelta))}</span></div>}
                     {customTotal > 0 && <div className="flex justify-between"><span className="text-slate-500">Adicionales</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(customTotal))}</span></div>}
-                    <div className="flex justify-between pt-1.5 border-t border-slate-300"><span className="font-bold text-slate-800">Costo total</span><span className="font-bold tabular-nums">{formatCOP(Math.round(full.costoTotal + customTotal))}</span></div>
+                    <div className="flex justify-between pt-1.5 border-t border-slate-300"><span className="font-bold text-slate-800">Costo total</span><span className="font-bold tabular-nums">{formatCOP(Math.round(adjustedCostoTotal))}</span></div>
                   </div>
                 </div>
               )}

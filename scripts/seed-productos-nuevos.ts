@@ -67,8 +67,8 @@ async function main() {
 
   // Materials (code-based lookups for láminas + fixed prices)
   const carcMats = [
-    { alias: 'lamina_cuerpo', template_nombre: 'LAMINA ACERO {calibre_cuerpo}', codigo: 'AILA010118' }, // default cal 18
-    { alias: 'lamina_tapa', template_nombre: 'LAMINA ACERO {calibre_tapa}', codigo: 'AILA010112' }, // default cal 12
+    { alias: 'lamina_cuerpo', template_nombre: 'LAMINA ACERO CAL {calibre_cuerpo}', codigo: 'AILA0101{calibre_cuerpo}' },
+    { alias: 'lamina_tapa', template_nombre: 'LAMINA ACERO CAL {calibre_tapa}', codigo: 'AILA0101{calibre_tapa}' },
     { alias: 'tubo_desague', template_nombre: 'TUBO 2" DESAGÜE', codigo: 'AITO020016' },
     { alias: 'granada_lam', template_nombre: 'GRANADA LÁMINA CAL 20', codigo: 'AILA010120' },
     { alias: 'disco_corte', template_nombre: 'DISCOS CORTE 4 1/2', codigo: 'ABDI100124' },
@@ -140,8 +140,8 @@ async function main() {
   console.log(`  ${estVars.length} variables`)
 
   const estMats = [
-    { alias: 'lamina_entrep', template_nombre: 'LÁMINA ENTREPAÑO CAL {calibre_entrepano}', codigo: 'AILA010118' },
-    { alias: 'lamina_patas', template_nombre: 'LÁMINA PATAS CAL {calibre_patas}', codigo: 'AILA010112' },
+    { alias: 'lamina_entrep', template_nombre: 'LÁMINA ENTREPAÑO CAL {calibre_entrepano}', codigo: 'AILA0101{calibre_entrepano}' },
+    { alias: 'lamina_patas', template_nombre: 'LÁMINA PATAS CAL {calibre_patas}', codigo: 'AILA0101{calibre_patas}' },
     { alias: 'lamina_omegas', template_nombre: 'LÁMINA OMEGAS CAL 18', codigo: 'AILA010118' },
     { alias: 'niveladores_est', template_nombre: 'NIVELADORES', codigo: 'FENI010118' },
     { alias: 'disco_corte_est', template_nombre: 'DISCOS CORTE', codigo: 'ABDI100124' },
