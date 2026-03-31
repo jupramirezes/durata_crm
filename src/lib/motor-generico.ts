@@ -207,22 +207,34 @@ export function calcularApuGenerico(
 
 /* ── Generic function for non-mesa products ── */
 
+/** Full result with ALL lines grouped by section — used by ConfiguradorGenerico UI */
+export interface FullApuResult {
+  /** All lines grouped by section (insumos, mo, transporte, laser, poliza, addon) */
+  allLineas: { seccion: string; descripcion: string; material: string; cantidad: number; precio_unitario: number; desperdicio: number; total: number; activa: boolean }[]
+  totalInsumos: number
+  totalMO: number
+  totalTransporte: number
+  totalLaser: number
+  totalPoliza: number
+  totalAddons: number
+  costoTotal: number
+  precioVenta: number
+  precioComercial: number
+}
+
 /**
  * Calculates APU from raw variables (no ConfigMesa mapping needed).
- * Used by ConfiguradorGenerico for carcamo, estanteria, etc.
+ * Returns both legacy ApuResultado AND full line detail for the UI.
  */
 export function calcularApuRaw(
   productoNombre: string,
   variables: Variables,
   precios: PrecioMaestro[],
   margen: number,
-): ApuResultado | null {
+): { resultado: ApuResultado; full: FullApuResult } | null {
   if (!_cachedLineas || !_cachedMateriales || !_cachedTarifasMO) return null
 
-  // Evaluate calculated variables
   const vars = { ...variables }
-  // Import evalFormula for calculated vars is already available
-  // (calculated vars are pre-evaluated by the caller)
 
   const precioByName: Record<string, number> = {}
   const precioByCodigo: Record<string, number> = {}
@@ -235,18 +247,21 @@ export function calcularApuRaw(
     _cachedLineas, vars, _cachedMateriales, precioByName, _cachedTarifasMO, precioByCodigo,
   )
 
-  // Only insumos in lineas (matching legacy format)
+  // Legacy format: only insumos in lineas
   const lineas: ApuLinea[] = result.lineas
     .filter(l => l.seccion === 'insumos' && l.condicion_activa && l.total > 0)
     .map(l => ({
-      descripcion: l.descripcion,
-      material: l.material_nombre || '',
-      cantidad: l.cantidad,
-      unidad: 'm²',
-      precio_unitario: l.precio_unitario,
-      desperdicio: l.desperdicio,
-      total: l.total,
+      descripcion: l.descripcion, material: l.material_nombre || '',
+      cantidad: l.cantidad, unidad: 'm²', precio_unitario: l.precio_unitario,
+      desperdicio: l.desperdicio, total: l.total,
     }))
+
+  // Full format: all lines for UI
+  const allLineas = result.lineas.map(l => ({
+    seccion: l.seccion, descripcion: l.descripcion, material: l.material_nombre || '',
+    cantidad: l.cantidad, precio_unitario: l.precio_unitario,
+    desperdicio: l.desperdicio, total: l.total, activa: l.condicion_activa,
+  }))
 
   const costoTotal = result.costoTotal
   const precioVenta = Math.round(costoTotal / (1 - margen))
@@ -261,16 +276,18 @@ export function calcularApuRaw(
   const descripcion = `${inst ? 'Suministro e instalación de' : 'Suministro de'} ${productoNombre} en acero inoxidable, de ${L.toFixed(2)} m × ${W.toFixed(2)} m × ${H.toFixed(2)} m. Soldadura TIG con argón, acabado pulido satinado${pol ? '. Con póliza' : '. Sin póliza'}.`
 
   return {
-    lineas,
-    costo_insumos: result.totalInsumos,
-    costo_mo: result.totalMO,
-    costo_transporte: result.totalTransporte,
-    costo_laser: result.totalLaser,
-    costo_poliza: result.totalPoliza,
-    costo_total: costoTotal,
-    precio_venta: precioVenta,
-    precio_comercial: precioComercial,
-    margen,
-    descripcion_comercial: descripcion,
+    resultado: {
+      lineas, costo_insumos: result.totalInsumos, costo_mo: result.totalMO,
+      costo_transporte: result.totalTransporte, costo_laser: result.totalLaser,
+      costo_poliza: result.totalPoliza, costo_total: costoTotal,
+      precio_venta: precioVenta, precio_comercial: precioComercial, margen,
+      descripcion_comercial: descripcion,
+    },
+    full: {
+      allLineas, totalInsumos: result.totalInsumos, totalMO: result.totalMO,
+      totalTransporte: result.totalTransporte, totalLaser: result.totalLaser,
+      totalPoliza: result.totalPoliza, totalAddons: result.totalAddons,
+      costoTotal, precioVenta, precioComercial,
+    },
   }
 }

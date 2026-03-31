@@ -1,9 +1,6 @@
 /**
- * ConfiguradorGenerico — Data-driven product configurator
- *
- * Reads product definition (variables, materials, APU lines) from Supabase
- * and renders dynamic controls. Works for ANY product in productos_catalogo.
- * Mesas use ConfiguradorMesa.tsx (has 3D viewer). This is for everything else.
+ * ConfiguradorGenerico v2 — Professional data-driven product configurator
+ * Matches ConfiguradorMesa quality: full APU, editable lines, sticky price panel.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
@@ -12,7 +9,6 @@ import { useStore } from '../lib/store'
 import { calcularApuRaw, preloadProductData, isMotorGenericoReady } from '../lib/motor-generico'
 import { evalFormula } from '../lib/evaluar-formula'
 import type { Variables } from '../lib/evaluar-formula'
-import type { ApuResultado } from '../types'
 import { formatCOP } from '../lib/utils'
 import { showToast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -22,289 +18,197 @@ import {
 } from 'lucide-react'
 
 /* ── Types ─────────────────────────────────────────── */
+interface ProdVar {
+  nombre: string; label: string; tipo: 'numero' | 'toggle' | 'seleccion' | 'calculado'
+  default_valor: string; min_val: number | null; max_val: number | null
+  unidad: string | null; grupo_ui: string; orden: number; opciones: string[] | null
+}
+interface CustomLine { desc: string; cant: number; pu: number }
 
-interface ProductoVariable {
-  nombre: string
-  label: string
-  tipo: 'numero' | 'toggle' | 'seleccion' | 'calculado'
-  default_valor: string
-  min_val: number | null
-  max_val: number | null
-  unidad: string | null
-  grupo_ui: string
-  orden: number
-  opciones: string[] | null
+/* ── Section styling ────────────────────────────────── */
+const SEC = {
+  insumos:    { label: 'INSUMOS',       bg: 'bg-blue-50',   color: 'text-blue-700',   border: 'border-blue-200',  dot: 'bg-blue-500' },
+  mo:         { label: 'MANO DE OBRA',  bg: 'bg-amber-50',  color: 'text-amber-700',  border: 'border-amber-200', dot: 'bg-amber-500' },
+  transporte: { label: 'TRANSPORTE',    bg: 'bg-emerald-50',color: 'text-emerald-700', border: 'border-emerald-200',dot: 'bg-emerald-500' },
+  laser:      { label: 'CORTE LÁSER',   bg: 'bg-red-50',    color: 'text-red-700',     border: 'border-red-200',   dot: 'bg-red-500' },
+  poliza:     { label: 'PÓLIZA',        bg: 'bg-gray-50',   color: 'text-gray-600',    border: 'border-gray-200',  dot: 'bg-gray-400' },
+  addon:      { label: 'EXTRAS',        bg: 'bg-purple-50', color: 'text-purple-700',  border: 'border-purple-200',dot: 'bg-purple-500' },
+} as const
+const SEC_ORDER = ['insumos', 'mo', 'transporte', 'laser', 'poliza', 'addon'] as const
+
+const ICONS: Record<string, typeof Ruler> = {
+  'Dimensiones principales': Ruler, Material: Atom, Salpicaderos: Layers,
+  Babero: Layers, 'Entrepaños y soporte': Grid3X3, Refuerzo: Wrench,
+  Pozuelos: Circle, Escabiladero: Grid3X3, Vertedero: Box,
+  'Extras y parámetros': Settings, Configuración: Grid3X3, Extras: Settings,
+  Desagüe: Box,
 }
 
-interface CustomLinea { descripcion: string; cantidad: number; precio_unitario: number }
+/* ── Description templates ──────────────────────────── */
+function buildDescription(pid: string, v: Variables): string {
+  const inst = !!v.instalacion
+  const pol = !!v.poliza
+  const pre = inst ? 'Suministro e instalación de' : 'Suministro de'
 
-const GROUP_ICONS: Record<string, typeof Ruler> = {
-  'Dimensiones principales': Ruler, 'Material': Atom, 'Salpicaderos': Layers,
-  'Babero': Layers, 'Entrepaños y soporte': Grid3X3, 'Refuerzo': Wrench,
-  'Pozuelos': Circle, 'Escabiladero': Grid3X3, 'Vertedero': Box,
-  'Extras y parámetros': Settings, 'Configuración': Settings,
+  if (pid === 'carcamo') {
+    let d = `${pre} cárcamo en acero inoxidable calibre ${v.calibre_cuerpo || 18} (cuerpo) y calibre ${v.calibre_tapa || 12} (tapa), de ${Number(v.largo || 1).toFixed(2)} m de largo x ${Number(v.ancho || 0.25).toFixed(2)} m de ancho x ${Number(v.alto || 0.095).toFixed(2)} m de alto`
+    if (Number(v.largo_desague) > 0) d += `, con desagüe en tubo de 2 pulg de ${Number(v.largo_desague).toFixed(2)} m`
+    d += `, soldadura TIG con gas argón, acabado pulido satinado. ${pol ? 'Con' : 'Sin'} póliza.`
+    return d
+  }
+  if (pid === 'estanteria_graduable') {
+    return `${pre} estantería graduable en acero inoxidable, entrepaños en lámina cal ${v.calibre_entrepano || 18} y parales en lámina cal ${v.calibre_patas || 12}, de ${Number(v.largo || 2).toFixed(2)} m de largo x ${Number(v.ancho || 0.65).toFixed(2)} m de ancho x ${Number(v.alto || 1.8).toFixed(2)} m de alto, con ${v.num_entrepanos || 5} entrepaños y ${v.num_patas || 4} patas con niveladores, refuerzos tipo omega en cal 18, soldadura TIG con argón, acabado pulido satinado. ${pol ? 'Con' : 'Sin'} póliza.`
+  }
+  // Generic fallback
+  return `${pre} producto en acero inoxidable, de ${Number(v.largo || 1).toFixed(2)} m × ${Number(v.ancho || 0.5).toFixed(2)} m × ${Number(v.alto || 0.5).toFixed(2)} m. Soldadura TIG con argón, acabado pulido satinado. ${pol ? 'Con' : 'Sin'} póliza.`
 }
 
 /* ── Component ─────────────────────────────────────── */
-
 export default function ConfiguradorGenerico() {
-  const { id, productoId: paramProductoId } = useParams<{ id: string; productoId: string }>()
+  const { id, productoId: paramPid } = useParams<{ id: string; productoId: string }>()
   const navigate = useNavigate()
   const { state, dispatch } = useStore()
-  const { precios: preciosMaestro } = state
   const empresa = state.empresas.find(e => state.oportunidades.find(o => o.id === id)?.empresa_id === e.id)
-
-  const productoId = paramProductoId || 'mesa'
+  const productoId = paramPid || 'mesa'
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [variables, setVariables] = useState<ProductoVariable[]>([])
+  const [variables, setVariables] = useState<ProdVar[]>([])
   const [productoNombre, setProductoNombre] = useState('')
-
   const [valores, setValores] = useState<Variables>({})
   const [margen, setMargen] = useState(0.38)
   const [cantidad, setCantidad] = useState(1)
-  const [instalado, setInstalado] = useState(true)
-  const [poliza, setPoliza] = useState(false)
   const [descripcionEdit, setDescripcionEdit] = useState('')
+  const [descManual, setDescManual] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-  const [showAPU, setShowAPU] = useState(false)
-  const [customLineas, setCustomLineas] = useState<CustomLinea[]>([])
+  const [showAPU, setShowAPU] = useState(true)
+  const [customLines, setCustomLines] = useState<CustomLine[]>([])
   const [motorReady, setMotorReady] = useState(false)
 
-  // Load product definition from Supabase
+  // Load product
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const { data: cat, error: catErr } = await supabase
-          .from('productos_catalogo').select('*').eq('id', productoId).single()
-        if (catErr) throw new Error(catErr.message)
-
+        const { data: cat, error: e } = await supabase.from('productos_catalogo').select('*').eq('id', productoId).single()
+        if (e) throw new Error(e.message)
         setProductoNombre(cat.nombre)
         setMargen(cat.margen_default || 0.38)
-
-        const { data: varsData } = await supabase
-          .from('producto_variables').select('*').eq('producto_id', productoId).order('orden')
-
-        const vars = (varsData || []).map((v: any) => ({
-          ...v,
-          opciones: typeof v.opciones === 'string' ? JSON.parse(v.opciones) : v.opciones,
-        })) as ProductoVariable[]
+        const { data: vd } = await supabase.from('producto_variables').select('*').eq('producto_id', productoId).order('orden')
+        const vars = (vd || []).map((v: any) => ({ ...v, opciones: typeof v.opciones === 'string' ? JSON.parse(v.opciones) : v.opciones })) as ProdVar[]
         setVariables(vars)
-
-        // Initialize values from defaults
-        const defaults: Variables = {}
+        const defs: Variables = {}
         for (const v of vars) {
-          if (v.tipo === 'toggle') defaults[v.nombre] = v.default_valor === '1' || v.default_valor === 'true' ? 1 : 0
-          else if (v.tipo === 'seleccion') defaults[v.nombre] = v.default_valor || ''
-          else if (v.tipo === 'calculado') defaults[v.nombre] = 0
-          else defaults[v.nombre] = parseFloat(v.default_valor || '0') || 0
+          if (v.tipo === 'toggle') defs[v.nombre] = v.default_valor === '1' ? 1 : 0
+          else if (v.tipo === 'seleccion') defs[v.nombre] = v.default_valor || ''
+          else if (v.tipo === 'calculado') defs[v.nombre] = 0
+          else defs[v.nombre] = parseFloat(v.default_valor || '0') || 0
         }
-        setValores(defaults)
-
-        // Expand first 3 groups
+        setValores(defs)
         const grps = [...new Set(vars.map(v => v.grupo_ui).filter(g => !g.startsWith('_')))]
-        setExpandedGroups(new Set(grps.slice(0, 3)))
-
-        // Preload motor data
+        setExpandedGroups(new Set(grps.slice(0, 4)))
         const ok = await preloadProductData(productoId)
         setMotorReady(ok)
-      } catch (e: any) {
-        setError(e.message)
-      }
+      } catch (e: any) { setError(e.message) }
       setLoading(false)
     }
     load()
   }, [productoId])
 
-  // Calculate APU using raw variables (generic, works for any product)
-  const resultado: ApuResultado | null = useMemo(() => {
-    if (!motorReady || !isMotorGenericoReady(productoId)) return null
-
-    // Merge user values with common parameters
-    const vars: Variables = { ...valores, instalacion: instalado ? 1 : 0, poliza: poliza ? 1 : 0 }
-
-    // Evaluate calculated variables
-    for (const v of variables) {
-      if (v.tipo === 'calculado' && v.default_valor) {
-        try { vars[v.nombre] = evalFormula(v.default_valor, vars) } catch { /* keep default */ }
-      }
-    }
-
-    return calcularApuRaw(productoNombre, vars, preciosMaestro, margen)
-  }, [valores, motorReady, productoId, preciosMaestro, margen, poliza, instalado, productoNombre, variables])
-
-  const customTotal = customLineas.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0)
-  const precioFinal = resultado ? resultado.precio_comercial + Math.ceil(customTotal / (1 - margen) / 1000) * 1000 : 0
-
-  // Auto-generate description
-  useEffect(() => {
-    if (!resultado || descripcionEdit) return
-    setDescripcionEdit(resultado.descripcion_comercial)
-  }, [resultado])
-
-  const updateVar = useCallback((name: string, value: number | string) => {
-    setValores(prev => ({ ...prev, [name]: value }))
-  }, [])
-
-  const toggleGroup = (g: string) => setExpandedGroups(prev => {
-    const next = new Set(prev); if (next.has(g)) next.delete(g); else next.add(g); return next
-  })
-
-  // Groups sorted by order of first variable
-  const groups = useMemo(() => {
-    const groupOrder: string[] = []
-    const map = new Map<string, ProductoVariable[]>()
-    for (const v of variables) {
-      if (v.grupo_ui.startsWith('_')) continue
-      if (!map.has(v.grupo_ui)) { map.set(v.grupo_ui, []); groupOrder.push(v.grupo_ui) }
-      map.get(v.grupo_ui)!.push(v)
-    }
-    return groupOrder.map(g => [g, map.get(g)!] as [string, ProductoVariable[]])
-  }, [variables])
-
-  // Computed vars (calculated variables evaluated synchronously)
+  // Compute
   const computedVars = useMemo(() => {
     const cv = { ...valores }
     for (const v of variables) {
       if (v.tipo === 'calculado' && v.default_valor) {
-        try { cv[v.nombre] = evalFormula(v.default_valor, cv) } catch { /* ignore */ }
+        try { cv[v.nombre] = evalFormula(v.default_valor, cv) } catch { }
       }
     }
     return cv
   }, [valores, variables])
 
+  const calcResult = useMemo(() => {
+    if (!motorReady || !isMotorGenericoReady(productoId)) return null
+    const v: Variables = { ...computedVars }
+    // Ensure instalacion/poliza from UI state
+    if (!('instalacion' in v)) v.instalacion = 0
+    if (!('poliza' in v)) v.poliza = 0
+    return calcularApuRaw(productoNombre, v, state.precios, margen)
+  }, [computedVars, motorReady, productoId, state.precios, margen, productoNombre])
+
+  const resultado = calcResult?.resultado || null
+  const full = calcResult?.full || null
+  const customTotal = customLines.reduce((s, l) => s + l.cant * l.pu, 0)
+  const precioFinal = resultado ? resultado.precio_comercial + Math.ceil(customTotal / (1 - margen) / 1000) * 1000 : 0
+
+  // Auto-description
+  useEffect(() => {
+    if (!descManual && computedVars.largo != null) setDescripcionEdit(buildDescription(productoId, computedVars))
+  }, [computedVars, productoId, descManual])
+
+  const updateVar = useCallback((n: string, v: number | string) => setValores(p => ({ ...p, [n]: v })), [])
+  const toggleGroup = (g: string) => setExpandedGroups(p => { const n = new Set(p); n.has(g) ? n.delete(g) : n.add(g); return n })
+
+  const groups = useMemo(() => {
+    const order: string[] = []; const map = new Map<string, ProdVar[]>()
+    for (const v of variables) { if (v.grupo_ui.startsWith('_')) continue; if (!map.has(v.grupo_ui)) { map.set(v.grupo_ui, []); order.push(v.grupo_ui) }; map.get(v.grupo_ui)!.push(v) }
+    return order.map(g => [g, map.get(g)!] as [string, ProdVar[]])
+  }, [variables])
+
   const handleAdd = () => {
     if (!resultado) return
-    dispatch({
-      type: 'ADD_PRODUCTO',
-      payload: {
-        oportunidad_id: id!,
-        categoria: productoNombre,
-        subtipo: productoNombre,
-        configuracion: computedVars as any,
-        apu_resultado: resultado,
-        precio_calculado: precioFinal,
-        descripcion_comercial: descripcionEdit || resultado.descripcion_comercial,
-        cantidad,
-      },
-    })
+    dispatch({ type: 'ADD_PRODUCTO', payload: { oportunidad_id: id!, categoria: productoNombre, subtipo: productoNombre, configuracion: computedVars as any, apu_resultado: resultado, precio_calculado: precioFinal, descripcion_comercial: descripcionEdit || resultado.descripcion_comercial, cantidad } })
     showToast('success', `${productoNombre} agregado al pedido`)
     setTimeout(() => navigate(`/oportunidades/${id}`), 500)
   }
 
-  if (loading) return <div className="flex items-center justify-center h-full text-slate-500 text-sm">Cargando configurador...</div>
+  if (loading) return <div className="flex items-center justify-center h-[60vh] text-slate-500">Cargando configurador...</div>
   if (error) return <div className="p-8 text-center text-red-500">Error: {error}</div>
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(`/oportunidades/${id}`)} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:underline">
-          <ArrowLeft size={16} /> Volver a {empresa?.nombre || 'oportunidad'}
-        </button>
-      </div>
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
-          <Package size={24} className="text-[var(--color-primary)]" />
-        </div>
-        <div>
+        <button onClick={() => navigate(`/oportunidades/${id}`)} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:underline"><ArrowLeft size={16} /> Volver</button>
+        <div className="flex-1" />
+        <div className="text-right">
           <h2 className="text-2xl font-bold text-[var(--color-text)]">Configurar: {productoNombre}</h2>
           <p className="text-sm text-slate-500">Empresa: {empresa?.nombre}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_380px] gap-6">
+      <div className="flex gap-6 items-start">
         {/* LEFT: Controls */}
-        <div className="space-y-2">
-          {groups.map(([groupName, groupVars]) => {
-            const Icon = GROUP_ICONS[groupName] || Settings
-            const isDimensionRow = groupName === 'Dimensiones principales' || groupName === 'Material'
+        <div className="flex-1 space-y-3 min-w-0">
+          {groups.map(([gn, gv]) => {
+            const Ic = ICONS[gn] || Settings; const isDimOrMat = gn === 'Dimensiones principales' || gn === 'Material'
             return (
-              <div key={groupName} className="border border-[var(--color-border)] rounded-xl overflow-hidden bg-white">
-                <button onClick={() => toggleGroup(groupName)}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 transition-colors">
-                  <Icon size={15} className="text-slate-400" />
-                  <span className="text-[13px] font-semibold text-slate-700 flex-1 text-left">{groupName}</span>
-                  {!expandedGroups.has(groupName) && (
-                    <span className="text-[10px] text-slate-400 mr-2">
-                      {groupVars.filter(v => v.tipo !== 'calculado').slice(0, 3).map(v => {
-                        const val = computedVars[v.nombre]
-                        return v.tipo === 'toggle' ? (val ? '✓' : '—') : `${val}${v.unidad || ''}`
-                      }).join(' · ')}
-                    </span>
-                  )}
-                  {expandedGroups.has(groupName) ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+              <div key={gn} className="bg-white rounded-xl border border-[var(--color-border)] shadow-sm overflow-hidden">
+                <button onClick={() => toggleGroup(gn)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50/80 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0"><Ic size={16} className="text-blue-600" /></div>
+                  <span className="text-sm font-semibold text-slate-800 flex-1 text-left">{gn}</span>
+                  {!expandedGroups.has(gn) && <span className="text-xs text-slate-400 mr-2">{gv.filter(v => v.tipo !== 'calculado').slice(0, 3).map(v => { const val = computedVars[v.nombre]; return v.tipo === 'toggle' ? (val ? '✓' : '—') : `${val}${v.unidad || ''}` }).join(' · ')}</span>}
+                  {expandedGroups.has(gn) ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
                 </button>
-                {expandedGroups.has(groupName) && (
-                  <div className="px-4 pb-3 pt-1">
-                    {isDimensionRow ? (
-                      <div className="grid grid-cols-3 gap-2">
-                        {groupVars.map(v => (
+                {expandedGroups.has(gn) && (
+                  <div className="px-5 pb-4 pt-1 border-t border-slate-100">
+                    {isDimOrMat ? (
+                      <div className="grid grid-cols-3 gap-3">
+                        {gv.map(v => (
                           <div key={v.nombre}>
-                            <label className="text-[11px] font-medium text-slate-500 mb-1 block">{v.label}</label>
-                            {v.tipo === 'numero' && (
-                              <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white">
-                                <input type="number" value={Number(computedVars[v.nombre]) || 0}
-                                  onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)}
-                                  step={v.unidad === 'm' ? 0.01 : 1} min={v.min_val ?? undefined} max={v.max_val ?? undefined}
-                                  className="w-full text-sm font-medium text-right bg-transparent outline-none tabular-nums" />
-                                {v.unidad && <span className="text-[10px] text-slate-400">{v.unidad}</span>}
-                              </div>
-                            )}
-                            {v.tipo === 'seleccion' && (
-                              <select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)}
-                                className="w-full px-2.5 py-1.5 text-sm font-medium border border-slate-200 rounded-lg bg-white">
-                                {(v.opciones || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                              </select>
-                            )}
+                            <label className="text-xs font-medium text-slate-500 mb-1.5 block">{v.label}</label>
+                            {v.tipo === 'numero' && <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 bg-white hover:border-slate-300"><input type="number" value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)} step={v.unidad === 'm' ? 0.01 : 1} min={v.min_val ?? undefined} max={v.max_val ?? undefined} className="w-full text-sm font-medium text-right bg-transparent outline-none tabular-nums" />{v.unidad && <span className="text-xs text-slate-400 shrink-0">{v.unidad}</span>}</div>}
+                            {v.tipo === 'seleccion' && <select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="w-full px-3 py-2 text-sm font-medium border border-slate-200 rounded-lg bg-white hover:border-slate-300">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select>}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="space-y-2.5">
-                        {groupVars.map(v => (
+                      <div className="space-y-3">
+                        {gv.map(v => (
                           <div key={v.nombre}>
-                            {v.tipo === 'numero' && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] text-slate-500 w-[140px] shrink-0">{v.label}</span>
-                                <input type="range" min={v.min_val ?? 0} max={v.max_val ?? 10}
-                                  step={v.unidad === 'm' ? 0.01 : 1} value={Number(computedVars[v.nombre]) || 0}
-                                  onChange={e => updateVar(v.nombre, parseFloat(e.target.value))}
-                                  className="flex-1 h-1 accent-[var(--color-primary)]" />
-                                <div className="flex items-center gap-1 border border-slate-200 rounded-md px-2 py-1 bg-white w-[80px]">
-                                  <input type="number" value={Number(computedVars[v.nombre]) || 0}
-                                    onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)}
-                                    step={v.unidad === 'm' ? 0.01 : 1}
-                                    className="w-full text-sm text-right bg-transparent outline-none tabular-nums" />
-                                  {v.unidad && <span className="text-[10px] text-slate-400">{v.unidad}</span>}
-                                </div>
-                              </div>
-                            )}
-                            {v.tipo === 'toggle' && (
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked={!!computedVars[v.nombre]}
-                                  onChange={e => updateVar(v.nombre, e.target.checked ? 1 : 0)}
-                                  className="w-4 h-4 accent-[var(--color-primary)] rounded" />
-                                <span className="text-[12px] text-slate-600">{v.label}</span>
-                              </label>
-                            )}
-                            {v.tipo === 'seleccion' && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] text-slate-500 w-[140px] shrink-0">{v.label}</span>
-                                <select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)}
-                                  className="flex-1 px-2 py-1 text-sm border border-slate-200 rounded-lg bg-white">
-                                  {(v.opciones || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                              </div>
-                            )}
-                            {v.tipo === 'calculado' && (
-                              <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-lg">
-                                <span className="text-[11px] text-slate-500 flex-1">{v.label}</span>
-                                <span className="text-sm font-bold text-slate-700 tabular-nums">{Math.round(Number(computedVars[v.nombre]) || 0)}</span>
-                              </div>
-                            )}
+                            {v.tipo === 'numero' && <div className="flex items-center gap-3"><span className="text-sm text-slate-600 w-[160px] shrink-0">{v.label}</span><input type="range" min={v.min_val ?? 0} max={v.max_val ?? 10} step={v.unidad === 'm' ? 0.01 : 1} value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value))} className="flex-1 h-1.5 accent-blue-600" /><div className="flex items-center gap-1 border border-slate-200 rounded-lg px-2 py-1.5 bg-white w-[90px]"><input type="number" value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)} step={v.unidad === 'm' ? 0.01 : 1} className="w-full text-sm text-right bg-transparent outline-none tabular-nums" />{v.unidad && <span className="text-[10px] text-slate-400">{v.unidad}</span>}</div></div>}
+                            {v.tipo === 'toggle' && <label className="flex items-center gap-3 cursor-pointer py-0.5"><input type="checkbox" checked={!!computedVars[v.nombre]} onChange={e => updateVar(v.nombre, e.target.checked ? 1 : 0)} className="w-4.5 h-4.5 accent-blue-600 rounded" /><span className="text-sm text-slate-600">{v.label}</span></label>}
+                            {v.tipo === 'seleccion' && <div className="flex items-center gap-3"><span className="text-sm text-slate-600 w-[160px] shrink-0">{v.label}</span><select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select></div>}
+                            {v.tipo === 'calculado' && <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg"><span className="text-sm text-slate-500 flex-1">{v.label}</span><span className="text-sm font-bold text-slate-800 tabular-nums">{Math.round(Number(computedVars[v.nombre]) || 0)}</span></div>}
                           </div>
                         ))}
                       </div>
@@ -315,136 +219,109 @@ export default function ConfiguradorGenerico() {
             )
           })}
 
-          {/* Common parameters */}
-          <div className="border border-[var(--color-border)] rounded-xl overflow-hidden bg-white">
-            <div className="px-4 py-2.5 flex items-center gap-2.5">
-              <Settings size={15} className="text-slate-400" />
-              <span className="text-[13px] font-semibold text-slate-700">Parámetros comerciales</span>
-            </div>
-            <div className="px-4 pb-3 space-y-2.5">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={instalado} onChange={e => setInstalado(e.target.checked)}
-                  className="w-4 h-4 accent-[var(--color-primary)] rounded" />
-                <span className="text-[12px] text-slate-600">Incluye instalación</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={poliza} onChange={e => setPoliza(e.target.checked)}
-                  className="w-4 h-4 accent-[var(--color-primary)] rounded" />
-                <span className="text-[12px] text-slate-600">Requiere póliza</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500 w-[140px]">Cantidad</span>
-                <input type="number" value={cantidad} min={1} max={99}
-                  onChange={e => setCantidad(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 px-2 py-1 text-sm text-center border border-slate-200 rounded-md" />
-              </div>
-            </div>
-          </div>
-
           {/* Description */}
-          <div className="border border-[var(--color-border)] rounded-xl p-4 bg-white">
-            <label className="text-[11px] font-medium text-slate-500 mb-1.5 block">Descripción comercial</label>
-            <textarea value={descripcionEdit} onChange={e => setDescripcionEdit(e.target.value)} rows={3}
-              className="w-full px-3 py-2 text-[12px] border border-slate-200 rounded-lg resize-none focus:border-[var(--color-primary)] focus:outline-none leading-relaxed" />
+          <div className="bg-white rounded-xl border border-[var(--color-border)] shadow-sm p-5">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Descripción comercial</label>
+            <textarea value={descripcionEdit} onChange={e => { setDescripcionEdit(e.target.value); setDescManual(true) }} rows={3}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:border-blue-400 focus:outline-none leading-relaxed" />
           </div>
         </div>
 
-        {/* RIGHT: Price + APU */}
-        <div className="space-y-3">
+        {/* RIGHT: Price + APU (sticky) */}
+        <div className="w-[380px] shrink-0 space-y-3" style={{ position: 'sticky', top: 80 }}>
           {/* Price card */}
-          <div className="rounded-2xl p-6 text-white" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+          <div className="rounded-2xl p-6 text-white shadow-lg" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Precio comercial</p>
-            <p className="text-[36px] font-extrabold tabular-nums leading-none">{formatCOP(precioFinal)}</p>
+            <p className="text-4xl font-extrabold tabular-nums leading-none">{formatCOP(precioFinal)}</p>
             {cantidad > 1 && <p className="text-sm opacity-80 mt-1">× {cantidad} = {formatCOP(precioFinal * cantidad)}</p>}
             <div className="mt-4 pt-3 border-t border-white/20">
               <div className="flex items-center gap-3">
                 <span className="text-xs opacity-70">Margen</span>
-                <input type="range" min={5} max={60} value={Math.round(margen * 100)}
-                  onChange={e => setMargen(parseInt(e.target.value) / 100)}
-                  className="flex-1 h-1 accent-white" />
-                <input type="number" value={Math.round(margen * 100)} min={5} max={60}
-                  onChange={e => setMargen(Math.max(0.05, Math.min(0.60, (parseInt(e.target.value) || 38) / 100)))}
-                  className="w-12 px-1.5 py-0.5 text-sm text-right bg-white/20 border border-white/30 rounded font-bold text-white" />
-                <span className="text-xs font-bold">%</span>
+                <input type="range" min={5} max={60} value={Math.round(margen * 100)} onChange={e => setMargen(parseInt(e.target.value) / 100)} className="flex-1 h-1.5 accent-white" />
+                <input type="number" value={Math.round(margen * 100)} min={5} max={60} onChange={e => setMargen(Math.max(0.05, Math.min(0.60, (parseInt(e.target.value) || 38) / 100)))} className="w-12 px-1.5 py-0.5 text-sm text-right bg-white/20 border border-white/30 rounded font-bold text-white" /><span className="text-xs font-bold">%</span>
               </div>
-              <p className="text-xs opacity-70 mt-2">Costo: {resultado ? formatCOP(Math.round(resultado.costo_total)) : '—'}</p>
+              <div className="flex justify-between mt-2 text-xs opacity-70">
+                <span>Costo: {resultado ? formatCOP(Math.round(resultado.costo_total + customTotal)) : '—'}</span>
+                <span>Cant: <input type="number" value={cantidad} min={1} max={99} onChange={e => setCantidad(Math.max(1, parseInt(e.target.value) || 1))} className="w-8 bg-white/20 border border-white/30 rounded text-center text-white font-bold" /></span>
+              </div>
             </div>
           </div>
 
-          {/* Cost breakdown */}
-          {resultado && (
-            <div className="rounded-xl border border-[var(--color-border)] p-4 bg-white space-y-1.5 text-xs">
-              <div className="flex justify-between"><span className="text-slate-500">Insumos</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(resultado.costo_insumos))}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Mano de obra</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(resultado.costo_mo))}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Transporte</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(resultado.costo_transporte))}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Corte láser</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(resultado.costo_laser))}</span></div>
-              {resultado.costo_poliza > 0 && <div className="flex justify-between"><span className="text-slate-500">Póliza</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(resultado.costo_poliza))}</span></div>}
-              {customTotal > 0 && <div className="flex justify-between"><span className="text-slate-500">Líneas custom</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(customTotal))}</span></div>}
-              <div className="flex justify-between pt-1.5 border-t border-slate-200">
-                <span className="font-bold text-slate-700">Costo total</span>
-                <span className="font-bold tabular-nums">{formatCOP(Math.round(resultado.costo_total + customTotal))}</span>
-              </div>
+          {/* Full APU desglose */}
+          {full && (
+            <div className="bg-white rounded-xl border border-[var(--color-border)] shadow-sm overflow-hidden">
+              <button onClick={() => setShowAPU(!showAPU)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Desglose APU</span>
+                <span className="text-xs text-slate-400">{full.allLineas.filter(l => l.activa).length} líneas {showAPU ? '▾' : '▸'}</span>
+              </button>
+              {showAPU && (
+                <div className="max-h-[500px] overflow-y-auto">
+                  {SEC_ORDER.map(sec => {
+                    const s = SEC[sec]
+                    const lines = full.allLineas.filter(l => l.seccion === sec && l.activa && l.total > 0)
+                    if (!lines.length) return null
+                    const subtotal = lines.reduce((a, l) => a + l.total, 0)
+                    return (
+                      <div key={sec}>
+                        <div className={`${s.bg} px-4 py-1.5 flex items-center justify-between ${s.border} border-y`}>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${s.color}`}>{s.label}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold tabular-nums ${s.color}`}>{formatCOP(Math.round(subtotal))}</span>
+                        </div>
+                        <table className="w-full text-[11px]">
+                          <tbody>
+                            {lines.map((l, i) => (
+                              <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
+                                <td className="py-1.5 pl-4 text-slate-600 max-w-[120px] truncate">{l.descripcion}</td>
+                                <td className="py-1.5 text-right tabular-nums w-12 text-slate-500">{l.cantidad < 10 ? l.cantidad.toFixed(2) : Math.round(l.cantidad)}</td>
+                                <td className="py-1.5 text-right tabular-nums w-16 text-slate-400">{formatCOP(Math.round(l.precio_unitario))}</td>
+                                <td className="py-1.5 text-right tabular-nums w-18 font-medium pr-4">{formatCOP(Math.round(l.total))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })}
+                  {/* Custom lines */}
+                  {customLines.length > 0 && (
+                    <div>
+                      <div className="bg-amber-50 px-4 py-1.5 border-y border-amber-200"><span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">LÍNEAS ADICIONALES</span></div>
+                      {customLines.map((cl, i) => (
+                        <div key={i} className="flex items-center gap-1 px-4 py-1 text-[11px] border-b border-slate-50">
+                          <input value={cl.desc} onChange={e => setCustomLines(p => p.map((c, j) => j === i ? { ...c, desc: e.target.value } : c))} className="flex-1 px-1 py-0.5 border border-amber-200 rounded" placeholder="Descripción" />
+                          <input type="number" value={cl.cant} onChange={e => setCustomLines(p => p.map((c, j) => j === i ? { ...c, cant: Number(e.target.value) } : c))} className="w-10 px-1 py-0.5 border border-amber-200 rounded text-right" />
+                          <input type="number" value={cl.pu} onChange={e => setCustomLines(p => p.map((c, j) => j === i ? { ...c, pu: Number(e.target.value) } : c))} className="w-16 px-1 py-0.5 border border-amber-200 rounded text-right" />
+                          <span className="w-16 text-right font-medium tabular-nums">{formatCOP(Math.round(cl.cant * cl.pu))}</span>
+                          <button onClick={() => setCustomLines(p => p.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600"><X size={12} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="px-4 py-2">
+                    <button onClick={() => setCustomLines(p => [...p, { desc: '', cant: 1, pu: 0 }])} className="text-[11px] text-blue-600 font-medium flex items-center gap-1 hover:underline"><Plus size={12} /> Agregar línea</button>
+                  </div>
+                  {/* Totals */}
+                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 space-y-1 text-xs">
+                    <div className="flex justify-between"><span className="text-slate-500">Insumos</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalInsumos))}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Mano de obra</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalMO))}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Transporte</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalTransporte))}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Corte láser</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalLaser))}</span></div>
+                    {full.totalPoliza > 0 && <div className="flex justify-between"><span className="text-slate-500">Póliza</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalPoliza))}</span></div>}
+                    {customTotal > 0 && <div className="flex justify-between"><span className="text-slate-500">Adicionales</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(customTotal))}</span></div>}
+                    <div className="flex justify-between pt-1.5 border-t border-slate-300"><span className="font-bold text-slate-800">Costo total</span><span className="font-bold tabular-nums">{formatCOP(Math.round(full.costoTotal + customTotal))}</span></div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* APU detail */}
-          {resultado && (
-            <>
-              <button onClick={() => setShowAPU(!showAPU)} className="w-full text-left text-xs text-[var(--color-primary)] font-medium flex items-center gap-1 px-1">
-                {showAPU ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                {showAPU ? 'Ocultar' : 'Ver'} APU detallado ({resultado.lineas.length} líneas)
-              </button>
-              {showAPU && (
-                <div className="rounded-xl border border-[var(--color-border)] p-3 max-h-[400px] overflow-y-auto bg-white text-[10px]">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-1 font-medium text-slate-500">Descripción</th>
-                        <th className="text-right py-1 font-medium text-slate-500 w-12">Cant</th>
-                        <th className="text-right py-1 font-medium text-slate-500 w-16">P.Unit</th>
-                        <th className="text-right py-1 font-medium text-slate-500 w-16">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {resultado.lineas.map((l, i) => (
-                        <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
-                          <td className="py-1 text-slate-600 truncate max-w-[140px]">{l.descripcion}</td>
-                          <td className="py-1 text-right tabular-nums">{l.cantidad < 10 ? l.cantidad.toFixed(2) : Math.round(l.cantidad)}</td>
-                          <td className="py-1 text-right tabular-nums text-slate-400">{formatCOP(Math.round(l.precio_unitario))}</td>
-                          <td className="py-1 text-right tabular-nums font-medium pr-1">{formatCOP(Math.round(l.total))}</td>
-                        </tr>
-                      ))}
-                      {/* Custom lines */}
-                      {customLineas.map((cl, i) => (
-                        <tr key={`c${i}`} className="border-b border-amber-100 bg-amber-50/30">
-                          <td className="py-1"><input value={cl.descripcion} onChange={e => setCustomLineas(p => p.map((c, j) => j === i ? { ...c, descripcion: e.target.value } : c))} className="w-full px-1 py-0.5 border border-amber-200 rounded" placeholder="Descripción" /></td>
-                          <td className="py-1"><input type="number" value={cl.cantidad} onChange={e => setCustomLineas(p => p.map((c, j) => j === i ? { ...c, cantidad: Number(e.target.value) } : c))} className="w-full px-1 py-0.5 border border-amber-200 rounded text-right" /></td>
-                          <td className="py-1"><input type="number" value={cl.precio_unitario} onChange={e => setCustomLineas(p => p.map((c, j) => j === i ? { ...c, precio_unitario: Number(e.target.value) } : c))} className="w-full px-1 py-0.5 border border-amber-200 rounded text-right" /></td>
-                          <td className="py-1 text-right font-medium tabular-nums">{formatCOP(Math.round(cl.cantidad * cl.precio_unitario))}
-                            <button onClick={() => setCustomLineas(p => p.filter((_, j) => j !== i))} className="ml-1 text-red-400"><X size={10} /></button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button onClick={() => setCustomLineas(p => [...p, { descripcion: '', cantidad: 1, precio_unitario: 0 }])}
-                    className="text-[var(--color-primary)] font-medium flex items-center gap-1 mt-1 hover:underline">
-                    <Plus size={10} /> Agregar línea
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
           {/* Actions */}
-          <div className="flex gap-2 pt-1">
-            <button onClick={handleAdd} disabled={!resultado}
-              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
-              <Package size={15} /> AGREGAR AL PEDIDO
-            </button>
-            <button onClick={() => navigate(`/oportunidades/${id}`)} className="px-5 h-11 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-              Cancelar
-            </button>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} disabled={!resultado} className="flex-1 flex items-center justify-center gap-2 h-12 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-40"><Package size={16} /> AGREGAR AL PEDIDO</button>
+            <button onClick={() => navigate(`/oportunidades/${id}`)} className="px-5 h-12 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
           </div>
         </div>
       </div>
