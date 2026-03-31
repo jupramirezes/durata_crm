@@ -184,12 +184,15 @@ export function calcularAPUGenerico(
     let materialNombre = ''
 
     if (linea.material_alias) {
-      // Check MO tariffs first
-      if (linea.seccion === 'mo' || tarifasMO[linea.material_alias] != null) {
-        precio = tarifasMO[linea.material_alias] || 0
+      // 1. Check MO tariffs (tarifas_mo_producto)
+      if (tarifasMO[linea.material_alias] != null) {
+        precio = tarifasMO[linea.material_alias]
         materialNombre = linea.material_alias
-      } else {
-        // Look up in material templates
+      }
+
+      // 2. If no tariff found, look up in material templates (producto_materiales)
+      //    This handles: es_fijo materials, code-based lookups, name-based lookups
+      if (!precio) {
         const mat = materiales.find(m => m.alias === linea.material_alias)
         if (mat) {
           if (mat.es_fijo && mat.precio_fijo != null) {
@@ -199,26 +202,23 @@ export function calcularAPUGenerico(
             // Resolve template name with current variables
             materialNombre = resolverMaterial(mat.template_nombre, variables)
 
-            // 1. Try resolved name first (catches variable-dependent materials like calibre changes)
+            // a. Try resolved name in precios_maestro
             precio = precios[materialNombre] || 0
 
-            // 2. Try by code (reliable for fixed-code materials)
+            // b. Try by code (even if template has variables — the code is the reliable fallback)
             if (!precio && mat.codigo && preciosPorCodigo) {
-              // If the template has {variables}, the static code may be stale — skip it
-              const hasVars = mat.template_nombre.includes('{')
-              if (!hasVars) {
-                precio = preciosPorCodigo[mat.codigo] || 0
-              }
+              const resolvedCodigo = resolverMaterial(mat.codigo, variables)
+              precio = preciosPorCodigo[resolvedCodigo] || preciosPorCodigo[mat.codigo] || 0
             }
 
-            // 3. Normalized fuzzy match (strip quotes, extra spaces)
+            // c. Normalized fuzzy match (strip quotes, extra spaces)
             if (!precio) {
               const norm = normalizeName(materialNombre)
               for (const [name, p] of Object.entries(precios)) {
                 if (normalizeName(name) === norm) { precio = p; break }
               }
             }
-            // 4. Includes-based fallback
+            // d. Includes-based fallback
             if (!precio) {
               const norm = normalizeName(materialNombre)
               for (const [name, p] of Object.entries(precios)) {
