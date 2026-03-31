@@ -385,23 +385,34 @@ export default function ConfiguradorMesa() {
 
     const desc = descripcionEdit || adjustedResultado.descripcion_comercial
 
-    // Build generic snapshot with overrides
+    // Build generic snapshot with overrides + custom lines
+    const motorLines = adjustedResultado.lineas.map((l, i) => {
+      const ov = lineaOverrides[i]
+      return {
+        nombre: l.descripcion,
+        seccion: 'insumos',
+        cantidad: l.cantidad,
+        cantidad_override: ov?.cantidad,
+        precio_unitario: l.precio_unitario,
+        precio_override: ov?.precio_unitario,
+        total: l.total,
+        material_codigo: l.material || undefined,
+        es_custom: false,
+      }
+    })
+    const customLinesSnap = customLineas.map(cl => ({
+      nombre: cl.descripcion,
+      seccion: 'insumos' as const,
+      cantidad: cl.cantidad,
+      precio_unitario: cl.precio_unitario,
+      total: cl.total,
+      es_custom: true,
+    }))
+
     const snapshot = {
       producto_id: 'mesa',
       variables: { ...cfg } as Record<string, any>,
-      lineas_apu: adjustedResultado.lineas.map((l, i) => {
-        const ov = lineaOverrides[i]
-        return {
-          nombre: l.descripcion,
-          seccion: 'insumos',
-          cantidad: l.cantidad,
-          cantidad_override: ov?.cantidad,
-          precio_unitario: l.precio_unitario,
-          precio_override: ov?.precio_unitario,
-          total: l.total,
-          material_codigo: l.material || undefined,
-        }
-      }),
+      lineas_apu: [...motorLines, ...customLinesSnap],
       totales: {
         insumos: adjustedResultado.costo_insumos,
         mo: adjustedResultado.costo_mo,

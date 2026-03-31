@@ -202,39 +202,86 @@ export default function ConfiguradorGenerico() {
   const handleAdd = () => {
     if (!resultado || !full) return
     const desc = descripcionEdit || resultado.descripcion_comercial
-    // Build complete snapshot with overrides
+
+    // 1. Build all lines: motor lines + custom lines, with overrides applied
+    const motorLines = full.allLineas.filter(l => l.activa).map(l => {
+      const ov = lineOverrides[l.descripcion]
+      const cant = ov?.cant ?? l.cantidad
+      const pu = ov?.pu ?? l.precio_unitario
+      return {
+        nombre: l.descripcion,
+        seccion: l.seccion,
+        cantidad: cant,
+        cantidad_override: ov?.cant,
+        precio_unitario: pu,
+        precio_override: ov?.pu,
+        total: cant * pu * (1 + (l.desperdicio || 0)),
+        material_codigo: l.material || undefined,
+        es_custom: false,
+      }
+    })
+    const customLinesSnap = customLines.map(cl => ({
+      nombre: cl.desc,
+      seccion: 'insumos' as const,
+      cantidad: cl.cant,
+      precio_unitario: cl.pu,
+      total: cl.cant * cl.pu,
+      material_codigo: undefined as string | undefined,
+      es_custom: true,
+    }))
+    const todasLasLineas = [...motorLines, ...customLinesSnap]
+
+    // 2. Recalculate totals from adjusted lines
+    const sumSec = (sec: string) => todasLasLineas.filter(l => l.seccion === sec).reduce((s, l) => s + l.total, 0)
+    const totalesAjustados = {
+      insumos: sumSec('insumos'),
+      mo: sumSec('mo'),
+      transporte: sumSec('transporte'),
+      laser: sumSec('laser'),
+      poliza: sumSec('poliza'),
+    }
+    const costoAjustado = Object.values(totalesAjustados).reduce((a, b) => a + b, 0)
+    const precioVentaAjustado = Math.ceil(Math.round(costoAjustado / (1 - margen)) / 1000) * 1000
+
+    // 3. Build snapshot
     const snapshot = {
       producto_id: productoId,
       variables: { ...computedVars },
-      lineas_apu: full.allLineas.filter(l => l.activa).map(l => {
-        const ov = lineOverrides[l.descripcion]
-        const cant = ov?.cant ?? l.cantidad
-        const pu = ov?.pu ?? l.precio_unitario
-        return {
-          nombre: l.descripcion,
-          seccion: l.seccion,
-          cantidad: cant,
-          cantidad_override: ov?.cant,
-          precio_unitario: pu,
-          precio_override: ov?.pu,
-          total: cant * pu * (1 + (l.desperdicio || 0)),
-          material_codigo: l.material || undefined,
-        }
-      }),
+      lineas_apu: todasLasLineas,
       totales: {
-        insumos: full.totalInsumos,
-        mo: full.totalMO,
-        transporte: full.totalTransporte,
-        laser: full.totalLaser,
-        poliza: full.totalPoliza,
-        costo_total: adjustedCostoTotal,
+        ...totalesAjustados,
+        costo_total: costoAjustado,
         margen,
-        precio_venta: precioFinal,
+        precio_venta: precioVentaAjustado,
       },
       descripcion_comercial: desc,
       version_fecha: new Date().toISOString().split('T')[0],
     }
-    dispatch({ type: 'ADD_PRODUCTO', payload: { oportunidad_id: id!, categoria: productoNombre, subtipo: productoNombre, configuracion: snapshot, apu_resultado: resultado, precio_calculado: precioFinal, descripcion_comercial: desc, cantidad } })
+
+    // 4. Build adjusted ApuResultado (not the base motor result)
+    const apuAjustado = {
+      lineas: todasLasLineas.filter(l => l.seccion === 'insumos').map(l => ({
+        descripcion: l.nombre,
+        material: l.material_codigo || '',
+        cantidad: l.cantidad,
+        unidad: 'm²',
+        precio_unitario: l.precio_unitario,
+        desperdicio: 0,
+        total: l.total,
+      })),
+      costo_insumos: totalesAjustados.insumos,
+      costo_mo: totalesAjustados.mo,
+      costo_transporte: totalesAjustados.transporte,
+      costo_laser: totalesAjustados.laser,
+      costo_poliza: totalesAjustados.poliza,
+      costo_total: costoAjustado,
+      precio_venta: precioVentaAjustado,
+      precio_comercial: precioVentaAjustado,
+      margen,
+      descripcion_comercial: desc,
+    }
+
+    dispatch({ type: 'ADD_PRODUCTO', payload: { oportunidad_id: id!, categoria: productoNombre, subtipo: productoNombre, configuracion: snapshot, apu_resultado: apuAjustado, precio_calculado: precioVentaAjustado, descripcion_comercial: desc, cantidad } })
     showToast('success', `${productoNombre} agregado al pedido`)
     setTimeout(() => navigate(`/oportunidades/${id}`), 500)
   }
