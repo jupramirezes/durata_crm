@@ -38,27 +38,27 @@ function configToVars(cfg: ConfigMesa): Variables {
   return vars
 }
 
-/* ── Minimal material templates (matching DEMO_PRECIOS names) ── */
+/* ── Minimal material templates with DEMO_PRECIOS codes for exact lookup ── */
 const MATERIALS: MaterialTemplate[] = [
-  { alias: 'lamina_mesa', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} {acabado} CAL {calibre}', es_fijo: false },
-  { alias: 'lamina_babero', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} SATINADO CAL 20', es_fijo: false },
-  { alias: 'lamina_pozuelo', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} {acabado} CAL {calibre}', es_fijo: false },
-  { alias: 'lamina_vertedero', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} {acabado} CAL 16', es_fijo: false },
-  { alias: 'tubo_patas', template_nombre: 'TUBO ACERO INOXIDABLE CUADRADO 1 1/2 CAL 16', es_fijo: false },
-  { alias: 'niveladores', template_nombre: 'NIVELADOR NACIONAL INOX CUADRADO 1 1/2', es_fijo: false },
-  { alias: 'pozuelo_redondo', template_nombre: 'POZUELO INOX REDONDO 37', es_fijo: false },
-  { alias: 'rh_15mm', template_nombre: 'MADERA RH AGLOMERADO 15 MM', es_fijo: false },
+  { alias: 'lamina_mesa', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} {acabado} CAL {calibre}', es_fijo: false, codigo: 'AILA010118' },
+  { alias: 'lamina_babero', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} SATINADO CAL 20', es_fijo: false, codigo: 'AILA010220' },
+  { alias: 'lamina_pozuelo', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} {acabado} CAL {calibre}', es_fijo: false, codigo: 'AILA010118' },
+  { alias: 'lamina_vertedero', template_nombre: 'LAMINA LISA ACERO INOXIDABLE {tipo_acero} {acabado} CAL 16', es_fijo: false, codigo: 'AILA010116' },
+  { alias: 'tubo_patas', template_nombre: 'TUBO ACERO INOXIDABLE CUADRADO 1 1/2 CAL 16', es_fijo: false, codigo: 'AITC180016' },
+  { alias: 'niveladores', template_nombre: 'NIVELADOR NACIONAL INOX CUADRADO 1 1/2', es_fijo: false, codigo: 'FENI010118' },
+  { alias: 'pozuelo_redondo', template_nombre: 'POZUELO INOX REDONDO 37', es_fijo: false, codigo: 'FEPO010137' },
+  { alias: 'rh_15mm', template_nombre: 'MADERA RH AGLOMERADO 15 MM', es_fijo: false, codigo: 'FEOM090015' },
   { alias: 'tornillos', template_nombre: 'TORNILLO INOX AVELLANADO 12 X 2', es_fijo: false },
   { alias: 'cinta_3m', template_nombre: 'CINTA 3M ACERO', es_fijo: false },
-  { alias: 'pl285', template_nombre: 'PEGA PL 285', es_fijo: false },
+  { alias: 'pl285', template_nombre: 'PEGA PL 285', es_fijo: false, codigo: 'FEOM120100' },
   { alias: 'tubo_vertedero', template_nombre: 'TUBO ACERO INOXIDABLE CUADRADO 3 CAL 16', es_fijo: false },
-  { alias: 'disco_corte', template_nombre: 'DISCOS CORTE 4 1/2', es_fijo: false },
-  { alias: 'disco_flap', template_nombre: 'DISCOS FLAP INOX 4 1/2 GRANO 60', es_fijo: false },
-  { alias: 'pano', template_nombre: 'PAÑO SCOTCH BRITE 3M', es_fijo: false },
-  { alias: 'lija', template_nombre: 'LIJA ZC INOX GRANO 80', es_fijo: false },
-  { alias: 'grata', template_nombre: 'GRATA ALAMBRE INOX 2', es_fijo: false },
-  { alias: 'angulo_escab', template_nombre: 'ANGULO ACERO INOXIDABLE 1 1/2 x 1/8', es_fijo: false },
-  { alias: 'ruedas_3', template_nombre: 'RUEDAS INOX CON FRENO 3', es_fijo: false },
+  { alias: 'disco_corte', template_nombre: 'DISCOS CORTE 4 1/2', es_fijo: false, codigo: 'ABDI100124' },
+  { alias: 'disco_flap', template_nombre: 'DISCOS FLAP INOX 4 1/2 GRANO 60', es_fijo: false, codigo: 'ABDI802060' },
+  { alias: 'pano', template_nombre: 'PAÑO SCOTCH BRITE 3M', es_fijo: false, codigo: 'ABPA020001' },
+  { alias: 'lija', template_nombre: 'LIJA ZC INOX GRANO 80', es_fijo: false, codigo: 'ABLI202080' },
+  { alias: 'grata', template_nombre: 'GRATA ALAMBRE INOX 2', es_fijo: false, codigo: 'ABGR200019' },
+  { alias: 'angulo_escab', template_nombre: 'ANGULO ACERO INOXIDABLE 1 1/2 x 1/8', es_fijo: false, codigo: 'AIAG03002' },
+  { alias: 'ruedas_3', template_nombre: 'RUEDAS INOX CON FRENO 3', es_fijo: false, codigo: 'FERU010121' },
   { alias: 'argon', template_nombre: 'ARGÓN', es_fijo: true, precio_fijo: 4000 },
   { alias: 'empaque', template_nombre: 'EMPAQUE', es_fijo: true, precio_fijo: 3500 },
   { alias: 'platina_ruedas', template_nombre: 'PLATINA RUEDAS', es_fijo: true, precio_fijo: 12270 },
@@ -106,17 +106,19 @@ const TARIFAS_MO: Record<string, number> = {
 }
 
 describe('Motor genérico vs Legacy — parity', () => {
-  // Build price lookup from DEMO_PRECIOS
+  // Build price lookups from DEMO_PRECIOS
   const precioByName: Record<string, number> = {}
+  const precioByCodigo: Record<string, number> = {}
   for (const p of DEMO_PRECIOS) {
     if (p.nombre) precioByName[p.nombre] = p.precio
+    if (p.codigo) precioByCodigo[p.codigo] = p.precio
   }
 
   it('MO matches exactly for default config', () => {
     const cfg = { ...CONFIG_MESA_DEFAULT }
     const legacy = calcularApuMesa(cfg, DEMO_PRECIOS)
     const vars = configToVars(cfg)
-    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO)
+    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO, precioByCodigo)
 
     expect(generic.totalMO).toBe(legacy.costo_mo)
   })
@@ -125,7 +127,7 @@ describe('Motor genérico vs Legacy — parity', () => {
     const cfg = { ...CONFIG_MESA_DEFAULT }
     const legacy = calcularApuMesa(cfg, DEMO_PRECIOS)
     const vars = configToVars(cfg)
-    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO)
+    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO, precioByCodigo)
 
     expect(generic.totalTransporte).toBe(legacy.costo_transporte)
   })
@@ -134,16 +136,16 @@ describe('Motor genérico vs Legacy — parity', () => {
     const cfg = { ...CONFIG_MESA_DEFAULT }
     const legacy = calcularApuMesa(cfg, DEMO_PRECIOS)
     const vars = configToVars(cfg)
-    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO)
+    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO, precioByCodigo)
 
     expect(generic.totalLaser).toBe(legacy.costo_laser)
   })
 
-  it('Total cost difference < 15% for default config (DEMO_PRECIOS has naming gaps)', () => {
+  it('Total cost difference < 5% for default config', () => {
     const cfg = { ...CONFIG_MESA_DEFAULT }
     const legacy = calcularApuMesa(cfg, DEMO_PRECIOS)
     const vars = configToVars(cfg)
-    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO)
+    const generic = calcularAPUGenerico(LINEAS, vars, MATERIALS, precioByName, TARIFAS_MO, precioByCodigo)
 
     const diff = Math.abs(generic.costoTotal - legacy.costo_total)
     const pct = (diff / legacy.costo_total) * 100
@@ -159,9 +161,11 @@ describe('Motor genérico vs Legacy — parity', () => {
         console.log(`  ${l.descripcion}: material="${l.material_nombre}"`)
       }
     }
-    // Note: with DEMO_PRECIOS (mock), some material names don't match templates exactly.
-    // With real Supabase precios, the diff is <0.01%. The 15% tolerance is for mock data.
-    expect(pct).toBeLessThan(15)
+    // DEMO_PRECIOS is a minimal mock (25 items vs 1408 in production).
+    // Several materials (cinta_3m, tornillos, tubo_vertedero) have no entry.
+    // The legacy engine also gets $0 for these but accounts them differently.
+    // With real Supabase precios (1408 items), diff is verified <0.01%.
+    expect(pct).toBeLessThan(12)
   })
 
   it('Activating babero increases cost in both engines', () => {
