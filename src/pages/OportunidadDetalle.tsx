@@ -56,6 +56,7 @@ export default function OportunidadDetalle() {
   const [showAdjudicadaModal, setShowAdjudicadaModal] = useState(false)
   const [showPerdidaModal, setShowPerdidaModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
+  const [catalogProducts, setCatalogProducts] = useState<{ id: string; nombre: string; activo: boolean }[]>([])
   const [editingContacto, setEditingContacto] = useState(false)
   const [contactoForm, setContactoForm] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '' })
   // Note editing state
@@ -112,6 +113,15 @@ export default function OportunidadDetalle() {
   useEffect(() => {
     if (opp?.id) listOppFiles(opp.id).then(setArchivos)
   }, [opp?.id])
+
+  // Load catalog products from Supabase for the product selector
+  useEffect(() => {
+    import('../lib/supabase').then(({ supabase }) => {
+      supabase.from('productos_catalogo').select('id, nombre, activo').order('orden').then(({ data }) => {
+        if (data) setCatalogProducts(data)
+      })
+    })
+  }, [])
 
   async function handleUploadFile(file: File) {
     if (!opp) return
@@ -1278,37 +1288,62 @@ export default function OportunidadDetalle() {
               <button onClick={() => setShowProductModal(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={20} /></button>
             </div>
             <div className="grid grid-cols-3 gap-4 p-6">
-              {[
-                { name: 'Mesas', desc: 'Configurar mesa inoxidable', subtipos: 6, active: true, icon: '🍽️', action: () => { setShowProductModal(false); navigate(`/oportunidades/${id}/configurar`) } },
-                { name: 'Pozuelos', desc: 'Pozuelos y pocetas', subtipos: 4, active: false },
-                { name: 'Pasamanos', desc: 'Pasamanos y barandas', subtipos: 3, active: false },
-                { name: 'Autoservicios', desc: 'Líneas de servicio', subtipos: 4, active: false },
-                { name: 'Muebles', desc: 'Mobiliario general', subtipos: 7, active: false },
-                { name: 'Producto Manual', desc: 'Cualquier producto — precio y descripción libre', subtipos: 0, active: true, icon: '📝', action: () => { setShowProductModal(false); setShowManualForm(true) } },
-              ].map(item => (
-                <button
-                  key={item.name}
-                  onClick={item.action}
-                  disabled={!item.active}
-                  className={`text-left p-5 rounded-xl border transition-all ${
-                    item.active
-                      ? 'border-[var(--color-border)] bg-white hover:shadow-md hover:border-[var(--color-primary)] cursor-pointer'
-                      : 'border-[var(--color-border)] bg-gray-50 opacity-50 cursor-not-allowed'
-                  }`}
-                >
-                  <div className="text-2xl mb-2">{item.icon || '🔧'}</div>
-                  <div className="font-semibold text-sm text-[var(--color-text)]">{item.name}</div>
-                  <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{item.desc}</div>
-                  {item.subtipos > 0 && <div className="text-[10px] text-[var(--color-text-muted)] mt-0.5">{item.subtipos} subtipos</div>}
-                  <div className="mt-2">
-                    {item.active ? (
-                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">ACTIVO</span>
-                    ) : (
-                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">🔒 PRÓXIMO</span>
-                    )}
-                  </div>
-                </button>
-              ))}
+              {(() => {
+                // Build product list: Mesa (always, uses legacy configurator), catalog products, manual
+                const STATIC_PRODUCTS = [
+                  { id: 'Pozuelos', name: 'Pozuelos', desc: 'Pozuelos y pocetas', icon: '🔧' },
+                  { id: 'Pasamanos', name: 'Pasamanos', desc: 'Pasamanos y barandas', icon: '🔧' },
+                  { id: 'Autoservicios', name: 'Autoservicios', desc: 'Líneas de servicio', icon: '🔧' },
+                  { id: 'Muebles', name: 'Muebles', desc: 'Mobiliario general', icon: '🔧' },
+                ]
+                const catalogIds = new Set(catalogProducts.filter(p => p.activo).map(p => p.id))
+                const items: { name: string; desc: string; icon: string; active: boolean; action?: () => void }[] = [
+                  // Mesa always uses ConfiguradorMesa (has 3D)
+                  { name: 'Mesas', desc: 'Configurar mesa inoxidable', icon: '🍽️', active: true, action: () => { setShowProductModal(false); navigate(`/oportunidades/${id}/configurar`) } },
+                  // Other catalog products → ConfiguradorGenerico
+                  ...STATIC_PRODUCTS.map(sp => {
+                    const catId = sp.id.toLowerCase()
+                    const isInCatalog = catalogIds.has(catId)
+                    return {
+                      name: sp.name, desc: sp.desc, icon: sp.icon,
+                      active: isInCatalog,
+                      action: isInCatalog ? () => { setShowProductModal(false); navigate(`/oportunidades/${id}/configurar-producto/${catId}`) } : undefined,
+                    }
+                  }),
+                  // Dynamic catalog products not in the static list
+                  ...catalogProducts.filter(p => p.activo && p.id !== 'mesa' && !STATIC_PRODUCTS.some(sp => sp.id.toLowerCase() === p.id))
+                    .map(p => ({
+                      name: p.nombre, desc: `Configurar ${p.nombre}`, icon: '⚙️',
+                      active: true,
+                      action: () => { setShowProductModal(false); navigate(`/oportunidades/${id}/configurar-producto/${p.id}`) },
+                    })),
+                  // Manual product always available
+                  { name: 'Producto Manual', desc: 'Cualquier producto — precio y descripción libre', icon: '📝', active: true, action: () => { setShowProductModal(false); setShowManualForm(true) } },
+                ]
+                return items.map(item => (
+                  <button
+                    key={item.name}
+                    onClick={item.action}
+                    disabled={!item.active}
+                    className={`text-left p-5 rounded-xl border transition-all ${
+                      item.active
+                        ? 'border-[var(--color-border)] bg-white hover:shadow-md hover:border-[var(--color-primary)] cursor-pointer'
+                        : 'border-[var(--color-border)] bg-gray-50 opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="text-2xl mb-2">{item.icon}</div>
+                    <div className="font-semibold text-sm text-[var(--color-text)]">{item.name}</div>
+                    <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{item.desc}</div>
+                    <div className="mt-2">
+                      {item.active ? (
+                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">ACTIVO</span>
+                      ) : (
+                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">🔒 PRÓXIMO</span>
+                      )}
+                    </div>
+                  </button>
+                ))
+              })()}
             </div>
           </div>
         </div>

@@ -11,6 +11,7 @@ import Empresas from './pages/Empresas'
 import EmpresaDetalle from './pages/EmpresaDetalle'
 import OportunidadDetalle from './pages/OportunidadDetalle'
 import ConfiguradorMesa from './pages/ConfiguradorMesa'
+import ConfiguradorGenerico from './pages/ConfiguradorGenerico'
 import Cotizaciones from './pages/Cotizaciones'
 import CotizacionEditor from './pages/CotizacionEditor'
 import Precios from './pages/Precios'
@@ -87,6 +88,7 @@ export default function App() {
               <Route path="/empresas/:id" element={<EmpresaDetalle />} />
               <Route path="/oportunidades/:id" element={<OportunidadDetalle />} />
               <Route path="/oportunidades/:id/configurar" element={<ConfiguradorMesa />} />
+              <Route path="/oportunidades/:id/configurar-producto/:productoId" element={<ConfiguradorGenerico />} />
               <Route path="/cotizaciones" element={<Cotizaciones />} />
               <Route path="/cotizaciones/:id/editar" element={<CotizacionEditor />} />
               <Route path="/precios" element={<Precios />} />
