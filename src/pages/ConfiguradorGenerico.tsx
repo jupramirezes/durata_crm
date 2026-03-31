@@ -200,8 +200,41 @@ export default function ConfiguradorGenerico() {
   }, [variables])
 
   const handleAdd = () => {
-    if (!resultado) return
-    dispatch({ type: 'ADD_PRODUCTO', payload: { oportunidad_id: id!, categoria: productoNombre, subtipo: productoNombre, configuracion: computedVars as any, apu_resultado: resultado, precio_calculado: precioFinal, descripcion_comercial: descripcionEdit || resultado.descripcion_comercial, cantidad } })
+    if (!resultado || !full) return
+    const desc = descripcionEdit || resultado.descripcion_comercial
+    // Build complete snapshot with overrides
+    const snapshot = {
+      producto_id: productoId,
+      variables: { ...computedVars },
+      lineas_apu: full.allLineas.filter(l => l.activa).map(l => {
+        const ov = lineOverrides[l.descripcion]
+        const cant = ov?.cant ?? l.cantidad
+        const pu = ov?.pu ?? l.precio_unitario
+        return {
+          nombre: l.descripcion,
+          seccion: l.seccion,
+          cantidad: cant,
+          cantidad_override: ov?.cant,
+          precio_unitario: pu,
+          precio_override: ov?.pu,
+          total: cant * pu * (1 + (l.desperdicio || 0)),
+          material_codigo: l.material || undefined,
+        }
+      }),
+      totales: {
+        insumos: full.totalInsumos,
+        mo: full.totalMO,
+        transporte: full.totalTransporte,
+        laser: full.totalLaser,
+        poliza: full.totalPoliza,
+        costo_total: adjustedCostoTotal,
+        margen,
+        precio_venta: precioFinal,
+      },
+      descripcion_comercial: desc,
+      version_fecha: new Date().toISOString().split('T')[0],
+    }
+    dispatch({ type: 'ADD_PRODUCTO', payload: { oportunidad_id: id!, categoria: productoNombre, subtipo: productoNombre, configuracion: snapshot, apu_resultado: resultado, precio_calculado: precioFinal, descripcion_comercial: desc, cantidad } })
     showToast('success', `${productoNombre} agregado al pedido`)
     setTimeout(() => navigate(`/oportunidades/${id}`), 500)
   }

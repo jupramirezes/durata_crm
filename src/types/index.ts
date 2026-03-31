@@ -127,12 +127,46 @@ export interface HistorialEtapa {
 // ==============================
 // PRODUCTO (linked to oportunidad)
 // ==============================
+
+/** Generic product snapshot — saved when adding product to order */
+export interface ProductoSnapshot {
+  producto_id: string
+  variables: Record<string, number | string | boolean>
+  lineas_apu: Array<{
+    nombre: string
+    seccion: string
+    cantidad: number
+    cantidad_override?: number
+    precio_unitario: number
+    precio_override?: number
+    total: number
+    material_codigo?: string
+  }>
+  totales: {
+    insumos: number
+    mo: number
+    transporte: number
+    laser: number
+    poliza: number
+    costo_total: number
+    margen: number
+    precio_venta: number
+  }
+  descripcion_comercial: string
+  version_fecha: string
+}
+
+/** Detect if a configuracion object is legacy (ConfigMesa) or new (ProductoSnapshot) */
+export function isProductoSnapshot(cfg: Record<string, any>): cfg is ProductoSnapshot {
+  return 'producto_id' in cfg && 'lineas_apu' in cfg
+}
+
 export interface ProductoCliente {
   id: string
   oportunidad_id: string
   categoria: string
   subtipo: string
-  configuracion: ConfigMesa
+  configuracion: Record<string, any>  // ProductoSnapshot (new) or ConfigMesa (legacy)
   apu_resultado?: ApuResultado
   precio_calculado?: number
   descripcion_comercial?: string

@@ -193,7 +193,14 @@ export default function ConfiguradorMesa() {
   const productoExistente = editProductoId ? state.productos.find(p => p.id === editProductoId) : null
 
   const viewer3DRef = useRef<Mesa3DViewerRef>(null)
-  const [cfg, setCfg] = useState<ConfigMesa>(productoExistente?.configuracion ? { ...productoExistente.configuracion } : { ...CONFIG_MESA_DEFAULT })
+  const [cfg, setCfg] = useState<ConfigMesa>(() => {
+    if (!productoExistente?.configuracion) return { ...CONFIG_MESA_DEFAULT }
+    const c = productoExistente.configuracion
+    // New snapshot format: extract variables back to ConfigMesa
+    if ('producto_id' in c && 'variables' in c) return { ...CONFIG_MESA_DEFAULT, ...c.variables }
+    // Legacy format: direct ConfigMesa
+    return { ...c } as ConfigMesa
+  })
   const [resultado, setResultado] = useState<ApuResultado | null>(null)
   const [cantidad, setCantidad] = useState(productoExistente?.cantidad || 1)
   const [showApu, setShowApu] = useState(true)
@@ -376,32 +383,63 @@ export default function ConfiguradorMesa() {
     // Capture 3D render as PNG
     const imagenRender = viewer3DRef.current?.capturarPNG() || null
 
+    const desc = descripcionEdit || adjustedResultado.descripcion_comercial
+
+    // Build generic snapshot with overrides
+    const snapshot = {
+      producto_id: 'mesa',
+      variables: { ...cfg } as Record<string, any>,
+      lineas_apu: adjustedResultado.lineas.map((l, i) => {
+        const ov = lineaOverrides[i]
+        return {
+          nombre: l.descripcion,
+          seccion: 'insumos',
+          cantidad: l.cantidad,
+          cantidad_override: ov?.cantidad,
+          precio_unitario: l.precio_unitario,
+          precio_override: ov?.precio_unitario,
+          total: l.total,
+          material_codigo: l.material || undefined,
+        }
+      }),
+      totales: {
+        insumos: adjustedResultado.costo_insumos,
+        mo: adjustedResultado.costo_mo,
+        transporte: adjustedResultado.costo_transporte,
+        laser: adjustedResultado.costo_laser,
+        poliza: adjustedResultado.costo_poliza,
+        costo_total: adjustedResultado.costo_total,
+        margen: adjustedResultado.margen,
+        precio_venta: adjustedResultado.precio_comercial,
+      },
+      descripcion_comercial: desc,
+      version_fecha: new Date().toISOString().split('T')[0],
+    }
+
     if (editProductoId && productoExistente) {
-      // Update existing product
       dispatch({
         type: 'UPDATE_PRODUCTO',
         payload: {
           id: editProductoId,
-          configuracion: cfg,
+          configuracion: snapshot,
           apu_resultado: adjustedResultado,
           precio_calculado: adjustedResultado.precio_comercial,
-          descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
+          descripcion_comercial: desc,
           cantidad,
           imagen_render: imagenRender,
         },
       })
     } else {
-      // Add new product
       dispatch({
         type: 'ADD_PRODUCTO',
         payload: {
           oportunidad_id: id,
           categoria: 'Mesas',
           subtipo: 'Mesa',
-          configuracion: cfg,
+          configuracion: snapshot,
           apu_resultado: adjustedResultado,
           precio_calculado: adjustedResultado.precio_comercial,
-          descripcion_comercial: descripcionEdit || adjustedResultado.descripcion_comercial,
+          descripcion_comercial: desc,
           cantidad,
           imagen_render: imagenRender,
         },
@@ -430,7 +468,7 @@ export default function ConfiguradorMesa() {
 
   function handlePreviewApuExcel() {
     if (!adjustedResultado) return
-    exportApuExcelFn({ resultado: adjustedResultado, config: cfg, preview: true })
+    exportApuExcelFn({ resultado: adjustedResultado, config: cfg as Record<string, any>, preview: true })
   }
 
   return (

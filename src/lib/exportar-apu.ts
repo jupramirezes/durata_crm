@@ -4,6 +4,7 @@
  */
 import * as XLSX from 'xlsx'
 import type { ApuResultado, ConfigMesa } from '../types'
+import { isProductoSnapshot } from '../types'
 
 /** Sanitize filename characters */
 function cleanFilename(s: string): string {
@@ -12,7 +13,7 @@ function cleanFilename(s: string): string {
 
 interface ApuExportParams {
   resultado: ApuResultado
-  config: ConfigMesa
+  config: Record<string, any>  // ConfigMesa (legacy) or ProductoSnapshot (new)
   /** Cotización number, e.g. "2026-410" */
   cotizacionNumero?: string
   empresaNombre?: string
@@ -22,11 +23,32 @@ interface ApuExportParams {
   preview?: boolean
 }
 
-export function exportApuExcel(params: ApuExportParams) {
-  const { resultado: r, config: cfg, cotizacionNumero, empresaNombre, contactoNombre, fecha, preview } = params
+function extractConfigInfo(config: Record<string, any>): { materialLabel: string; dims: string } {
+  if (isProductoSnapshot(config)) {
+    const v = config.variables
+    const largo = Number(v.largo) || 0
+    const ancho = Number(v.ancho) || 0
+    const alto = Number(v.alto) || 0
+    const mat = String(v.tipo_acero || v.calibre_cuerpo || '')
+    const acabado = String(v.acabado || '')
+    const cal = String(v.calibre || v.calibre_cuerpo || '')
+    return {
+      materialLabel: mat ? `Acero ${mat} ${acabado} Cal ${cal}` : `Cal ${cal}`,
+      dims: `${largo.toFixed(2)}m × ${ancho.toFixed(2)}m × ${alto.toFixed(2)}m`,
+    }
+  }
+  // Legacy ConfigMesa
+  const cfg = config as ConfigMesa
+  return {
+    materialLabel: `Acero ${cfg.tipo_acero} ${cfg.acabado?.charAt(0).toUpperCase()}${cfg.acabado?.slice(1)} Cal ${String(cfg.calibre).replace('cal_', '')}`,
+    dims: `${cfg.largo.toFixed(2)}m × ${cfg.ancho.toFixed(2)}m × ${cfg.alto.toFixed(2)}m`,
+  }
+}
 
-  const materialLabel = `Acero ${cfg.tipo_acero} ${cfg.acabado.charAt(0).toUpperCase() + cfg.acabado.slice(1)} Cal ${cfg.calibre.replace('cal_', '')}`
-  const dims = `${cfg.largo.toFixed(2)}m × ${cfg.ancho.toFixed(2)}m × ${cfg.alto.toFixed(2)}m`
+export function exportApuExcel(params: ApuExportParams) {
+  const { resultado: r, config, cotizacionNumero, empresaNombre, contactoNombre, fecha, preview } = params
+
+  const { materialLabel, dims } = extractConfigInfo(config)
   const fechaStr = fecha || new Date().toLocaleDateString('es-CO')
   const cotNum = cotizacionNumero || 'SIN_NUMERO'
 
@@ -214,12 +236,13 @@ export function exportApuExcel(params: ApuExportParams) {
   XLSX.utils.book_append_sheet(wb, ws, 'APU')
 
   // ── Filename ──
+  const dimParts = dims.replace(/m/g, '').split('×').map(s => s.trim())
+  const dimStr = dimParts.slice(0, 2).join('x')
   let filename: string
   if (preview) {
-    filename = `APU_PREVIEW_Mesa_${cfg.largo.toFixed(2)}x${cfg.ancho.toFixed(2)}.xlsx`
+    filename = `APU_PREVIEW_${dimStr}.xlsx`
   } else {
-    const dimStr = `${cfg.largo.toFixed(2)}x${cfg.ancho.toFixed(2)}`
-    filename = `APU_${cotNum}_Mesa_${dimStr}`
+    filename = `APU_${cotNum}_${dimStr}`
     if (empresaNombre) filename += `_${cleanFilename(empresaNombre)}`
     filename += '.xlsx'
   }
