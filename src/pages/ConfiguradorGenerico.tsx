@@ -84,9 +84,10 @@ export default function ConfiguradorGenerico() {
   const [showAPU, setShowAPU] = useState(true)
   const [customLines, setCustomLines] = useState<CustomLine[]>([])
   const [motorReady, setMotorReady] = useState(false)
-  // Line overrides: key = "seccion-orden", value = { cant?, pu? }
+  // Line overrides: key = line descripcion (stable across recalcs), value = { cant?, pu? }
   const [lineOverrides, setLineOverrides] = useState<Record<string, { cant?: number; pu?: number }>>({})
-  const [prevVarHash, setPrevVarHash] = useState('')
+  // Track previous line quantities to detect which changed
+  const [prevLineQtys, setPrevLineQtys] = useState<Record<string, number>>({})
 
   // Load product
   useEffect(() => {
@@ -141,28 +142,41 @@ export default function ConfiguradorGenerico() {
   const resultado = calcResult?.resultado || null
   const full = calcResult?.full || null
 
-  // Reset overrides when variables change
+  // Smart override reset: only clear overrides for lines whose quantity changed
   useEffect(() => {
-    const hash = JSON.stringify(computedVars)
-    if (prevVarHash && hash !== prevVarHash && Object.keys(lineOverrides).length > 0) {
-      setLineOverrides({})
-      showToast('warning', 'Overrides reseteados por cambio de configuración')
+    if (!full || Object.keys(lineOverrides).length === 0) {
+      // Just track current quantities
+      const qtys: Record<string, number> = {}
+      for (const l of (full?.allLineas || [])) if (l.activa) qtys[l.descripcion] = l.cantidad
+      setPrevLineQtys(qtys)
+      return
     }
-    setPrevVarHash(hash)
-  }, [computedVars])
+    const newQtys: Record<string, number> = {}
+    for (const l of full.allLineas) if (l.activa) newQtys[l.descripcion] = l.cantidad
+    const toReset: string[] = []
+    for (const key of Object.keys(lineOverrides)) {
+      if (key in newQtys && key in prevLineQtys && Math.abs(newQtys[key] - prevLineQtys[key]) > 0.001) {
+        toReset.push(key)
+      }
+    }
+    if (toReset.length > 0) {
+      setLineOverrides(prev => { const next = { ...prev }; for (const k of toReset) delete next[k]; return next })
+      showToast('warning', `${toReset.length} override(s) reseteados por cambio de cantidad`)
+    }
+    setPrevLineQtys(newQtys)
+  }, [full])
 
   // Compute override-adjusted totals
   const overrideDelta = useMemo(() => {
     if (!full) return 0
     let delta = 0
     for (const [key, ov] of Object.entries(lineOverrides)) {
-      const line = full.allLineas.find((l, i) => `${l.seccion}-${i}` === key)
-      if (!line || !line.activa) continue
-      const origTotal = line.total
+      const line = full.allLineas.find(l => l.descripcion === key && l.activa)
+      if (!line) continue
       const newCant = ov.cant ?? line.cantidad
       const newPu = ov.pu ?? line.precio_unitario
       const newTotal = newCant * newPu * (1 + (line.desperdicio || 0))
-      delta += newTotal - origTotal
+      delta += newTotal - line.total
     }
     return delta
   }, [full, lineOverrides])
@@ -290,11 +304,10 @@ export default function ConfiguradorGenerico() {
                   {SEC_ORDER.map(sec => {
                     const s = SEC[sec]
                     // Show ALL active lines, including $0 ones
-                    const lines = full.allLineas.map((l, gi) => ({ ...l, gi })).filter(l => l.seccion === sec && l.activa)
+                    const lines = full.allLineas.filter(l => l.seccion === sec && l.activa)
                     if (!lines.length) return null
                     const subtotal = lines.reduce((a, l) => {
-                      const key = `${l.seccion}-${l.gi}`
-                      const ov = lineOverrides[key]
+                      const ov = lineOverrides[l.descripcion]
                       if (ov) { const c = ov.cant ?? l.cantidad; const p = ov.pu ?? l.precio_unitario; return a + c * p * (1 + (l.desperdicio || 0)) }
                       return a + l.total
                     }, 0)
@@ -305,28 +318,28 @@ export default function ConfiguradorGenerico() {
                           <span className={`text-[10px] font-bold tabular-nums ${s.color}`}>{formatCOP(Math.round(subtotal))}</span>
                         </div>
                         <table className="w-full text-[11px]"><tbody>
-                          {lines.map(l => {
-                            const key = `${l.seccion}-${l.gi}`
-                            const ov = lineOverrides[key]
+                          {lines.map((l, li) => {
+                            const oKey = l.descripcion
+                            const ov = lineOverrides[oKey]
                             const isOverridden = !!ov
                             const dispCant = ov?.cant ?? l.cantidad
                             const dispPu = ov?.pu ?? l.precio_unitario
                             const dispTotal = dispCant * dispPu * (1 + (l.desperdicio || 0))
                             const isMissing = l.precio_unitario === 0 && l.cantidad > 0 && !ov?.pu
                             return (
-                              <tr key={l.gi} className={`border-b border-slate-50 ${isOverridden ? 'bg-amber-50/40' : 'hover:bg-slate-50/50'}`}>
+                              <tr key={`${sec}-${li}`} className={`border-b border-slate-50 ${isOverridden ? 'bg-amber-50/40' : 'hover:bg-slate-50/50'}`}>
                                 <td className="py-1 pl-4 text-slate-600 max-w-[100px] truncate text-[10px]">
                                   {l.descripcion}
                                   {isMissing && <span className="text-red-500 ml-1" title="Precio no encontrado en precios_maestro">⚠</span>}
                                 </td>
                                 <td className="py-1 w-14 pr-1">
                                   <input type="number" value={Number(dispCant.toFixed(4))} step={0.01}
-                                    onChange={e => setLineOverrides(p => ({ ...p, [key]: { ...p[key], cant: parseFloat(e.target.value) || 0 } }))}
+                                    onChange={e => setLineOverrides(p => ({ ...p, [oKey]: { ...p[oKey], cant: parseFloat(e.target.value) || 0 } }))}
                                     className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isOverridden ? 'text-amber-700 font-semibold' : 'text-slate-500'} hover:bg-white hover:border hover:border-slate-200 hover:rounded px-1`} />
                                 </td>
                                 <td className="py-1 w-16 pr-1">
                                   <input type="number" value={Math.round(dispPu)} step={100}
-                                    onChange={e => setLineOverrides(p => ({ ...p, [key]: { ...p[key], pu: parseFloat(e.target.value) || 0 } }))}
+                                    onChange={e => setLineOverrides(p => ({ ...p, [oKey]: { ...p[oKey], pu: parseFloat(e.target.value) || 0 } }))}
                                     className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isMissing ? 'text-red-500' : isOverridden ? 'text-amber-700 font-semibold' : 'text-slate-400'} hover:bg-white hover:border hover:border-slate-200 hover:rounded px-1`} />
                                 </td>
                                 <td className={`py-1 text-right tabular-nums text-[10px] font-medium pr-3 ${isMissing ? 'text-red-400' : ''}`}>{formatCOP(Math.round(dispTotal))}</td>
