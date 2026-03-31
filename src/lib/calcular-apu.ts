@@ -1,3 +1,7 @@
+// DEPRECATED: Reemplazado por motor-generico.ts + evaluar-formula.ts
+// El motor genérico lee fórmulas desde Supabase en vez de tenerlas hardcoded.
+// Mantener como referencia hasta verificar todos los productos. No importar.
+
 import { ConfigMesa, ApuResultado, ApuLinea, PrecioMaestro } from '../types'
 
 // ============================================================

@@ -2,11 +2,7 @@ import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado, ApuLinea } from '../types'
-import { calcularApuMesa } from '../lib/calcular-apu'
 import { calcularApuGenerico, preloadProductData, isMotorGenericoReady } from '../lib/motor-generico'
-
-/** Feature flag: set to true to use data-driven formula engine instead of hardcoded calcularApuMesa */
-const USE_MOTOR_GENERICO = false
 import { formatCOP } from '../lib/utils'
 import { exportApuExcel as exportApuExcelFn } from '../lib/exportar-apu'
 import type { Mesa3DViewerRef } from '../components/Mesa3DViewer'
@@ -207,9 +203,7 @@ export default function ConfiguradorMesa() {
   // Preload motor genérico data (fire once)
   const [motorReady, setMotorReady] = useState(false)
   useEffect(() => {
-    if (USE_MOTOR_GENERICO) {
-      preloadProductData('mesa').then(ok => setMotorReady(ok))
-    }
+    preloadProductData('mesa').then(ok => setMotorReady(ok))
   }, [])
   const [descripcionEdit, setDescripcionEdit] = useState(productoExistente?.descripcion_comercial || '')
   const [descOverridden, setDescOverridden] = useState(!!productoExistente?.descripcion_comercial)
@@ -313,14 +307,11 @@ export default function ConfiguradorMesa() {
       const dims = [...cfg.pozuelo_dims]
       while (dims.length < cfg.pozuelos_rect) dims.push({ largo: 0.50, ancho: 0.40, alto: 0.18 })
       const cfgFinal = { ...cfg, pozuelo_dims: dims.slice(0, cfg.pozuelos_rect) }
-      // Feature flag: use generic engine or legacy
-      let res: ApuResultado | null
-      if (USE_MOTOR_GENERICO && motorReady && isMotorGenericoReady('mesa')) {
-        res = calcularApuGenerico(cfgFinal, state.precios)
-        if (!res) res = calcularApuMesa(cfgFinal, state.precios) // fallback
-      } else {
-        res = calcularApuMesa(cfgFinal, state.precios)
-      }
+      // Use data-driven generic engine (reads formulas from Supabase)
+      const res = motorReady && isMotorGenericoReady('mesa')
+        ? calcularApuGenerico(cfgFinal, state.precios)
+        : null
+      if (!res) return // motor not ready yet, will recalc when motorReady changes
       setResultado(res)
       setLineaOverrides({})
       if (!descOverridden) {
