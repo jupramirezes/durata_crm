@@ -145,13 +145,15 @@ export function calcularApuGenerico(
   )
 
   // Convert ResultadoAPU → ApuResultado (match the legacy shape)
+  // CRITICAL: ConfiguradorMesa expects `lineas` to contain ONLY insumos.
+  // MO, transporte, laser are separate scalar fields — NOT in lineas.
   const lineas: ApuLinea[] = result.lineas
-    .filter(l => l.condicion_activa && l.total > 0)
+    .filter(l => l.seccion === 'insumos' && l.condicion_activa && l.total > 0)
     .map(l => ({
       descripcion: l.descripcion,
       material: l.material_nombre || '',
       cantidad: l.cantidad,
-      unidad: l.seccion === 'mo' ? 'ml' : l.seccion === 'insumos' ? 'm²' : 'und',
+      unidad: 'm²',
       precio_unitario: l.precio_unitario,
       desperdicio: l.desperdicio,
       total: l.total,
