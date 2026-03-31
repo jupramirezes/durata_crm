@@ -170,17 +170,25 @@ export function calcularApuGenerico(
     // Addons use 20% margin, already included in costoTotal
   }
 
-  const descripcion = `Suministro e instalación de Mesa en acero inoxidable AISI ${cfg.tipo_acero}, ` +
-    `mesón en lámina cal ${vars.calibre} acabado ${cfg.acabado} de ${cfg.largo.toFixed(2)}m de largo × ${cfg.ancho.toFixed(2)}m de ancho, ` +
-    `altura total ${cfg.alto.toFixed(2)}m` +
-    (cfg.entrepaños > 0 ? `, con ${cfg.entrepaños} entrepaño(s)` : '') +
-    (cfg.babero ? ', babero satinado' : '') +
-    (cfg.pozuelos_rect > 0 ? `, ${cfg.pozuelos_rect} pozuelo(s) rectangular(es)` : '') +
-    (cfg.pozuelos_redondos > 0 ? `, ${cfg.pozuelos_redondos} pozuelo(s) redondo(s)` : '') +
-    (cfg.escabiladero ? `, escabiladero con ${cfg.bandejeros} bandejeros` : '') +
-    (cfg.vertederos > 0 ? `, ${cfg.vertederos} vertedero(s)` : '') +
-    (cfg.push_pedal ? ', push pedal con grifo y canastilla' : '') +
-    '.'
+  // Build description matching legacy calcularApuMesa format
+  const cal = String(vars.calibre)
+  let descripcion = `${cfg.instalado ? 'Suministro e instalación de' : 'Suministro de'} Mesa en acero inoxidable AISI ${cfg.tipo_acero}, mesón en lámina cal ${cal} de ${cfg.largo.toFixed(2)} m de largo x ${cfg.ancho.toFixed(2)} m de ancho, altura total ${cfg.alto.toFixed(2)} m`
+  if (cfg.salp_long > 0) descripcion += `, salpicadero longitudinal de ${cfg.alto_salp.toFixed(2)} m de alto`
+  if (cfg.salp_lat > 0) descripcion += ` y ${cfg.salp_lat} salpicadero${cfg.salp_lat > 1 ? 's' : ''} lateral${cfg.salp_lat > 1 ? 'es' : ''}`
+  if (cfg.babero) descripcion += `. Babero longitudinal de ${cfg.alto_babero.toFixed(2)} m en lámina satinada cal 20`
+  if (cfg.ruedas) descripcion += `. ${cfg.cant_ruedas} ruedas inox de ${cfg.tipo_rueda.includes('3') ? '3' : cfg.tipo_rueda.includes('2') ? '2' : '4'} pulg con freno`
+  else descripcion += `. ${cfg.patas} patas en tubo cuadrado 1-1/2 pulg cal 16 con niveladores`
+  if (cfg.entrepaños > 0) descripcion += `, ${cfg.entrepaños} entrepaño${cfg.entrepaños > 1 ? 's' : ''} en lámina cal ${cal}`
+  if (cfg.pozuelos_rect > 0) {
+    const d = cfg.pozuelo_dims[0]
+    descripcion += `, ${cfg.pozuelos_rect} pozuelo${cfg.pozuelos_rect > 1 ? 's' : ''} rectangular${cfg.pozuelos_rect > 1 ? 'es' : ''} de ${(d?.largo || 0.54).toFixed(2)}×${(d?.ancho || 0.39).toFixed(2)}×${(d?.alto || 0.18).toFixed(2)} m`
+  }
+  if (cfg.pozuelos_redondos > 0) descripcion += `, ${cfg.pozuelos_redondos} pozuelo${cfg.pozuelos_redondos > 1 ? 's' : ''} redondo${cfg.pozuelos_redondos > 1 ? 's' : ''} 370mm`
+  if (cfg.escabiladero) descripcion += `, escabiladero con ${cfg.bandejeros} bandejeros`
+  if (cfg.vertederos > 0) descripcion += `, ${cfg.vertederos} vertedero${cfg.vertederos > 1 ? 's' : ''} Ø${cfg.diam_vertedero.toFixed(2)} m`
+  descripcion += `. Refuerzo en ${cfg.refuerzo === 'omegas' ? `omegas cal ${cal}` : 'RH 15mm'}. Soldadura TIG con argón, acabado pulido satinado`
+  if (cfg.push_pedal) descripcion += '. Incluye Push Pedal + grifo + canastilla'
+  descripcion += cfg.poliza ? '. Con póliza.' : '. Sin póliza.'
 
   return {
     lineas,
