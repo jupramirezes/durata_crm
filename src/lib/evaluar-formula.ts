@@ -17,7 +17,9 @@ math.import({
     return Math.ceil(val * factor) / factor
   },
   CEILING: (val: number, step: number) => Math.ceil(val / step) * step,
-  // mathjs already has max, min, pi, ceil — these are available by default
+  IF: (cond: any, trueVal: any, falseVal: any) => cond ? trueVal : falseVal,
+  INT: (val: number) => Math.floor(val),
+  // mathjs already has max, min, pi, ceil, floor, abs, round — available by default
 }, { override: true })
 
 /* ── Types ─────────────────────────────────────────── */
