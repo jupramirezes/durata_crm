@@ -14,7 +14,7 @@ import { showToast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import {
   ArrowLeft, ChevronDown, ChevronRight, Package, Plus, X,
-  Ruler, Atom, Layers, Grid3X3, Settings, Box, Circle, Wrench,
+  Ruler, Layers, Grid3X3, Settings, Box, Circle,
 } from 'lucide-react'
 
 /* ── Types ─────────────────────────────────────────── */
@@ -36,13 +36,21 @@ const SEC = {
 } as const
 const SEC_ORDER = ['insumos', 'mo', 'transporte', 'laser', 'poliza', 'addon'] as const
 
-const ICONS: Record<string, typeof Ruler> = {
-  'Dimensiones principales': Ruler, Material: Atom, Salpicaderos: Layers,
-  Babero: Layers, 'Entrepaños y soporte': Grid3X3, Refuerzo: Wrench,
-  Pozuelos: Circle, Escabiladero: Grid3X3, Vertedero: Box,
-  'Extras y parámetros': Settings, Configuración: Grid3X3, Extras: Settings,
-  Desagüe: Box,
+const GROUP_STYLE: Record<string, { icon: typeof Ruler; bg: string; text: string }> = {
+  Dimensiones:              { icon: Ruler,   bg: 'bg-blue-50',    text: 'text-blue-600' },
+  'Dimensiones principales':{ icon: Ruler,   bg: 'bg-blue-50',    text: 'text-blue-600' },
+  Material:                 { icon: Layers,  bg: 'bg-emerald-50', text: 'text-emerald-600' },
+  Configuracion:            { icon: Grid3X3, bg: 'bg-purple-50',  text: 'text-purple-600' },
+  Accesorios:               { icon: Circle,  bg: 'bg-orange-50',  text: 'text-orange-600' },
+  Extras:                   { icon: Settings,bg: 'bg-slate-100',  text: 'text-slate-500' },
+  General:                  { icon: Box,     bg: 'bg-slate-50',   text: 'text-slate-500' },
+  Salpicaderos:             { icon: Layers,  bg: 'bg-orange-50',  text: 'text-orange-600' },
+  Babero:                   { icon: Layers,  bg: 'bg-orange-50',  text: 'text-orange-600' },
+  Pozuelos:                 { icon: Circle,  bg: 'bg-orange-50',  text: 'text-orange-600' },
+  Vertedero:                { icon: Box,     bg: 'bg-orange-50',  text: 'text-orange-600' },
+  'Desague':                { icon: Box,     bg: 'bg-orange-50',  text: 'text-orange-600' },
 }
+const DEFAULT_GROUP_STYLE = { icon: Settings, bg: 'bg-slate-50', text: 'text-slate-500' }
 
 /* ── Description templates ──────────────────────────── */
 function buildDescription(pid: string, v: Variables): string {
@@ -305,11 +313,12 @@ export default function ConfiguradorGenerico() {
         {/* LEFT: Controls */}
         <div className="flex-1 space-y-3 min-w-0">
           {groups.map(([gn, gv]) => {
-            const Ic = ICONS[gn] || Settings; const isDimOrMat = gn === 'Dimensiones principales' || gn === 'Material'
+            const gs = GROUP_STYLE[gn] || DEFAULT_GROUP_STYLE
+            const Ic = gs.icon; const isDimOrMat = gn === 'Dimensiones principales' || gn === 'Dimensiones' || gn === 'Material'
             return (
               <div key={gn} className="bg-white rounded-xl border border-[var(--color-border)] shadow-sm overflow-hidden">
-                <button onClick={() => toggleGroup(gn)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50/80 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0"><Ic size={16} className="text-blue-600" /></div>
+                <button onClick={() => toggleGroup(gn)} className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/80 transition-colors">
+                  <div className={`w-8 h-8 rounded-lg ${gs.bg} flex items-center justify-center shrink-0`}><Ic size={16} className={gs.text} /></div>
                   <span className="text-sm font-semibold text-slate-800 flex-1 text-left">{gn}</span>
                   {!expandedGroups.has(gn) && <span className="text-xs text-slate-400 mr-2">{gv.filter(v => v.tipo !== 'calculado').slice(0, 3).map(v => { const val = computedVars[v.nombre]; return v.tipo === 'toggle' ? (val ? '✓' : '—') : `${val}${v.unidad || ''}` }).join(' · ')}</span>}
                   {expandedGroups.has(gn) ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
@@ -327,12 +336,20 @@ export default function ConfiguradorGenerico() {
                         ))}
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         {gv.map(v => (
                           <div key={v.nombre}>
-                            {v.tipo === 'numero' && <div className="flex items-center gap-3"><span className="text-sm text-slate-600 w-[160px] shrink-0">{v.label}</span><input type="range" min={v.min_val ?? 0} max={v.max_val ?? 10} step={v.unidad === 'm' ? 0.01 : 1} value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value))} className="flex-1 h-1.5 accent-blue-600" /><div className="flex items-center gap-1 border border-slate-200 rounded-lg px-2 py-1.5 bg-white w-[90px]"><input type="number" value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)} step={v.unidad === 'm' ? 0.01 : 1} className="w-full text-sm text-right bg-transparent outline-none tabular-nums" />{v.unidad && <span className="text-[10px] text-slate-400">{v.unidad}</span>}</div></div>}
+                            {v.tipo === 'numero' && (
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm text-slate-600 w-[180px] shrink-0">{v.label}</span>
+                                <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 bg-white hover:border-slate-300 w-[110px]">
+                                  <input type="number" value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)} step={v.unidad === 'm' ? 0.01 : 1} min={v.min_val ?? undefined} max={v.max_val ?? undefined} className="w-full text-sm font-medium text-right bg-transparent outline-none tabular-nums" />
+                                  {v.unidad && <span className="text-xs text-slate-400 shrink-0">{v.unidad}</span>}
+                                </div>
+                              </div>
+                            )}
                             {v.tipo === 'toggle' && <label className="flex items-center gap-3 cursor-pointer py-0.5"><input type="checkbox" checked={!!computedVars[v.nombre]} onChange={e => updateVar(v.nombre, e.target.checked ? 1 : 0)} className="w-4.5 h-4.5 accent-blue-600 rounded" /><span className="text-sm text-slate-600">{v.label}</span></label>}
-                            {v.tipo === 'seleccion' && <div className="flex items-center gap-3"><span className="text-sm text-slate-600 w-[160px] shrink-0">{v.label}</span><select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select></div>}
+                            {v.tipo === 'seleccion' && <div className="flex items-center gap-3"><span className="text-sm text-slate-600 w-[180px] shrink-0">{v.label}</span><select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="px-3 py-2 text-sm font-medium border border-slate-200 rounded-lg bg-white hover:border-slate-300">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select></div>}
                             {v.tipo === 'calculado' && <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg"><span className="text-sm text-slate-500 flex-1">{v.label}</span><span className="text-sm font-bold text-slate-800 tabular-nums">{Math.round(Number(computedVars[v.nombre]) || 0)}</span></div>}
                           </div>
                         ))}
@@ -381,6 +398,15 @@ export default function ConfiguradorGenerico() {
               </button>
               {showAPU && (
                 <div className="max-h-[500px] overflow-y-auto">
+                  {/* Column headers */}
+                  <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
+                    <table className="w-full text-[10px]"><thead><tr className="text-slate-400 uppercase tracking-wider">
+                      <th className="py-1.5 pl-4 text-left font-semibold">Descripcion</th>
+                      <th className="py-1.5 w-14 pr-1 text-right font-semibold">Cant</th>
+                      <th className="py-1.5 w-16 pr-1 text-right font-semibold">P.Unit</th>
+                      <th className="py-1.5 pr-3 text-right font-semibold">Total</th>
+                    </tr></thead></table>
+                  </div>
                   {SEC_ORDER.map(sec => {
                     const s = SEC[sec]
                     // Show ALL active lines, including $0 ones
