@@ -1287,14 +1287,31 @@ export default function OportunidadDetalle() {
               </div>
               <button onClick={() => setShowProductModal(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={20} /></button>
             </div>
+            <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
             <div className="grid grid-cols-3 gap-4 p-6">
               {(() => {
                 // Build product list: Mesa (always, uses legacy configurator), catalog products, manual
+                const PRODUCT_ICONS: Record<string, string> = {
+                  mesa: '🍽️', mesas: '🍽️',
+                  carcamo: '🔧',
+                  estanteria_graduable: '📚', estanteria: '📚',
+                  repisa: '📦',
+                  ductos: '🔩',
+                  barras_discapacitados: '♿',
+                  pozuelo: '🚰', pozuelos: '🚰',
+                  lavaescobas: '🧹',
+                  caja_sifonada: '📥',
+                  pasamanos: '🛡️',
+                  autoservicios: '🍱',
+                  muebles: '🪑',
+                  manual: '✏️',
+                }
+                const getIcon = (id: string) => PRODUCT_ICONS[id.toLowerCase()] ?? '⚙️'
                 const STATIC_PRODUCTS = [
-                  { id: 'Pozuelos', name: 'Pozuelos', desc: 'Pozuelos y pocetas', icon: '🔧' },
-                  { id: 'Pasamanos', name: 'Pasamanos', desc: 'Pasamanos y barandas', icon: '🔧' },
-                  { id: 'Autoservicios', name: 'Autoservicios', desc: 'Líneas de servicio', icon: '🔧' },
-                  { id: 'Muebles', name: 'Muebles', desc: 'Mobiliario general', icon: '🔧' },
+                  { id: 'Pozuelos', name: 'Pozuelos', desc: 'Pozuelos y pocetas' },
+                  { id: 'Pasamanos', name: 'Pasamanos', desc: 'Pasamanos y barandas' },
+                  { id: 'Autoservicios', name: 'Autoservicios', desc: 'Líneas de servicio' },
+                  { id: 'Muebles', name: 'Muebles', desc: 'Mobiliario general' },
                 ]
                 const catalogIds = new Set(catalogProducts.filter(p => p.activo).map(p => p.id))
                 const items: { name: string; desc: string; icon: string; active: boolean; action?: () => void }[] = [
@@ -1305,7 +1322,7 @@ export default function OportunidadDetalle() {
                     const catId = sp.id.toLowerCase()
                     const isInCatalog = catalogIds.has(catId)
                     return {
-                      name: sp.name, desc: sp.desc, icon: sp.icon,
+                      name: sp.name, desc: sp.desc, icon: getIcon(sp.id),
                       active: isInCatalog,
                       action: isInCatalog ? () => { setShowProductModal(false); navigate(`/oportunidades/${id}/configurar-producto/${catId}`) } : undefined,
                     }
@@ -1313,12 +1330,12 @@ export default function OportunidadDetalle() {
                   // Dynamic catalog products not in the static list
                   ...catalogProducts.filter(p => p.activo && p.id !== 'mesa' && !STATIC_PRODUCTS.some(sp => sp.id.toLowerCase() === p.id))
                     .map(p => ({
-                      name: p.nombre, desc: `Configurar ${p.nombre}`, icon: '⚙️',
+                      name: p.nombre, desc: `Configurar ${p.nombre}`, icon: getIcon(p.id),
                       active: true,
                       action: () => { setShowProductModal(false); navigate(`/oportunidades/${id}/configurar-producto/${p.id}`) },
                     })),
                   // Manual product always available
-                  { name: 'Producto Manual', desc: 'Cualquier producto — precio y descripción libre', icon: '📝', active: true, action: () => { setShowProductModal(false); setShowManualForm(true) } },
+                  { name: 'Producto Manual', desc: 'Cualquier producto — precio y descripción libre', icon: getIcon('manual'), active: true, action: () => { setShowProductModal(false); setShowManualForm(true) } },
                 ]
                 return items.map(item => (
                   <button
@@ -1344,6 +1361,7 @@ export default function OportunidadDetalle() {
                   </button>
                 ))
               })()}
+            </div>
             </div>
           </div>
         </div>
