@@ -54,14 +54,38 @@ const DEFAULT_GROUP_STYLE = { icon: Settings, bg: 'bg-slate-50', text: 'text-sla
 
 /* ── Description templates ──────────────────────────── */
 
-/** Replace {variable} placeholders with formatted values */
+/**
+ * Replace {variable} placeholders and [variable:text_if_true|text_if_false] conditionals.
+ * Examples:
+ *   {largo} → "2.00"
+ *   [instalacion:e instalación|] → "e instalación" if instalacion==1, "" if 0
+ *   [poliza:Con póliza.|Sin póliza.] → "Con póliza." or "Sin póliza."
+ */
 function applyDescTemplate(template: string, v: Variables): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => {
+  // Step 1: Resolve conditionals [variable:true_text|false_text]
+  let result = template.replace(/\[(\w+):([^|]*)\|([^\]]*)\]/g, (_, key, trueText, falseText) => {
+    const val = v[key]
+    const isTruthy = val === 1 || val === true || val === 'SI' || val === '1' || (typeof val === 'number' && val > 0)
+    return isTruthy ? trueText : falseText
+  })
+
+  // Step 2: Resolve simple conditionals [variable:text_if_true] (no false branch)
+  result = result.replace(/\[(\w+):([^\]]+)\]/g, (_, key, trueText) => {
+    const val = v[key]
+    const isTruthy = val === 1 || val === true || val === 'SI' || val === '1' || (typeof val === 'number' && val > 0)
+    return isTruthy ? trueText : ''
+  })
+
+  // Step 3: Resolve {variable} placeholders
+  result = result.replace(/\{(\w+)\}/g, (_, key) => {
     const val = v[key]
     if (val == null) return `{${key}}`
     if (typeof val === 'number') return val % 1 === 0 ? String(val) : val.toFixed(2)
     return String(val)
   })
+
+  // Clean up double spaces from removed conditionals
+  return result.replace(/\s{2,}/g, ' ').trim()
 }
 
 function buildDescription(pid: string, v: Variables, descTemplate?: string): string {
@@ -120,7 +144,9 @@ export default function ConfiguradorGenerico() {
         const { data: cat, error: e } = await supabase.from('productos_catalogo').select('*').eq('id', productoId).single()
         if (e) throw new Error(e.message)
         setProductoNombre(cat.nombre)
-        setMargen(cat.margen_default || 0.38)
+        // Normalize margen: handle both 0.38 and 38 formats
+        const rawMargen = cat.margen_default || 0.38
+        setMargen(rawMargen >= 1 ? rawMargen / 100 : rawMargen)
         if (cat.desc_template) setDescTemplate(cat.desc_template)
         const { data: vd } = await supabase.from('producto_variables').select('*').eq('producto_id', productoId).order('orden')
         const vars = (vd || []).map((v: any) => ({ ...v, opciones: typeof v.opciones === 'string' ? JSON.parse(v.opciones) : v.opciones })) as ProdVar[]

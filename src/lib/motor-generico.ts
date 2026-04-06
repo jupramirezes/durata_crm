@@ -160,7 +160,9 @@ export function calcularApuGenerico(
     }))
 
   const costoTotal = result.costoTotal
-  const precioVenta = Math.round(costoTotal / (1 - cfg.margen))
+  // Normalize margen: handle both 0.38 and 38 formats
+  const cfgMargen = cfg.margen >= 1 ? cfg.margen / 100 : cfg.margen
+  const precioVenta = Math.round(costoTotal / (1 - cfgMargen))
   const precioComercial = Math.ceil(precioVenta / 1000) * 1000
 
   // Add push pedal addon at different margin
@@ -264,7 +266,9 @@ export function calcularApuRaw(
   }))
 
   const costoTotal = result.costoTotal
-  const precioVenta = Math.round(costoTotal / (1 - margen))
+  // Normalize margen: handle both 0.38 and 38 formats
+  const margenNorm = margen >= 1 ? margen / 100 : margen
+  const precioVenta = Math.round(costoTotal / (1 - margenNorm))
   const precioComercial = Math.ceil(precioVenta / 1000) * 1000
 
   const L = Number(vars.largo) || 1

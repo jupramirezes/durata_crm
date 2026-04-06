@@ -255,10 +255,12 @@ export function calcularAPUGenerico(
 
   const subtotalBeforePoliza = sum('insumos') + sum('mo') + sum('transporte') + sum('laser') + sum('addon') + sum('otros')
 
-  // Poliza is 2% of everything before it
+  // Poliza: use poliza_pct variable if available, otherwise default 2%
+  const polizaPct = (typeof variables.poliza_pct === 'number' ? variables.poliza_pct : Number(variables.poliza_pct)) || 2
+  const polizaRate = polizaPct >= 1 ? polizaPct / 100 : polizaPct  // handle both 2 and 0.02
   const polizaLinea = resultados.find(r => r.seccion === 'poliza' && r.condicion_activa)
   if (polizaLinea) {
-    polizaLinea.precio_unitario = subtotalBeforePoliza * 0.02
+    polizaLinea.precio_unitario = subtotalBeforePoliza * polizaRate
     polizaLinea.total = polizaLinea.cantidad * polizaLinea.precio_unitario
   }
 
