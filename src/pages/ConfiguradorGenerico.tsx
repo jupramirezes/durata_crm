@@ -53,7 +53,21 @@ const GROUP_STYLE: Record<string, { icon: typeof Ruler; bg: string; text: string
 const DEFAULT_GROUP_STYLE = { icon: Settings, bg: 'bg-slate-50', text: 'text-slate-500' }
 
 /* ── Description templates ──────────────────────────── */
-function buildDescription(pid: string, v: Variables): string {
+
+/** Replace {variable} placeholders with formatted values */
+function applyDescTemplate(template: string, v: Variables): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => {
+    const val = v[key]
+    if (val == null) return `{${key}}`
+    if (typeof val === 'number') return val % 1 === 0 ? String(val) : val.toFixed(2)
+    return String(val)
+  })
+}
+
+function buildDescription(pid: string, v: Variables, descTemplate?: string): string {
+  // If there's a template from productos_catalogo, use it
+  if (descTemplate) return applyDescTemplate(descTemplate, v)
+
   const inst = !!v.instalacion
   const pol = !!v.poliza
   const pre = inst ? 'Suministro e instalación de' : 'Suministro de'
@@ -88,6 +102,7 @@ export default function ConfiguradorGenerico() {
   const [cantidad, setCantidad] = useState(1)
   const [descripcionEdit, setDescripcionEdit] = useState('')
   const [descManual, setDescManual] = useState(false)
+  const [descTemplate, setDescTemplate] = useState<string | undefined>()
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [showAPU, setShowAPU] = useState(true)
   const [customLines, setCustomLines] = useState<CustomLine[]>([])
@@ -106,6 +121,7 @@ export default function ConfiguradorGenerico() {
         if (e) throw new Error(e.message)
         setProductoNombre(cat.nombre)
         setMargen(cat.margen_default || 0.38)
+        if (cat.desc_template) setDescTemplate(cat.desc_template)
         const { data: vd } = await supabase.from('producto_variables').select('*').eq('producto_id', productoId).order('orden')
         const vars = (vd || []).map((v: any) => ({ ...v, opciones: typeof v.opciones === 'string' ? JSON.parse(v.opciones) : v.opciones })) as ProdVar[]
         setVariables(vars)
@@ -195,8 +211,8 @@ export default function ConfiguradorGenerico() {
 
   // Auto-description
   useEffect(() => {
-    if (!descManual && computedVars.largo != null) setDescripcionEdit(buildDescription(productoId, computedVars))
-  }, [computedVars, productoId, descManual])
+    if (!descManual && computedVars.largo != null) setDescripcionEdit(buildDescription(productoId, computedVars, descTemplate))
+  }, [computedVars, productoId, descManual, descTemplate])
 
   const updateVar = useCallback((n: string, v: number | string) => setValores(p => ({ ...p, [n]: v })), [])
   const toggleGroup = (g: string) => setExpandedGroups(p => { const n = new Set(p); n.has(g) ? n.delete(g) : n.add(g); return n })
