@@ -268,8 +268,14 @@ export function calcularApuRaw(
   const costoTotal = result.costoTotal
   // Normalize margen: handle both 0.38 and 38 formats
   const margenNorm = margen >= 1 ? margen / 100 : margen
-  const precioVenta = Math.round(costoTotal / (1 - margenNorm))
-  const precioComercial = Math.ceil(precioVenta / 1000) * 1000
+  // Addons are excluded from product margin and priced independently at 20%
+  const costoSinAddons = costoTotal - result.totalAddons
+  const precioProducto = Math.round(costoSinAddons / (1 - margenNorm))
+  const precioAddons = result.totalAddons > 0
+    ? Math.ceil(result.totalAddons / (1 - 0.20) / 1000) * 1000
+    : 0
+  const precioVenta = precioProducto + precioAddons
+  const precioComercial = Math.ceil(precioProducto / 1000) * 1000 + precioAddons
 
   const L = Number(vars.largo) || 1
   const W = Number(vars.ancho) || 0.5
