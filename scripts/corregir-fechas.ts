@@ -13,11 +13,11 @@
  * Usage: npx tsx scripts/corregir-fechas.ts
  */
 
-import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import XLSX from 'xlsx'
 import { createClient } from '@supabase/supabase-js'
+import { getSupabaseScriptConfig } from './lib/env'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -25,25 +25,8 @@ const BATCH = 50
 
 const MAESTRO_PATH = resolve(__dirname, 'data/REGISTRO_MAESTRO.xlsx')
 
-// Read env
-const envText = readFileSync(resolve(__dirname, '../.env'), 'utf-8')
-const env: Record<string, string> = {}
-for (const line of envText.split('\n')) {
-  const m = line.match(/^([^=]+)=(.*)$/)
-  if (m) env[m[1].trim()] = m[2].trim()
-}
-
-const SUPABASE_URL = env['VITE_SUPABASE_URL']
-const SUPABASE_KEY = env['VITE_SUPABASE_ANON_KEY']
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env')
-  process.exit(1)
-}
-
+const { url: SUPABASE_URL, anonKey: SUPABASE_KEY, authEmail: AUTH_EMAIL, authPass: AUTH_PASS } = getSupabaseScriptConfig()
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
-
-const AUTH_EMAIL = env['MIGRATION_AUTH_EMAIL'] || 'saguirre@durata.co'
-const AUTH_PASS = env['MIGRATION_AUTH_PASS'] || 'Durata2026!'
 
 // ── Helpers ─────────────────────────────────────────────
 function toStr(v: unknown): string {
@@ -101,6 +84,11 @@ async function fetchAll<T>(
 // ── MAIN ────────────────────────────────────────────────
 async function main() {
   console.log('=== CORREGIR FECHAS HISTÓRICAS — DURATA CRM ===\n')
+
+  if (!AUTH_EMAIL || !AUTH_PASS) {
+    console.error('Missing MIGRATION_AUTH_EMAIL or MIGRATION_AUTH_PASS in .env or process.env')
+    process.exit(1)
+  }
 
   // Authenticate to pass RLS
   const { error: authErr } = await sb.auth.signInWithPassword({ email: AUTH_EMAIL, password: AUTH_PASS })

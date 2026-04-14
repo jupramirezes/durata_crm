@@ -1,55 +1,40 @@
 /**
- * migrar-historico.ts — ONE-TIME / RERUNNABLE migration script
+ * migrar-historico.ts — SAFE additive migration
  *
  * Reads REGISTRO_MAESTRO.xlsx (hoja TOTAL) and
- * REGISTRO COTIZACIONES DURATA 2026.xlsx (hoja REGISTRO 2026)
- * and inserts empresas, contactos, oportunidades and cotizaciones into Supabase.
+ * REGISTRO COTIZACIONES DURATA 2026.xlsx (hoja "REGISTRO 2026")
+ * and inserts ONLY new records into Supabase.
  *
- * Idempotent: on each run, deletes all migration-created oportunidades
- * (identified by fuente_lead='Histórico Excel') and re-inserts from Excel.
- * Empresas and contactos are additive (skip if exists).
+ * STRICT RULES:
+ *   - NEVER deletes anything
+ *   - NEVER updates existing oportunidades
+ *   - Only INSERTs new rows (deduped by normalized COT)
+ *   - Only updates oportunidades that THIS run just created (PASO 6)
+ *
+ * Idempotent: a second run should report 0 new rows.
  *
  * Usage:  npm run migrate
  */
 
-import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import XLSX from 'xlsx'
 import { createClient } from '@supabase/supabase-js'
+import { getSupabaseScriptConfig } from './lib/env'
 
 // ── Config ────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const BATCH = 50
-const MIGRATION_MARKER = 'Histórico Excel' // fuente_lead for all migrated oportunidades
+const MIGRATION_MARKER = 'Histórico Excel'
 
 const MAESTRO_PATH = resolve(__dirname, 'data/REGISTRO_MAESTRO.xlsx')
 const COT2026_PATH = resolve(__dirname, 'data/REGISTRO COTIZACIONES DURATA 2026.xlsx')
 
-// Read env
-const envText = readFileSync(resolve(__dirname, '../.env'), 'utf-8')
-const env: Record<string, string> = {}
-for (const line of envText.split('\n')) {
-  const m = line.match(/^([^=]+)=(.*)$/)
-  if (m) env[m[1].trim()] = m[2].trim()
-}
-
-const SUPABASE_URL = env['VITE_SUPABASE_URL']
-const SUPABASE_KEY = env['VITE_SUPABASE_ANON_KEY']
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env')
-  process.exit(1)
-}
-
+const { url: SUPABASE_URL, anonKey: SUPABASE_KEY, authEmail: AUTH_EMAIL, authPass: AUTH_PASS } = getSupabaseScriptConfig()
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-// ── Auth: sign in to pass RLS policies ──────────────────────────
-const AUTH_EMAIL = env['MIGRATION_AUTH_EMAIL'] || 'saguirre@durata.co'
-const AUTH_PASS = env['MIGRATION_AUTH_PASS'] || 'Durata2026!'
-
-// ── Cotizador map ─────────────────────────────────────────────────
-// Map Excel initials → app COTIZADORES id (used in cotizador_asignado)
+// Excel cotizador initials → app id
 const COTIZADOR: Record<string, string> = {
   'O.C': 'OC',
   'S.A': 'SA',
@@ -84,15 +69,28 @@ function excelDateToISO(v: unknown): string | null {
   return null
 }
 
-// Counters
+/** Strip spaces around dashes: "2021 - 1207" → "2021-1207" */
+function normalizeCot(raw: string): string {
+  return raw.trim().replace(/\s*-\s*/g, '-')
+}
+
+/** Extract normalized COT from a notas field like "COT: 2021-472 | Proyecto: x" */
+function extractCotFromNotas(notas: string | null | undefined): string | null {
+  if (!notas) return null
+  const m = String(notas).match(/COT:\s*([^\s|]+(?:\s*-\s*[^\s|]+)?)/)
+  if (!m) return null
+  return normalizeCot(m[1])
+}
+
 const stats = {
   empresas_created: 0,
   empresas_skipped: 0,
   contactos_created: 0,
   contactos_skipped: 0,
-  oportunidades_deleted: 0,
   oportunidades_created: 0,
+  oportunidades_skipped: 0,
   cotizaciones_created: 0,
+  cotizaciones_skipped: 0,
   enriched_2026: 0,
   errors: 0,
 }
@@ -103,19 +101,19 @@ function logProgress(label: string, current: number, total: number) {
   }
 }
 
-/** Paginated fetch — always uses .order('id') for consistent pagination */
 async function fetchAll<T>(
   table: string,
   columns: string,
-  filter?: { column: string; value: string },
 ): Promise<T[]> {
   const PAGE = 1000
   const all: T[] = []
   let from = 0
   while (true) {
-    let q = sb.from(table).select(columns).order('id').range(from, from + PAGE - 1)
-    if (filter) q = q.eq(filter.column, filter.value)
-    const { data, error } = await q
+    const { data, error } = await sb
+      .from(table)
+      .select(columns)
+      .order('id')
+      .range(from, from + PAGE - 1)
     if (error) {
       console.error(`  ERROR fetching ${table}: ${error.message}`)
       break
@@ -129,9 +127,13 @@ async function fetchAll<T>(
 
 // ── MAIN ──────────────────────────────────────────────────────────
 async function main() {
-  console.log('=== MIGRAR HISTÓRICO — DURATA CRM ===\n')
+  console.log('=== MIGRAR HISTÓRICO — SAFE / ADDITIVE ONLY ===\n')
 
-  // Authenticate to pass RLS
+  if (!AUTH_EMAIL || !AUTH_PASS) {
+    console.error('Missing MIGRATION_AUTH_EMAIL or MIGRATION_AUTH_PASS in .env or process.env')
+    process.exit(1)
+  }
+
   const { error: authErr } = await sb.auth.signInWithPassword({ email: AUTH_EMAIL, password: AUTH_PASS })
   if (authErr) {
     console.error('Auth failed:', authErr.message)
@@ -139,133 +141,31 @@ async function main() {
   }
   console.log(`Autenticado como ${AUTH_EMAIL}\n`)
 
-  // ── PASO 0: Clean slate — delete all migration-created oportunidades
-  // Cotizaciones linked to them CASCADE delete automatically
-  console.log('PASO 0: Limpiando datos de migraciones anteriores...')
-  {
-    // Fetch IDs of all migration oportunidades
-    const migOps = await fetchAll<{ id: string }>(
-      'oportunidades', 'id',
-      { column: 'fuente_lead', value: MIGRATION_MARKER },
-    )
-    console.log(`  ${migOps.length} oportunidades de migración encontradas`)
-
-    if (migOps.length > 0) {
-      for (let i = 0; i < migOps.length; i += BATCH) {
-        const chunk = migOps.slice(i, i + BATCH)
-        const ids = chunk.map(o => o.id)
-        const { error } = await sb.from('oportunidades').delete().in('id', ids)
-        if (error) {
-          console.error(`  ERROR deleting batch ${i}: ${error.message}`)
-          stats.errors += chunk.length
-        } else {
-          stats.oportunidades_deleted += chunk.length
-        }
-        logProgress('Eliminando', Math.min(i + BATCH, migOps.length), migOps.length)
-      }
-      console.log(`  ✓ ${stats.oportunidades_deleted} oportunidades eliminadas (cotizaciones CASCADE)`)
-    } else {
-      console.log('  ✓ Sin datos previos de migración')
-    }
-
-    // Also clean up any legacy migration ops that used 'Otro' as fuente_lead
-    // (from earlier buggy runs that didn't use MIGRATION_MARKER)
-    const legacyOps = await fetchAll<{ id: string; notas: string }>(
-      'oportunidades', 'id, notas',
-      { column: 'fuente_lead', value: 'Otro' },
-    )
-    const legacyCotOps = legacyOps.filter(o => String(o.notas || '').startsWith('COT:'))
-    if (legacyCotOps.length > 0) {
-      console.log(`  Limpiando ${legacyCotOps.length} oportunidades legacy (fuente_lead=Otro + COT:)...`)
-      for (let i = 0; i < legacyCotOps.length; i += BATCH) {
-        const chunk = legacyCotOps.slice(i, i + BATCH)
-        const ids = chunk.map(o => o.id)
-        const { error } = await sb.from('oportunidades').delete().in('id', ids)
-        if (error) {
-          console.error(`  ERROR deleting legacy batch ${i}: ${error.message}`)
-          stats.errors += chunk.length
-        } else {
-          stats.oportunidades_deleted += chunk.length
-        }
-      }
-      console.log(`  ✓ ${legacyCotOps.length} legacy eliminadas`)
-    }
-    console.log()
-  }
-
-  // ── Read REGISTRO_MAESTRO ──────────────────────────────────────
-  console.log('Leyendo REGISTRO_MAESTRO.xlsx...')
-  const wbMaestro = XLSX.readFile(MAESTRO_PATH)
-  const wsTOTAL = wbMaestro.Sheets['TOTAL']
-  if (!wsTOTAL) {
-    console.error('No se encontró la hoja "TOTAL" en REGISTRO_MAESTRO.xlsx')
-    process.exit(1)
-  }
-  const maestroRows: unknown[][] = XLSX.utils.sheet_to_json(wsTOTAL, { header: 1, defval: '' })
-  const maestroData = maestroRows.slice(1).filter((r) => r.length > 0)
-  console.log(`  ${maestroData.length} filas leídas de hoja TOTAL\n`)
-
-  // ── Read REGISTRO 2026 ────────────────────────────────────────
-  console.log('Leyendo REGISTRO COTIZACIONES DURATA 2026.xlsx...')
-  const wb2026 = XLSX.readFile(COT2026_PATH)
-  const ws2026 = wb2026.Sheets['REGISTRO 2026']
-  if (!ws2026) {
-    console.error('No se encontró la hoja "REGISTRO 2026"')
-    process.exit(1)
-  }
-  const rows2026: unknown[][] = XLSX.utils.sheet_to_json(ws2026, { header: 1, defval: '' })
-  const data2026 = rows2026.slice(5).filter((r) => r.length > 0)
-  console.log(`  ${data2026.length} filas leídas de hoja REGISTRO 2026\n`)
-
   // ================================================================
-  // PASO 1 — Empresas únicas (additive, skip existing)
+  // PASO 1 — Read current Supabase state
   // ================================================================
-  console.log('PASO 1: Creando empresas...')
+  console.log('PASO 1: Leyendo estado actual de Supabase...')
 
-  const empresaNombres = new Set<string>()
-  for (const r of maestroData) {
-    const k = toStr(r[10])
-    if (k && k !== '0') empresaNombres.add(k)
+  const existingOps = await fetchAll<{ id: string; notas: string | null }>(
+    'oportunidades', 'id, notas',
+  )
+  const existingCots = new Set<string>()
+  for (const op of existingOps) {
+    const c = extractCotFromNotas(op.notas)
+    if (c) existingCots.add(c)
   }
-  console.log(`  ${empresaNombres.size} nombres únicos de empresa encontrados`)
 
   const existingEmpresas = await fetchAll<{ id: string; nombre: string }>('empresas', 'id, nombre')
   const empresaMap = new Map<string, string>()
   for (const e of existingEmpresas) empresaMap.set(e.nombre.toLowerCase().trim(), e.id)
-  console.log(`  ${existingEmpresas.length} empresas ya existentes en Supabase`)
 
-  const nuevasEmpresas: { nombre: string; sector: string }[] = []
-  for (const nombre of empresaNombres) {
-    if (!empresaMap.has(nombre.toLowerCase().trim())) {
-      nuevasEmpresas.push({ nombre, sector: 'Sin clasificar' })
-    } else {
-      stats.empresas_skipped++
-    }
+  const existingCotizacionesRaw = await fetchAll<{ id: string; numero: string }>(
+    'cotizaciones', 'id, numero',
+  )
+  const existingCotizacionesNumeros = new Set<string>()
+  for (const c of existingCotizacionesRaw) {
+    if (c.numero) existingCotizacionesNumeros.add(normalizeCot(c.numero))
   }
-
-  if (nuevasEmpresas.length > 0) {
-    console.log(`  Insertando ${nuevasEmpresas.length} empresas nuevas...`)
-    for (let i = 0; i < nuevasEmpresas.length; i += BATCH) {
-      const chunk = nuevasEmpresas.slice(i, i + BATCH)
-      const { data, error } = await sb.from('empresas').insert(chunk).select('id, nombre')
-      if (error) {
-        console.error(`  ERROR empresas batch ${i}: ${error.message}`)
-        stats.errors += chunk.length
-      } else if (data) {
-        for (const e of data) {
-          empresaMap.set(e.nombre.toLowerCase().trim(), e.id)
-          stats.empresas_created++
-        }
-      }
-      logProgress('Empresas', Math.min(i + BATCH, nuevasEmpresas.length), nuevasEmpresas.length)
-    }
-  }
-  console.log(`  ✓ Empresas: ${stats.empresas_created} creadas, ${stats.empresas_skipped} ya existían\n`)
-
-  // ================================================================
-  // PASO 2 — Contactos (additive, skip existing)
-  // ================================================================
-  console.log('PASO 2: Creando contactos...')
 
   const existingContactosRaw = await fetchAll<{ id: string; nombre: string; empresa_id: string }>(
     'contactos', 'id, nombre, empresa_id',
@@ -275,6 +175,68 @@ async function main() {
     existingContactos.set(`${c.nombre.toLowerCase().trim()}|${c.empresa_id}`, c.id)
   }
 
+  console.log(
+    `  ${existingOps.length} oportunidades existentes (${existingCots.size} con COT), ` +
+    `${existingEmpresas.length} empresas, ${existingCotizacionesRaw.length} cotizaciones\n`,
+  )
+
+  // ================================================================
+  // PASO 2 — Read Excel files
+  // ================================================================
+  console.log('PASO 2: Leyendo Excels...')
+  const wbMaestro = XLSX.readFile(MAESTRO_PATH)
+  const wsTOTAL = wbMaestro.Sheets['TOTAL']
+  if (!wsTOTAL) { console.error('No se encontró la hoja "TOTAL"'); process.exit(1) }
+  const maestroRows: unknown[][] = XLSX.utils.sheet_to_json(wsTOTAL, { header: 1, defval: '' })
+  const maestroData = maestroRows.slice(1).filter((r) => r.length > 0)
+  console.log(`  MAESTRO: ${maestroData.length} filas`)
+
+  const wb2026 = XLSX.readFile(COT2026_PATH)
+  const ws2026 = wb2026.Sheets['REGISTRO 2026']
+  if (!ws2026) { console.error('No se encontró la hoja "REGISTRO 2026"'); process.exit(1) }
+  const rows2026: unknown[][] = XLSX.utils.sheet_to_json(ws2026, { header: 1, defval: '' })
+  const data2026 = rows2026.slice(5).filter((r) => r.length > 0)
+  console.log(`  2026:    ${data2026.length} filas\n`)
+
+  // ================================================================
+  // PASO 3 — Empresas (additive)
+  // ================================================================
+  console.log('PASO 3: Empresas...')
+  const empresaNombres = new Set<string>()
+  for (const r of maestroData) {
+    const k = toStr(r[10])
+    if (k && k !== '0') empresaNombres.add(k)
+  }
+
+  const nuevasEmpresas: { nombre: string; sector: string }[] = []
+  for (const nombre of empresaNombres) {
+    if (empresaMap.has(nombre.toLowerCase().trim())) {
+      stats.empresas_skipped++
+    } else {
+      nuevasEmpresas.push({ nombre, sector: 'Sin clasificar' })
+    }
+  }
+
+  for (let i = 0; i < nuevasEmpresas.length; i += BATCH) {
+    const chunk = nuevasEmpresas.slice(i, i + BATCH)
+    const { data, error } = await sb.from('empresas').insert(chunk).select('id, nombre')
+    if (error) {
+      console.error(`  ERROR empresas batch ${i}: ${error.message}`)
+      stats.errors += chunk.length
+    } else if (data) {
+      for (const e of data) {
+        empresaMap.set(e.nombre.toLowerCase().trim(), e.id)
+        stats.empresas_created++
+      }
+    }
+    logProgress('Empresas', Math.min(i + BATCH, nuevasEmpresas.length), nuevasEmpresas.length)
+  }
+  console.log(`  ✓ ${stats.empresas_created} creadas, ${stats.empresas_skipped} ya existían\n`)
+
+  // ================================================================
+  // PASO 4 — Contactos (additive)
+  // ================================================================
+  console.log('PASO 4: Contactos...')
   const contactoMap = new Map<string, string>()
   const contactosSeen = new Set<string>()
   const nuevosContactos: { nombre: string; empresa_id: string; _key: string }[] = []
@@ -301,33 +263,28 @@ async function main() {
     nuevosContactos.push({ nombre: contactoNombre, empresa_id: empId, _key: key })
   }
 
-  if (nuevosContactos.length > 0) {
-    console.log(`  Insertando ${nuevosContactos.length} contactos nuevos...`)
-    for (let i = 0; i < nuevosContactos.length; i += BATCH) {
-      const chunk = nuevosContactos.slice(i, i + BATCH)
-      const insertData = chunk.map(({ nombre, empresa_id }) => ({ nombre, empresa_id }))
-      const { data, error } = await sb.from('contactos').insert(insertData).select('id, nombre, empresa_id')
-      if (error) {
-        console.error(`  ERROR contactos batch ${i}: ${error.message}`)
-        stats.errors += chunk.length
-      } else if (data) {
-        for (let j = 0; j < data.length; j++) {
-          contactoMap.set(chunk[j]._key, data[j].id)
-          stats.contactos_created++
-        }
+  for (let i = 0; i < nuevosContactos.length; i += BATCH) {
+    const chunk = nuevosContactos.slice(i, i + BATCH)
+    const insertData = chunk.map(({ nombre, empresa_id }) => ({ nombre, empresa_id }))
+    const { data, error } = await sb.from('contactos').insert(insertData).select('id, nombre, empresa_id')
+    if (error) {
+      console.error(`  ERROR contactos batch ${i}: ${error.message}`)
+      stats.errors += chunk.length
+    } else if (data) {
+      for (let j = 0; j < data.length; j++) {
+        contactoMap.set(chunk[j]._key, data[j].id)
+        stats.contactos_created++
       }
-      logProgress('Contactos', Math.min(i + BATCH, nuevosContactos.length), nuevosContactos.length)
     }
+    logProgress('Contactos', Math.min(i + BATCH, nuevosContactos.length), nuevosContactos.length)
   }
-  console.log(`  ✓ Contactos: ${stats.contactos_created} creados, ${stats.contactos_skipped} ya existían\n`)
+  console.log(`  ✓ ${stats.contactos_created} creados, ${stats.contactos_skipped} ya existían\n`)
 
   // ================================================================
-  // PASO 3 — Oportunidades (from REGISTRO_MAESTRO) — fresh insert
+  // PASO 5 — Oportunidades (SOLO NUEVAS)
   // ================================================================
-  console.log('PASO 3: Creando oportunidades...')
+  console.log('PASO 5: Oportunidades (solo nuevas)...')
 
-  // Build a map from numCot → array of oportunidad rows
-  // (same numCot can appear for different empresas, e.g. bare years "2021")
   interface OpEntry {
     row: {
       empresa_id: string
@@ -346,27 +303,36 @@ async function main() {
     numCot: string
     valorCot: number
     fechaIngreso: string | null
-    empresaId: string
   }
 
   const opQueue: OpEntry[] = []
-  const seenKeys = new Set<string>() // Prevent in-Excel dups: numCot||empresa_id
+  const seenInExcel = new Set<string>()
 
   for (let i = 0; i < maestroData.length; i++) {
     const r = maestroData[i]
     const empresaNombre = toStr(r[10])
     if (!empresaNombre || empresaNombre === '0') continue
 
-    const numCot = toStr(r[6])
+    const numCotRaw = toStr(r[6])
+    if (!numCotRaw) continue
+    const numCot = normalizeCot(numCotRaw)
     if (!numCot) continue
 
-    const empId = empresaMap.get(empresaNombre.toLowerCase().trim())
-    if (!empId) { stats.errors++; continue }
+    // Already in Supabase → SKIP (no tocar)
+    if (existingCots.has(numCot)) {
+      stats.oportunidades_skipped++
+      continue
+    }
+    // Dup within this Excel run → skip after first
+    if (seenInExcel.has(numCot)) continue
+    seenInExcel.add(numCot)
 
-    // Deduplicate within Excel (same COT + same empresa = skip)
-    const key = `${numCot}||${empId}`
-    if (seenKeys.has(key)) continue
-    seenKeys.add(key)
+    const empId = empresaMap.get(empresaNombre.toLowerCase().trim())
+    if (!empId) {
+      console.error(`  empresa no encontrada para "${empresaNombre}" (COT ${numCot})`)
+      stats.errors++
+      continue
+    }
 
     const contactoNombre = toStr(r[13])
     let contId: string | null = null
@@ -388,12 +354,16 @@ async function main() {
     let etapa: string
     if (estadoI === 'ADJUDICADA') {
       etapa = 'adjudicada'
+    } else if (estadoI === 'PERDIDA') {
+      etapa = 'perdida'
     } else if (estadoI === 'COTIZADA' && anio < 2026) {
-      etapa = 'perdida' // old cotizaciones without adjudication assumed lost
-    } else if (estadoI === 'COTIZADA' && anio >= 2026) {
+      etapa = 'perdida'
+    } else if (estadoI === 'COTIZADA' && anio >= 2026 && fechaIngreso) {
       etapa = 'cotizacion_enviada'
-    } else if (anio >= 2026 && (!estadoI || estadoI === '')) {
-      etapa = 'nuevo_lead' // 2026+ without status → pending
+    } else if (estadoI === 'COTIZADA' && anio >= 2026) {
+      etapa = 'en_cotizacion'
+    } else if (!estadoI) {
+      etapa = 'nuevo_lead'
     } else {
       etapa = 'perdida'
     }
@@ -405,7 +375,7 @@ async function main() {
         etapa,
         valor_estimado: valorCotizado,
         valor_cotizado: valorCotizado,
-        valor_adjudicado: valorAdjudicado,
+        valor_adjudicado: estadoI === 'ADJUDICADA' ? valorAdjudicado : 0,
         cotizador_asignado: cotizador,
         fuente_lead: MIGRATION_MARKER,
         ubicacion: '',
@@ -416,65 +386,52 @@ async function main() {
       numCot,
       valorCot: valorCotizado,
       fechaIngreso,
-      empresaId: empId,
     })
 
     logProgress('Oportunidades (prep)', i + 1, maestroData.length)
   }
 
-  console.log(`  ${opQueue.length} oportunidades a insertar (${5197 - opQueue.length} filtradas/dedup)`)
+  // Map of COTs created in THIS run (for PASO 6 + 7 — never touches anything else)
+  const justCreated = new Map<string, { id: string; etapa: string; fechaIngreso: string | null; valorCot: number }>()
 
-  // opResults: we need to track by composite key since numCot alone isn't unique
-  // For cotizaciones (step 5), we'll use numCot → first oportunidad
-  const opByNumCot = new Map<string, { id: string; etapa: string; fechaIngreso: string | null; valorCot: number }>()
-  // For enrichment (step 4), we use numCot → id (only standard format COTs)
-  const opIdByNumCot = new Map<string, string>()
-
-  if (opQueue.length > 0) {
-    console.log(`  Insertando ${opQueue.length} oportunidades...`)
-    for (let i = 0; i < opQueue.length; i += BATCH) {
-      const chunk = opQueue.slice(i, i + BATCH)
-      const insertData = chunk.map((q) => q.row)
-      const { data, error } = await sb.from('oportunidades').insert(insertData).select('id, notas, etapa')
-      if (error) {
-        console.error(`  ERROR oportunidades batch ${i}: ${error.message}`)
-        stats.errors += chunk.length
-      } else if (data) {
-        for (let j = 0; j < data.length; j++) {
-          const nc = chunk[j].numCot
-          stats.oportunidades_created++
-          // For cotizaciones: store first occurrence per numCot
-          if (!opByNumCot.has(nc)) {
-            opByNumCot.set(nc, {
-              id: data[j].id,
-              etapa: data[j].etapa,
-              fechaIngreso: chunk[j].fechaIngreso,
-              valorCot: chunk[j].valorCot,
-            })
-          }
-          // For enrichment: store id by numCot (standard format only)
-          if (nc.includes('-')) {
-            opIdByNumCot.set(nc, data[j].id)
-          }
-        }
+  for (let i = 0; i < opQueue.length; i += BATCH) {
+    const chunk = opQueue.slice(i, i + BATCH)
+    const insertData = chunk.map((q) => q.row)
+    const { data, error } = await sb.from('oportunidades').insert(insertData).select('id, etapa')
+    if (error) {
+      console.error(`  ERROR oportunidades batch ${i}: ${error.message}`)
+      stats.errors += chunk.length
+    } else if (data) {
+      for (let j = 0; j < data.length; j++) {
+        stats.oportunidades_created++
+        justCreated.set(chunk[j].numCot, {
+          id: data[j].id,
+          etapa: data[j].etapa,
+          fechaIngreso: chunk[j].fechaIngreso,
+          valorCot: chunk[j].valorCot,
+        })
       }
-      logProgress('Oportunidades', Math.min(i + BATCH, opQueue.length), opQueue.length)
     }
+    logProgress('Oportunidades', Math.min(i + BATCH, opQueue.length), opQueue.length)
   }
-  console.log(`  ✓ Oportunidades: ${stats.oportunidades_created} creadas\n`)
+  console.log(
+    `  ✓ ${stats.oportunidades_created} nuevas, ${stats.oportunidades_skipped} ya existían (saltadas)\n`,
+  )
 
   // ================================================================
-  // PASO 4 — Enriquecer 2026 con REGISTRO 2026
+  // PASO 6 — Enriquecer 2026 (SOLO las recién creadas)
   // ================================================================
-  console.log('PASO 4: Enriqueciendo oportunidades 2026...')
+  console.log('PASO 6: Enriqueciendo 2026 (solo recién creadas)...')
 
   for (let i = 0; i < data2026.length; i++) {
     const r = data2026[i]
-    const numCot = toStr(r[13])
-    if (!numCot || !numCot.includes('-')) continue
+    const numCotRaw = toStr(r[13])
+    if (!numCotRaw) continue
+    const numCot = normalizeCot(numCotRaw)
+    if (!numCot) continue
 
-    const opId = opIdByNumCot.get(numCot)
-    if (!opId) continue
+    const created = justCreated.get(numCot)
+    if (!created) continue // ya existía antes, NO TOCAR
 
     const proyecto = toStr(r[3])
     const fechaEnvio = excelDateToISO(r[8])
@@ -484,18 +441,11 @@ async function main() {
     const fechaAdj2026 = excelDateToISO(r[18])
 
     let etapa: string | undefined
-    if (estadoQ === 'ADJUDICADA') {
-      etapa = 'adjudicada'
-    } else if (estadoQ === 'PERDIDA') {
-      etapa = 'perdida'
-    } else if (estadoQ === 'COTIZADA' && estadoB === 'ENV') {
-      etapa = 'cotizacion_enviada'
-    } else if (estadoQ === 'COTIZADA') {
-      etapa = 'en_cotizacion'
-    } else if (!estadoQ || estadoQ === '') {
-      // No status in Excel → pending, not yet quoted
-      etapa = 'nuevo_lead'
-    }
+    if (estadoQ === 'ADJUDICADA') etapa = 'adjudicada'
+    else if (estadoQ === 'PERDIDA') etapa = 'perdida'
+    else if (estadoQ === 'COTIZADA' && estadoB === 'ENV') etapa = 'cotizacion_enviada'
+    else if (estadoQ === 'COTIZADA') etapa = 'en_cotizacion'
+    else if (!estadoQ) etapa = 'nuevo_lead'
 
     const updates: Record<string, unknown> = {}
     if (proyecto) updates.ubicacion = proyecto
@@ -505,32 +455,26 @@ async function main() {
       updates.valor_adjudicado = valorAdj2026
       if (fechaAdj2026) updates.fecha_adjudicacion = fechaAdj2026
     }
-    if (proyecto) {
-      // Since we just created these, notas is "COT: XXXX"
-      updates.notas = `COT: ${numCot} | Proyecto: ${proyecto}`
-    }
+    if (proyecto) updates.notas = `COT: ${numCot} | Proyecto: ${proyecto}`
 
-    if (Object.keys(updates).length > 0) {
-      const { error } = await sb.from('oportunidades').update(updates).eq('id', opId)
-      if (error) {
-        console.error(`  ERROR enriching ${numCot}: ${error.message}`)
-        stats.errors++
-      } else {
-        stats.enriched_2026++
-        // Update local state for cotización mapping
-        const local = opByNumCot.get(numCot)
-        if (local && etapa) local.etapa = etapa
-      }
-    }
+    if (Object.keys(updates).length === 0) continue
 
-    logProgress('Enriquecimiento 2026', i + 1, data2026.length)
+    const { error } = await sb.from('oportunidades').update(updates).eq('id', created.id)
+    if (error) {
+      console.error(`  ERROR enriching ${numCot}: ${error.message}`)
+      stats.errors++
+    } else {
+      stats.enriched_2026++
+      if (etapa) created.etapa = etapa
+    }
+    logProgress('Enriquecimiento', i + 1, data2026.length)
   }
-  console.log(`  ✓ Enriquecidas: ${stats.enriched_2026} oportunidades actualizadas\n`)
+  console.log(`  ✓ ${stats.enriched_2026} enriquecidas de ${data2026.length} filas 2026\n`)
 
   // ================================================================
-  // PASO 5 — Cotizaciones (one per unique numCot)
+  // PASO 7 — Cotizaciones (SOLO NUEVAS)
   // ================================================================
-  console.log('PASO 5: Creando cotizaciones...')
+  console.log('PASO 7: Cotizaciones (solo nuevas)...')
 
   interface CotRow {
     oportunidad_id: string
@@ -541,8 +485,11 @@ async function main() {
   }
 
   const cotQueue: CotRow[] = []
-
-  for (const [numCot, op] of opByNumCot) {
+  for (const [numCot, op] of justCreated) {
+    if (existingCotizacionesNumeros.has(numCot)) {
+      stats.cotizaciones_skipped++
+      continue
+    }
     let estado: string
     switch (op.etapa) {
       case 'adjudicada': estado = 'aprobada'; break
@@ -550,7 +497,6 @@ async function main() {
       case 'cotizacion_enviada': estado = 'enviada'; break
       default: estado = 'borrador'
     }
-
     cotQueue.push({
       oportunidad_id: op.id,
       numero: numCot,
@@ -560,35 +506,34 @@ async function main() {
     })
   }
 
-  if (cotQueue.length > 0) {
-    console.log(`  Insertando ${cotQueue.length} cotizaciones...`)
-    for (let i = 0; i < cotQueue.length; i += BATCH) {
-      const chunk = cotQueue.slice(i, i + BATCH)
-      const { error } = await sb.from('cotizaciones').insert(chunk)
-      if (error) {
-        console.error(`  ERROR cotizaciones batch ${i}: ${error.message}`)
-        stats.errors += chunk.length
-      } else {
-        stats.cotizaciones_created += chunk.length
-      }
-      logProgress('Cotizaciones', Math.min(i + BATCH, cotQueue.length), cotQueue.length)
+  for (let i = 0; i < cotQueue.length; i += BATCH) {
+    const chunk = cotQueue.slice(i, i + BATCH)
+    const { error } = await sb.from('cotizaciones').insert(chunk)
+    if (error) {
+      console.error(`  ERROR cotizaciones batch ${i}: ${error.message}`)
+      stats.errors += chunk.length
+    } else {
+      stats.cotizaciones_created += chunk.length
     }
+    logProgress('Cotizaciones', Math.min(i + BATCH, cotQueue.length), cotQueue.length)
   }
-  console.log(`  ✓ Cotizaciones: ${stats.cotizaciones_created} creadas\n`)
+  console.log(`  ✓ ${stats.cotizaciones_created} creadas, ${stats.cotizaciones_skipped} ya existían\n`)
 
   // ================================================================
   // REPORTE FINAL
   // ================================================================
+  const totalOpsAfter = existingOps.length + stats.oportunidades_created
   console.log('='.repeat(50))
-  console.log('REPORTE FINAL')
+  console.log('REPORTE FINAL — MIGRACIÓN SEGURA (additive only)')
   console.log('='.repeat(50))
-  console.log(`  Eliminadas prev: ${stats.oportunidades_deleted} oportunidades + cotizaciones CASCADE`)
-  console.log(`  Empresas:        ${stats.empresas_created} creadas, ${stats.empresas_skipped} ya existían`)
-  console.log(`  Contactos:       ${stats.contactos_created} creados, ${stats.contactos_skipped} ya existían`)
-  console.log(`  Oportunidades:   ${stats.oportunidades_created} creadas`)
-  console.log(`  Enriquecidas:    ${stats.enriched_2026} (2026)`)
-  console.log(`  Cotizaciones:    ${stats.cotizaciones_created} creadas`)
-  console.log(`  Errores:         ${stats.errors}`)
+  console.log(`  Empresas:       ${stats.empresas_created} creadas, ${stats.empresas_skipped} existían`)
+  console.log(`  Contactos:      ${stats.contactos_created} creados, ${stats.contactos_skipped} existían`)
+  console.log(`  Oportunidades:  ${stats.oportunidades_created} nuevas, ${stats.oportunidades_skipped} existían (saltadas)`)
+  console.log(`  Total ops en Supabase: ${totalOpsAfter}`)
+  console.log(`  Enriquecidas 2026: ${stats.enriched_2026}`)
+  console.log(`  Cotizaciones:   ${stats.cotizaciones_created} nuevas, ${stats.cotizaciones_skipped} existían`)
+  console.log(`  Errores:        ${stats.errors}`)
+  console.log(`  Eliminadas:     0  ← garantizado, este script no borra nada`)
   console.log('='.repeat(50))
 }
 
