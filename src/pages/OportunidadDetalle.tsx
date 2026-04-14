@@ -306,6 +306,12 @@ export default function OportunidadDetalle() {
         productos_snapshot: lines,
       },
     })
+    // Auto-move nuevo_lead → en_cotizacion when generating the first cotización.
+    // MOVE_ETAPA is dispatched explicitly (not relying on ADD_COTIZACION reducer)
+    // so we get a proper historial entry and the Supabase sync fires.
+    if (opp.etapa === 'nuevo_lead') {
+      dispatch({ type: 'MOVE_ETAPA', payload: { oportunidadId: opp.id, nuevaEtapa: 'en_cotizacion' } })
+    }
     setShowCotModal(false)
     setTimeout(() => navigate(`/cotizaciones/${cotId}/editar`), 100)
   }
@@ -419,13 +425,9 @@ export default function OportunidadDetalle() {
     })
   }
 
-  function handleDuplicarCotizacionSame(cotId: string) {
-    const cot = cotizaciones.find(c => c.id === cotId)
-    const nuevoNumero = cot ? getDefaultNumero(cot.numero) : getDefaultNumero()
-    const newId = crypto.randomUUID()
-    dispatch({ type: 'DUPLICATE_COTIZACION', payload: { originalId: cotId, nuevoNumero, newId } })
-    setTimeout(() => navigate(`/cotizaciones/${newId}/editar`), 100)
-  }
+  // NOTE: "Duplicar en esta oportunidad" was removed — it collided with RECOTIZAR
+  // (both appended suffix A). Use RECOTIZAR instead for a new version of the same
+  // cotización on this opportunity.
 
   function handleDuplicarCotizacion(cotId: string) {
     setDupCotId(cotId)
@@ -455,6 +457,11 @@ export default function OportunidadDetalle() {
         noIncluyeItems: cot.noIncluyeItems,
       } as any,
     })
+    // If the target oportunidad is still in nuevo_lead, move it forward
+    const targetOpp = state.oportunidades.find(o => o.id === dupSelectedOppId)
+    if (targetOpp?.etapa === 'nuevo_lead') {
+      dispatch({ type: 'MOVE_ETAPA', payload: { oportunidadId: dupSelectedOppId, nuevaEtapa: 'en_cotizacion' } })
+    }
     setDupCotId(null)
     showToast('success', `Cotizacion ${nuevoNumero} duplicada en otra oportunidad`)
     setTimeout(() => navigate(`/oportunidades/${dupSelectedOppId}`), 100)
@@ -967,6 +974,34 @@ export default function OportunidadDetalle() {
                   <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{cotizaciones.length}</span>
                 )}
               </div>
+              {(() => {
+                const recotizableBtn = [...cotizaciones]
+                  .filter(c => c.estado === 'borrador' || c.estado === 'enviada')
+                  .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+                if (!recotizableBtn) return null
+                const base = recotizableBtn.numero.replace(/[A-Z]$/, '')
+                return (
+                  <button
+                    onClick={() => {
+                      const ok = window.confirm(
+                        `¿Desea recotizar esta oportunidad?\n\nSe creará una nueva versión de ${recotizableBtn.numero}. Las cotizaciones previas con el número ${base} quedarán descartadas.`
+                      )
+                      if (!ok) return
+                      const currentLetter = recotizableBtn.numero.match(/([A-Z])$/)?.[1]
+                      const nextLetter = currentLetter ? String.fromCharCode(currentLetter.charCodeAt(0) + 1) : 'A'
+                      const nuevoNumero = base + nextLetter
+                      const newCotId = crypto.randomUUID()
+                      dispatch({ type: 'RECOTIZAR', payload: { cotizacionId: recotizableBtn.id, nuevoNumero, newCotId } })
+                      showToast('success', `Recotización ${nuevoNumero} creada. La ${recotizableBtn.numero} fue descartada.`)
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all"
+                    title={`Crear nueva versión de ${recotizableBtn.numero}`}
+                  >
+                    <ArrowRightLeft size={16} />
+                    RECOTIZAR
+                  </button>
+                )
+              })()}
             </div>
 
             {(() => {
@@ -981,7 +1016,9 @@ export default function OportunidadDetalle() {
                 const currentLetter = cot.numero.match(/([A-Z])$/)?.[1]
                 const nextLetter = currentLetter ? String.fromCharCode(currentLetter.charCodeAt(0) + 1) : 'A'
                 const nuevoNumero = base + nextLetter
-                dispatch({ type: 'RECOTIZAR', payload: { cotizacionId: cotId, nuevoNumero } })
+                // Generate id here so reducer, URL, and DB all share the same UUID
+                const newCotId = crypto.randomUUID()
+                dispatch({ type: 'RECOTIZAR', payload: { cotizacionId: cotId, nuevoNumero, newCotId } })
                 showToast('success', `Recotización ${nuevoNumero} creada. La ${cot.numero} fue descartada.`)
               }
 
@@ -1147,6 +1184,12 @@ export default function OportunidadDetalle() {
                 <div className="flex justify-between">
                   <span className="text-[13px] text-slate-500">Fuente</span>
                   <span className="text-[14px] font-medium">{opp.fuente_lead}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-[13px] text-slate-500 shrink-0">Ubicacion</span>
+                  <span className="text-[14px] font-medium text-right truncate" title={opp.ubicacion || ''}>
+                    {opp.ubicacion || '—'}
+                  </span>
                 </div>
                 {emp.sector && (
                   <div className="flex justify-between">
@@ -1612,19 +1655,15 @@ export default function OportunidadDetalle() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setDupCotId(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
-              <h3 className="font-bold text-base text-[var(--color-text)]">Duplicar cotizacion</h3>
+              <h3 className="font-bold text-base text-[var(--color-text)]">Duplicar para otro cliente</h3>
               <button onClick={() => setDupCotId(null)} className="p-1 rounded hover:bg-slate-100"><X size={16} /></button>
             </div>
             <div className="p-6 space-y-4">
-              <button
-                onClick={() => { handleDuplicarCotizacionSame(dupCotId); setDupCotId(null) }}
-                className="w-full text-left px-4 py-3 rounded-xl border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-blue-50/30 transition-all"
-              >
-                <p className="font-semibold text-sm">Duplicar en esta oportunidad</p>
-                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Crea una version nueva (A, B, C...)</p>
-              </button>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Para crear una nueva versión en esta misma oportunidad usa <span className="font-semibold">Recotizar</span>.
+              </p>
               <div className="border border-[var(--color-border)] rounded-xl p-4">
-                <p className="font-semibold text-sm mb-3">Duplicar para otro cliente</p>
+                <p className="font-semibold text-sm mb-3">Selecciona la oportunidad destino</p>
                 <input
                   type="text"
                   value={dupSearch}

@@ -22,19 +22,34 @@ export default function CotizacionEditor() {
   const contacto = oportunidad ? state.contactos.find(ct => ct.id === oportunidad.contacto_id) : null
   const productosOportunidad = cotizacion ? state.productos.filter(p => p.oportunidad_id === cotizacion.oportunidad_id) : []
 
-  const initialProductos: CotizacionProducto[] = useMemo(() => {
+  // Editor line = CotizacionProducto + optional link back to productos_oportunidad.
+  // _productoId is local-only UI state; it is stripped before persisting to productos_snapshot.
+  // Lines loaded from state.productos get their _productoId pre-filled so edits stay in sync.
+  // Lines added via "Agregar linea" start with _productoId=undefined and get a new product
+  // created in saveDraft/handleGenerarPdf so they appear in the oportunidad Products section.
+  type EditorLine = CotizacionProducto & { _productoId?: string }
+
+  const initialProductos: EditorLine[] = useMemo(() => {
     if (cotizacion?.productos_snapshot && cotizacion.productos_snapshot.length > 0) {
-      return cotizacion.productos_snapshot
+      return cotizacion.productos_snapshot.map(p => {
+        const match = productosOportunidad.find(op =>
+          (op.descripcion_comercial || op.subtipo) === p.descripcion &&
+          (op.precio_calculado || 0) === p.precio_unitario &&
+          op.cantidad === p.cantidad,
+        )
+        return { ...p, _productoId: match?.id }
+      })
     }
     return productosOportunidad.map(p => ({
       descripcion: p.descripcion_comercial || p.subtipo,
       cantidad: p.cantidad,
       precio_unitario: p.precio_calculado || 0,
       unidad: 'UND',
+      _productoId: p.id,
     }))
   }, [cotizacion?.id])
 
-  const [productos, setProductos] = useState<CotizacionProducto[]>(initialProductos)
+  const [productos, setProductos] = useState<EditorLine[]>(initialProductos)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [saved, setSaved] = useState(false)
   const [tiempoEntrega, setTiempoEntrega] = useState(cotizacion?.tiempoEntrega || '25 d\u00edas h\u00e1biles o a convenir')
@@ -94,14 +109,49 @@ export default function CotizacionEditor() {
     setProductos(prev => [...prev, { descripcion: 'Nuevo producto', cantidad: 1, precio_unitario: 0, unidad: 'UND' }])
   }
 
+  /**
+   * For each editor line without a linked productos_oportunidad row, create one.
+   * Returns the lines updated with their new _productoId so subsequent saves don't
+   * duplicate and so the snapshot we persist has a clean match back to products.
+   */
+  function syncLinesToProducts(lines: EditorLine[]): EditorLine[] {
+    if (!oportunidad) return lines
+    return lines.map(line => {
+      if (line._productoId) return line
+      if (!line.descripcion.trim() || line.precio_unitario <= 0) return line
+      const newProdId = crypto.randomUUID()
+      dispatch({
+        type: 'ADD_PRODUCTO',
+        payload: {
+          id: newProdId,
+          oportunidad_id: oportunidad.id,
+          categoria: 'Manual',
+          subtipo: 'Producto manual',
+          configuracion: CONFIG_MESA_DEFAULT,
+          precio_calculado: line.precio_unitario,
+          descripcion_comercial: line.descripcion,
+          cantidad: line.cantidad,
+        } as any,
+      })
+      return { ...line, _productoId: newProdId }
+    })
+  }
+
+  /** Strip editor-only fields before persisting to the cotización snapshot. */
+  function toSnapshot(lines: EditorLine[]): CotizacionProducto[] {
+    return lines.map(({ _productoId: _omit, ...rest }) => rest)
+  }
+
   function saveDraft() {
     if (!cotizacion) return
+    const synced = syncLinesToProducts(productos)
+    setProductos(synced)
     dispatch({
       type: 'UPDATE_COTIZACION',
       payload: {
         id: cotizacion.id,
         total,
-        productos_snapshot: productos,
+        productos_snapshot: toSnapshot(synced),
         tiempoEntrega,
         incluyeTransporte,
         condicionesItems: condicionesText.split('\n').filter(l => l.trim()),
@@ -114,13 +164,16 @@ export default function CotizacionEditor() {
 
   function handleGenerarPdf(nombreProducto: string) {
     if (!empresa || !contacto || productos.length === 0 || !cotizacion) return
+    // Make sure any manual lines are mirrored into productos_oportunidad before the PDF is saved
+    const synced = syncLinesToProducts(productos)
+    setProductos(synced)
     const fecha = cotizacion.fecha || new Date().toISOString().split('T')[0]
     const numero = cotizacion.numero
 
     const condicionesItems = condicionesText.split('\n').filter(l => l.trim())
     const noIncluyeItems = noIncluyeText.split('\n').filter(l => l.trim())
 
-    const productosForPdf = productos.map((p, i) => ({
+    const productosForPdf = synced.map((p, i) => ({
       id: String(i),
       oportunidad_id: oportunidad?.id || '',
       categoria: 'Mesas',
@@ -155,7 +208,7 @@ export default function CotizacionEditor() {
       payload: {
         id: cotizacion.id,
         total: totalPdf,
-        productos_snapshot: productos,
+        productos_snapshot: toSnapshot(synced),
         tiempoEntrega,
         incluyeTransporte,
         condicionesItems,
