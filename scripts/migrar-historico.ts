@@ -74,12 +74,21 @@ function normalizeCot(raw: string): string {
   return raw.trim().replace(/\s*-\s*/g, '-')
 }
 
-/** Extract normalized COT from a notas field like "COT: 2021-472 | Proyecto: x" */
+/**
+ * Extract normalized COT from a notas field.
+ * Supports:
+ *   "COT: 2021-472"              → "2021-472"
+ *   "COT: 2021-472 | Proyecto: x" → "2021-472"  (stops at '|')
+ *   "COT: 2022-1256 Y 1258"      → "2022-1256 Y 1258"  (multi-word COT preserved)
+ *   "COT: 2022-179A 2021-995G"   → "2022-179A 2021-995G"
+ * Case-insensitive ("cot:", "Cot:" also match).
+ */
 function extractCotFromNotas(notas: string | null | undefined): string | null {
   if (!notas) return null
-  const m = String(notas).match(/COT:\s*([^\s|]+(?:\s*-\s*[^\s|]+)?)/)
+  // Case-insensitive "COT:", capture everything up to '|' or end of string.
+  const m = String(notas).match(/cot:\s*([^|]+?)(?:\s*\|.*)?$/is)
   if (!m) return null
-  return normalizeCot(m[1])
+  return normalizeCot(m[1].trim())
 }
 
 const stats = {
