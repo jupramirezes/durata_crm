@@ -67,11 +67,24 @@ export async function removeCotizacion(id: string): Promise<{ error: string | nu
   return { error: error?.message ?? null }
 }
 
-export async function duplicateCotizacion(original: Cotizacion, nuevoNumero: string): Promise<{ error: string | null }> {
+/**
+ * Duplicate a cotización with an EXPLICIT frontend-generated id.
+ * The id is NOT stripped — we INSERT with the id chosen by the caller so that
+ * the reducer state, URL routes, and DB row all share the same UUID.
+ * Upsert onConflict:id handles retries (same id inserted twice → UPDATE, no error).
+ * DO NOT change onConflict to 'numero' — it causes the DB to generate a new id,
+ * leaving the frontend with a ghost id that never appears after hydrate.
+ */
+export async function duplicateCotizacion(original: Cotizacion, nuevoNumero: string, newId: string): Promise<{ error: string | null }> {
   if (!isSupabaseReady) return { error: 'supabase_not_ready' }
-  const dup = { ...original, numero: nuevoNumero, estado: 'borrador' as const, fecha: new Date().toISOString().split('T')[0] }
+  const dup = {
+    ...original,
+    id: newId,
+    numero: nuevoNumero,
+    estado: 'borrador' as const,
+    fecha: new Date().toISOString().split('T')[0],
+  }
   const row = toDbRow(dup)
-  delete row.id // let DB generate new id
-  const { error } = await supabase.from('cotizaciones').upsert(row, { onConflict: 'numero' })
+  const { error } = await supabase.from('cotizaciones').upsert(row, { onConflict: 'id' })
   return { error: error?.message ?? null }
 }
