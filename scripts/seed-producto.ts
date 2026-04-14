@@ -13,10 +13,11 @@
  * That's it. No validation, no translation. The SQL is already verified.
  */
 
-import { readFileSync } from 'fs'
 import { resolve, dirname, basename } from 'path'
 import { fileURLToPath } from 'url'
 import { createRequire } from 'module'
+import { readFileSync } from 'fs'
+import { getSupabaseScriptConfig } from './lib/env'
 
 const require = createRequire(import.meta.url)
 const { createClient } = require('@supabase/supabase-js')
@@ -24,15 +25,8 @@ const { createClient } = require('@supabase/supabase-js')
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// Read .env
-const envText = readFileSync(resolve(__dirname, '../.env'), 'utf-8')
-const env: Record<string, string> = {}
-for (const line of envText.split(/\r?\n/)) {
-  const m = line.match(/^([^#=][^=]*)=(.*)$/)
-  if (m) env[m[1].trim()] = m[2].trim()
-}
-
-const sb = createClient(env['VITE_SUPABASE_URL'], env['VITE_SUPABASE_ANON_KEY'])
+const { url: SUPABASE_URL, anonKey: SUPABASE_KEY, authEmail: AUTH_EMAIL, authPass: AUTH_PASS } = getSupabaseScriptConfig()
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 function parseValues(raw: string): string[] {
   const result: string[] = []
@@ -63,8 +57,13 @@ async function main() {
   console.log(`Seeding: ${pid} from ${basename(absPath)}`)
 
   // Auth
+  if (!AUTH_EMAIL || !AUTH_PASS) {
+    console.error('Missing MIGRATION_AUTH_EMAIL or MIGRATION_AUTH_PASS in .env or process.env')
+    process.exit(1)
+  }
+
   const { error: authErr } = await sb.auth.signInWithPassword({
-    email: 'saguirre@durata.co', password: 'Durata2026!',
+    email: AUTH_EMAIL, password: AUTH_PASS,
   })
   if (authErr) { console.error('Auth failed:', authErr.message); process.exit(1) }
 

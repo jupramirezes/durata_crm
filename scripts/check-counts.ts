@@ -4,33 +4,11 @@
  * Usage: npx tsx scripts/check-counts.ts
  */
 
-import { readFileSync } from 'fs'
-import { resolve, dirname } from 'path'
-import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
+import { getSupabaseScriptConfig } from './lib/env'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-// Read env
-const envText = readFileSync(resolve(__dirname, '../.env'), 'utf-8')
-const env: Record<string, string> = {}
-for (const line of envText.split('\n')) {
-  const m = line.match(/^([^=]+)=(.*)$/)
-  if (m) env[m[1].trim()] = m[2].trim()
-}
-
-const SUPABASE_URL = env['VITE_SUPABASE_URL']
-const SUPABASE_KEY = env['VITE_SUPABASE_ANON_KEY']
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env')
-  process.exit(1)
-}
-
+const { url: SUPABASE_URL, anonKey: SUPABASE_KEY, authEmail: AUTH_EMAIL, authPass: AUTH_PASS } = getSupabaseScriptConfig()
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
-
-const AUTH_EMAIL = env['MIGRATION_AUTH_EMAIL'] || 'saguirre@durata.co'
-const AUTH_PASS = env['MIGRATION_AUTH_PASS'] || 'Durata2026!'
 
 const TABLES = [
   'empresas',
@@ -42,9 +20,19 @@ const TABLES = [
   'precios_maestro',
   'tarifas_mo',
   'configuracion_sistema',
+  'productos_catalogo',
+  'producto_variables',
+  'producto_materiales',
+  'producto_lineas_apu',
+  'tarifas_mo_producto',
 ]
 
 async function main() {
+  if (!AUTH_EMAIL || !AUTH_PASS) {
+    console.error('Missing MIGRATION_AUTH_EMAIL or MIGRATION_AUTH_PASS in .env or process.env')
+    process.exit(1)
+  }
+
   const { error: authErr } = await supabase.auth.signInWithPassword({ email: AUTH_EMAIL, password: AUTH_PASS })
   if (authErr) { console.error('Auth failed:', authErr.message); process.exit(1) }
 
