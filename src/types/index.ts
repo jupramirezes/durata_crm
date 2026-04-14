@@ -30,7 +30,7 @@ export const COTIZADORES = [
 export const FUENTES_LEAD = ['WhatsApp', 'Correo', 'Llamada', 'Referido', 'Licitación', 'Web', 'Otro'] as const
 export type FuenteLead = typeof FUENTES_LEAD[number]
 
-export const MOTIVOS_PERDIDA = ['Precio', 'Tiempo de entrega', 'Eligió competencia', 'Cambió de alcance', 'Sin respuesta', 'Presupuesto cancelado', 'Otro'] as const
+export const MOTIVOS_PERDIDA = ['Precio', 'Tiempo de entrega', 'Eligió competencia', 'Cambió de alcance', 'Sin respuesta', 'Presupuesto cancelado', 'Proyecto congelado', 'Licitación del cliente', 'Otro'] as const
 
 // Reverse lookup: resolves cotizador_asignado whether it's stored as id ('OC'), iniciales ('O.C'), nombre, or legacy variants
 const _cotizadorIndex = new Map<string, typeof COTIZADORES[number]>()

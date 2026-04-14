@@ -106,6 +106,7 @@ export default function Pipeline() {
   const [adjudicadaModal, setAdjudicadaModal] = useState<string | null>(null)
   const [perdidaModal, setPerdidaModal] = useState<string | null>(null)
   const [valorAdjudicado, setValorAdjudicado] = useState(0)
+  const [fechaAdjudicacion, setFechaAdjudicacion] = useState(new Date().toISOString().split('T')[0])
   const [motivoPerdida, setMotivoPerdida] = useState<string>(MOTIVOS_PERDIDA[0])
   // New filters
   const [filtroMisCots, setFiltroMisCots] = useState(false)
@@ -193,7 +194,7 @@ export default function Pipeline() {
     const oportunidadId = e.dataTransfer.getData('text/plain')
     if (!oportunidadId) return
     setDragging(null); setDragOverCol(null)
-    if (etapa === 'adjudicada') { const op = state.oportunidades.find(o => o.id === oportunidadId); setValorAdjudicado(op?.valor_cotizado || 0); setAdjudicadaModal(oportunidadId); return }
+    if (etapa === 'adjudicada') { const op = state.oportunidades.find(o => o.id === oportunidadId); setValorAdjudicado(op?.valor_cotizado || 0); setFechaAdjudicacion(new Date().toISOString().split('T')[0]); setAdjudicadaModal(oportunidadId); return }
     if (etapa === 'perdida') { setMotivoPerdida(MOTIVOS_PERDIDA[0]); setPerdidaModal(oportunidadId); return }
     dispatch({ type: 'MOVE_ETAPA', payload: { oportunidadId, nuevaEtapa: etapa } })
   }
@@ -201,7 +202,7 @@ export default function Pipeline() {
 
   function confirmAdjudicada() {
     if (!adjudicadaModal) return
-    dispatch({ type: 'MOVE_ETAPA', payload: { oportunidadId: adjudicadaModal, nuevaEtapa: 'adjudicada', valor_adjudicado: valorAdjudicado } })
+    dispatch({ type: 'MOVE_ETAPA', payload: { oportunidadId: adjudicadaModal, nuevaEtapa: 'adjudicada', valor_adjudicado: valorAdjudicado, fecha_adjudicacion: fechaAdjudicacion } })
     setAdjudicadaModal(null)
   }
   function confirmPerdida() {
@@ -479,6 +480,8 @@ export default function Pipeline() {
             <label className="text-[13px] font-medium text-[#334155] mb-2 block">Valor adjudicado (COP)</label>
             <input type="number" value={valorAdjudicado || ''} onChange={e => setValorAdjudicado(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl text-sm mb-1 border border-[#e2e8f0]" />
             {valorAdjudicado > 0 && <p className="text-sm text-[#64748b] mb-4 tabular-nums">{formatCOP(valorAdjudicado)}</p>}
+            <label className="text-[13px] font-medium text-[#334155] mb-2 block mt-3">Fecha de adjudicación</label>
+            <input type="date" value={fechaAdjudicacion} onChange={e => setFechaAdjudicacion(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm border border-[#e2e8f0]" />
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setAdjudicadaModal(null)} className="px-5 py-3 text-sm text-[#64748b] hover:bg-[#f8fafc] rounded-xl">Cancelar</button>
               <button onClick={confirmAdjudicada} className="px-5 py-3 h-12 bg-[var(--color-accent-green)] text-white text-sm font-semibold rounded-xl hover:opacity-90">Confirmar</button>
