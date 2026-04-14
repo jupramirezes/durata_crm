@@ -84,8 +84,21 @@ CREATE TABLE IF NOT EXISTS productos_oportunidad (
   precio_calculado      numeric DEFAULT 0,
   descripcion_comercial text DEFAULT '',
   cantidad              int DEFAULT 1,
+  imagen_render         text,              -- Base64 PNG of 3D render from configurador
+  archivo_apu_url       text,              -- Supabase Storage URL for uploaded APU Excel
+  archivo_apu_nombre    text,              -- Original filename of uploaded APU
+  archivo_pdf_url       text,              -- Supabase Storage URL for uploaded PDF
+  archivo_pdf_nombre    text,              -- Original filename of uploaded PDF
   created_at            timestamptz DEFAULT now()
 );
+
+-- Backfill for databases created before these columns existed.
+-- Safe to re-run; IF NOT EXISTS makes each ADD idempotent.
+ALTER TABLE productos_oportunidad ADD COLUMN IF NOT EXISTS imagen_render      text;
+ALTER TABLE productos_oportunidad ADD COLUMN IF NOT EXISTS archivo_apu_url    text;
+ALTER TABLE productos_oportunidad ADD COLUMN IF NOT EXISTS archivo_apu_nombre text;
+ALTER TABLE productos_oportunidad ADD COLUMN IF NOT EXISTS archivo_pdf_url    text;
+ALTER TABLE productos_oportunidad ADD COLUMN IF NOT EXISTS archivo_pdf_nombre text;
 
 -- ============================================================
 -- 6. COTIZACIONES
