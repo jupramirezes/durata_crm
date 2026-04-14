@@ -201,7 +201,8 @@ export default function Cotizaciones() {
                         onClick={() => {
                           const nuevoNumero = prompt('Numero de la nueva cotizacion:') || ''
                           if (nuevoNumero) {
-                            dispatch({ type: 'DUPLICATE_COTIZACION', payload: { originalId: c.id, nuevoNumero } })
+                            const newId = crypto.randomUUID()
+                            dispatch({ type: 'DUPLICATE_COTIZACION', payload: { originalId: c.id, nuevoNumero, newId } })
                           }
                         }}
                         className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] transition-all"
