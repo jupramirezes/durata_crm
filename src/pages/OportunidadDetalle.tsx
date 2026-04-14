@@ -68,6 +68,7 @@ export default function OportunidadDetalle() {
   const [archivos, setArchivos] = useState<{ name: string; path: string; size: number; created: string }[]>([])
   const [uploadingFile, setUploadingFile] = useState(false)
   const [valorAdjudicado, setValorAdjudicado] = useState('')
+  const [fechaAdjudicacion, setFechaAdjudicacion] = useState(new Date().toISOString().split('T')[0])
   const [motivoPerdida, setMotivoPerdida] = useState('')
   const [manualForm, setManualForm] = useState({
     categoria: 'Mesas',
@@ -370,6 +371,7 @@ export default function OportunidadDetalle() {
     if (nuevaEtapa === opp.etapa) return
     if (nuevaEtapa === 'adjudicada') {
       setValorAdjudicado(String(opp.valor_cotizado || ''))
+      setFechaAdjudicacion(new Date().toISOString().split('T')[0])
       setShowAdjudicadaModal(true)
       return
     }
@@ -390,6 +392,7 @@ export default function OportunidadDetalle() {
         oportunidadId: opp.id,
         nuevaEtapa: 'adjudicada',
         valor_adjudicado: Number(valorAdjudicado) || 0,
+        fecha_adjudicacion: fechaAdjudicacion,
       },
     })
     setShowAdjudicadaModal(false)
@@ -1439,6 +1442,15 @@ export default function OportunidadDetalle() {
                   min={0}
                   step={1000}
                   autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Fecha de adjudicación</label>
+                <input
+                  type="date"
+                  value={fechaAdjudicacion}
+                  onChange={e => setFechaAdjudicacion(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-[var(--color-border)]"
                 />
               </div>
             </div>

@@ -34,7 +34,7 @@ export type Action =
   | { type: 'UPDATE_OPORTUNIDAD'; payload: Partial<Oportunidad> & { id: string } }
   | { type: 'DELETE_OPORTUNIDAD'; payload: { id: string } }
   | { type: 'UPDATE_PRODUCTO'; payload: Partial<ProductoCliente> & { id: string } }
-  | { type: 'MOVE_ETAPA'; payload: { oportunidadId: string; nuevaEtapa: Etapa; valor_adjudicado?: number; motivo_perdida?: string } }
+  | { type: 'MOVE_ETAPA'; payload: { oportunidadId: string; nuevaEtapa: Etapa; valor_adjudicado?: number; motivo_perdida?: string; fecha_adjudicacion?: string } }
   | { type: 'ADD_PRODUCTO'; payload: Omit<ProductoCliente, 'id'> }
   | { type: 'DELETE_PRODUCTO'; payload: { id: string } }
   | { type: 'UPDATE_PRECIO'; payload: { id: string; precio: number } }
@@ -183,12 +183,13 @@ export function reducer(state: State, action: Action): State {
       }
     }
     case 'MOVE_ETAPA': {
-      const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida } = action.payload
+      const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida, fecha_adjudicacion } = action.payload
       const oportunidad = state.oportunidades.find(o => o.id === oportunidadId)
       if (!oportunidad || oportunidad.etapa === nuevaEtapa) return state
       const entry: HistorialEtapa = { id: newId(), oportunidad_id: oportunidadId, etapa_anterior: oportunidad.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }
       const updates: Partial<Oportunidad> = { etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
       if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) updates.valor_adjudicado = valor_adjudicado
+      if (nuevaEtapa === 'adjudicada') updates.fecha_adjudicacion = fecha_adjudicacion || new Date().toISOString().split('T')[0]
       if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
       // On adjudicación: approve latest-fecha active (enviada/borrador), mark the rest as 'rechazada'.
       // On perdida: mark all active (not descartada/aprobada) as 'rechazada'.
@@ -399,11 +400,12 @@ function syncToSupabase(action: Action, stateBefore: State) {
       svcOportunidades.removeOportunidad(action.payload.id).then(r => log('DELETE_OPORTUNIDAD', r))
       break
     case 'MOVE_ETAPA': {
-      const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida } = action.payload
+      const { oportunidadId, nuevaEtapa, valor_adjudicado, motivo_perdida, fecha_adjudicacion } = action.payload
       const opp = stateBefore.oportunidades.find(o => o.id === oportunidadId)
       if (!opp || opp.etapa === nuevaEtapa) break
       const updates: Partial<Oportunidad> & { id: string } = { id: oportunidadId, etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
       if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) updates.valor_adjudicado = valor_adjudicado
+      if (nuevaEtapa === 'adjudicada') updates.fecha_adjudicacion = fecha_adjudicacion || new Date().toISOString().split('T')[0]
       if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
       svcOportunidades.updateOportunidad(updates).then(r => log('MOVE_ETAPA', r))
       svcOportunidades.createHistorial({ oportunidad_id: oportunidadId, etapa_anterior: opp.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }).then(r => log('MOVE_ETAPA historial', r))
