@@ -31,7 +31,7 @@ export async function deleteEmpresa(id: string): Promise<{ error: string | null 
   const opIds = (ops || []).map((o: { id: string }) => o.id)
   if (opIds.length > 0) {
     await supabase.from('cotizaciones').delete().in('oportunidad_id', opIds)
-    await supabase.from('productos_cliente').delete().in('oportunidad_id', opIds)
+    await supabase.from('productos_oportunidad').delete().in('oportunidad_id', opIds)
     await supabase.from('historial_etapas').delete().in('oportunidad_id', opIds)
     await supabase.from('oportunidades').delete().eq('empresa_id', id)
   }
