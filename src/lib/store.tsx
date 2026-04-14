@@ -190,7 +190,9 @@ export function reducer(state: State, action: Action): State {
       const updates: Partial<Oportunidad> = { etapa: nuevaEtapa, fecha_ultimo_contacto: new Date().toISOString().split('T')[0] }
       if (nuevaEtapa === 'adjudicada' && valor_adjudicado !== undefined) updates.valor_adjudicado = valor_adjudicado
       if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
-      // Auto-discard cotizaciones on adjudicación: approve latest active, discard rest
+      // On adjudicación: approve latest-fecha active (enviada/borrador), mark the rest as 'rechazada'.
+      // On perdida: mark all active (not descartada/aprobada) as 'rechazada'.
+      // In both cases, already-descartada cotizaciones stay descartada (they were superseded earlier).
       let updCots = state.cotizaciones
       if (nuevaEtapa === 'adjudicada') {
         const oppCots = state.cotizaciones.filter(c => c.oportunidad_id === oportunidadId)
@@ -200,8 +202,14 @@ export function reducer(state: State, action: Action): State {
         updCots = state.cotizaciones.map(c => {
           if (c.oportunidad_id !== oportunidadId) return c
           if (activeCot && c.id === activeCot.id) return { ...c, estado: 'aprobada' as const }
-          if (c.estado !== 'aprobada') return { ...c, estado: 'descartada' as const }
-          return c
+          if (c.estado === 'descartada' || c.estado === 'aprobada') return c
+          return { ...c, estado: 'rechazada' as const }
+        })
+      } else if (nuevaEtapa === 'perdida') {
+        updCots = state.cotizaciones.map(c => {
+          if (c.oportunidad_id !== oportunidadId) return c
+          if (c.estado === 'descartada' || c.estado === 'aprobada') return c
+          return { ...c, estado: 'rechazada' as const }
         })
       }
       return {
@@ -255,6 +263,10 @@ export function reducer(state: State, action: Action): State {
     }
 
     // ── Cotizaciones ─────────────────────────────────
+    // NOTE: the nuevo_lead → en_cotizacion transition is NOT done here on purpose.
+    // Callers must dispatch MOVE_ETAPA explicitly so there is one single source of
+    // truth for stage transitions (history entry + sync). See handleCrearCotizacion
+    // and handleDupToOtherClient in OportunidadDetalle.
     case 'ADD_COTIZACION': {
       const newCot = { ...action.payload, id: action.payload.id || newId() }
       const newCotizaciones = [...state.cotizaciones, newCot]
@@ -262,7 +274,9 @@ export function reducer(state: State, action: Action): State {
       return {
         ...state,
         cotizaciones: newCotizaciones,
-        oportunidades: state.oportunidades.map(o => o.id === newCot.oportunidad_id ? { ...o, valor_cotizado: valorCot } : o),
+        oportunidades: state.oportunidades.map(o =>
+          o.id === newCot.oportunidad_id ? { ...o, valor_cotizado: valorCot } : o,
+        ),
       }
     }
     case 'UPDATE_COTIZACION_ESTADO': {
@@ -393,11 +407,42 @@ function syncToSupabase(action: Action, stateBefore: State) {
       if (nuevaEtapa === 'perdida' && motivo_perdida) updates.motivo_perdida = motivo_perdida
       svcOportunidades.updateOportunidad(updates).then(r => log('MOVE_ETAPA', r))
       svcOportunidades.createHistorial({ oportunidad_id: oportunidadId, etapa_anterior: opp.etapa, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }).then(r => log('MOVE_ETAPA historial', r))
+      // Persist cotización state transitions to match reducer (see reducer for semantics)
+      if (nuevaEtapa === 'adjudicada' || nuevaEtapa === 'perdida') {
+        const oppCots = stateBefore.cotizaciones.filter(c => c.oportunidad_id === oportunidadId)
+        const winner = nuevaEtapa === 'adjudicada'
+          ? oppCots.filter(c => c.estado === 'enviada' || c.estado === 'borrador')
+                   .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+          : null
+        for (const c of oppCots) {
+          if (c.estado === 'descartada' || c.estado === 'aprobada') continue
+          const nuevoEstado: Cotizacion['estado'] = winner && c.id === winner.id ? 'aprobada' : 'rechazada'
+          if (c.estado === nuevoEstado) continue
+          svcCotizaciones.updateCotizacion({ id: c.id, estado: nuevoEstado })
+            .then(r => log(`MOVE_ETAPA cot->${nuevoEstado}`, r))
+        }
+      }
       break
     }
-    case 'ADD_PRODUCTO':
+    case 'ADD_PRODUCTO': {
       svcOportunidades.createProducto(action.payload).then(r => log('ADD_PRODUCTO', r))
+      // Reducer auto-moves nuevo_lead → en_cotizacion; persist that same transition
+      const oppPr = stateBefore.oportunidades.find(o => o.id === action.payload.oportunidad_id)
+      if (oppPr && oppPr.etapa === 'nuevo_lead') {
+        svcOportunidades.updateOportunidad({
+          id: oppPr.id,
+          etapa: 'en_cotizacion',
+          fecha_ultimo_contacto: new Date().toISOString().split('T')[0],
+        }).then(r => log('ADD_PRODUCTO etapa', r))
+        svcOportunidades.createHistorial({
+          oportunidad_id: oppPr.id,
+          etapa_anterior: 'nuevo_lead',
+          etapa_nueva: 'en_cotizacion',
+          created_at: new Date().toISOString(),
+        }).then(r => log('ADD_PRODUCTO historial', r))
+      }
       break
+    }
     case 'DELETE_PRODUCTO':
       svcOportunidades.removeProducto(action.payload.id).then(r => log('DELETE_PRODUCTO', r))
       break
@@ -410,9 +455,17 @@ function syncToSupabase(action: Action, stateBefore: State) {
     case 'UPDATE_PRECIO_PROVEEDOR':
       svcPrecios.updatePrecioProveedor(action.payload.id, action.payload.proveedor).then(r => log('UPDATE_PRECIO_PROVEEDOR', r))
       break
-    case 'ADD_COTIZACION':
-      svcCotizaciones.createCotizacion(action.payload).then(r => log('ADD_COTIZACION', r))
+    case 'ADD_COTIZACION': {
+      const newCot = { ...action.payload, id: action.payload.id || newId() } as Cotizacion
+      svcCotizaciones.createCotizacion(newCot).then(r => log('ADD_COTIZACION', r))
+      // Persist oportunidad.valor_cotizado (reducer recomputes it from active cotizaciones).
+      // The etapa transition is handled by an explicit MOVE_ETAPA dispatch in the caller.
+      const allCots = [...stateBefore.cotizaciones, newCot]
+      const valor = getActiveCotizacionValor(allCots, newCot.oportunidad_id)
+      svcOportunidades.updateOportunidad({ id: newCot.oportunidad_id, valor_cotizado: valor })
+        .then(r => log('ADD_COTIZACION opp', r))
       break
+    }
     case 'UPDATE_COTIZACION_ESTADO': {
       const cot = stateBefore.cotizaciones.find(c => c.id === action.payload.id)
       const upd: Partial<Cotizacion> & { id: string } = { id: action.payload.id, estado: action.payload.estado }
@@ -431,24 +484,56 @@ function syncToSupabase(action: Action, stateBefore: State) {
       }
       break
     }
-    case 'DELETE_COTIZACION':
+    case 'DELETE_COTIZACION': {
+      const delCot = stateBefore.cotizaciones.find(c => c.id === action.payload.id)
       svcCotizaciones.removeCotizacion(action.payload.id).then(r => log('DELETE_COTIZACION', r))
-      break
-    case 'DUPLICATE_COTIZACION': {
-      const original = stateBefore.cotizaciones.find(c => c.id === action.payload.originalId)
-      if (original) svcCotizaciones.duplicateCotizacion(original, action.payload.nuevoNumero).then(r => log('DUPLICATE_COTIZACION', r))
+      // Persist oportunidad.valor_cotizado after delete (reducer recomputes)
+      if (delCot) {
+        const remaining = stateBefore.cotizaciones.filter(c => c.id !== action.payload.id)
+        const valor = getActiveCotizacionValor(remaining, delCot.oportunidad_id)
+        svcOportunidades.updateOportunidad({ id: delCot.oportunidad_id, valor_cotizado: valor })
+          .then(r => log('DELETE_COTIZACION opp', r))
+      }
       break
     }
-    case 'UPDATE_COTIZACION':
-      svcCotizaciones.updateCotizacion(action.payload).then(r => log('UPDATE_COTIZACION', r))
+    case 'DUPLICATE_COTIZACION': {
+      const original = stateBefore.cotizaciones.find(c => c.id === action.payload.originalId)
+      if (original) {
+        const dupId = action.payload.newId || newId()
+        svcCotizaciones.duplicateCotizacion(original, action.payload.nuevoNumero, dupId)
+          .then(r => log('DUPLICATE_COTIZACION', r))
+      }
       break
+    }
+    case 'UPDATE_COTIZACION': {
+      svcCotizaciones.updateCotizacion(action.payload).then(r => log('UPDATE_COTIZACION', r))
+      // Persist oportunidad.valor_cotizado if total/estado/fecha changed (reducer recomputes)
+      const updCots = stateBefore.cotizaciones.map(c => c.id === action.payload.id ? { ...c, ...action.payload } : c)
+      const updCot = updCots.find(c => c.id === action.payload.id)
+      if (updCot) {
+        const valor = getActiveCotizacionValor(updCots, updCot.oportunidad_id)
+        svcOportunidades.updateOportunidad({ id: updCot.oportunidad_id, valor_cotizado: valor })
+          .then(r => log('UPDATE_COTIZACION opp', r))
+      }
+      break
+    }
     case 'RECOTIZAR': {
       const origCot = stateBefore.cotizaciones.find(c => c.id === action.payload.cotizacionId)
       if (origCot) {
+        // Use the SAME id the reducer used — guarantees reducer/URL/DB all agree
+        const newCotId = action.payload.newCotId || newId()
         // Discard original in DB
         svcCotizaciones.updateCotizacion({ id: origCot.id, estado: 'descartada' }).then(r => log('RECOTIZAR discard', r))
-        // Create new version in DB
-        svcCotizaciones.duplicateCotizacion(origCot, action.payload.nuevoNumero).then(r => log('RECOTIZAR new', r))
+        // Create new version in DB with explicit id (NOT upsert by numero)
+        svcCotizaciones.duplicateCotizacion(origCot, action.payload.nuevoNumero, newCotId)
+          .then(r => log('RECOTIZAR new', r))
+        // Persist oportunidad.valor_cotizado — new version copies original's total and becomes active
+        const simulatedCots = stateBefore.cotizaciones
+          .map(c => c.id === origCot.id ? { ...c, estado: 'descartada' as const } : c)
+          .concat([{ ...origCot, id: newCotId, numero: action.payload.nuevoNumero, estado: 'borrador' as const, fecha: new Date().toISOString().split('T')[0] }])
+        const valor = getActiveCotizacionValor(simulatedCots, origCot.oportunidad_id)
+        svcOportunidades.updateOportunidad({ id: origCot.oportunidad_id, valor_cotizado: valor })
+          .then(r => log('RECOTIZAR opp', r))
       }
       break
     }
