@@ -6,7 +6,8 @@ import { formatDate, formatCOP, daysSince } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
-import { uploadProductFile, getSignedUrl, acceptString, uploadOppFile, listOppFiles, deleteProductFile } from '../hooks/useStorage'
+import { uploadProductFile, getSignedUrl, acceptString, uploadOppFile, listOppFiles, deleteProductFile, uploadCotizacionFile } from '../hooks/useStorage'
+import * as svcCotizaciones from '../hooks/useCotizaciones'
 import { showToast } from '../components/Toast'
 import { exportApuExcel } from '../lib/exportar-apu'
 import * as svcOportunidades from '../hooks/useOportunidades'
@@ -1125,6 +1126,8 @@ export default function OportunidadDetalle() {
                         <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
                           <span>{formatDate(c.fecha)}</span>
                           <span>{prodCount} producto{prodCount !== 1 ? 's' : ''}</span>
+                          {c.archivo_apu_nombre && <span className="text-emerald-600">· APU</span>}
+                          {c.archivo_pdf_nombre && <span className="text-red-500">· PDF</span>}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
@@ -1175,6 +1178,8 @@ export default function OportunidadDetalle() {
                         </div>
                       </div>
                     </div>
+                    {/* Adjuntos de cotización (M10): APU + PDF + file uploads */}
+                    <CotAdjuntos cot={c} oportunidadId={opp.id} />
                   </div>
                 )
               }
@@ -1815,6 +1820,114 @@ export default function OportunidadDetalle() {
       {/* Click-away to close dropdowns */}
       {(showEtapaDropdown || showAddMenu) && (
         <div className="fixed inset-0 z-10" onClick={() => { setShowEtapaDropdown(false); setShowAddMenu(false) }} />
+      )}
+    </div>
+  )
+}
+
+/* ── Adjuntos por cotización (M10) ─────────────────────────────── */
+import type { Cotizacion } from '../types'
+
+function CotAdjuntos({ cot, oportunidadId }: { cot: Cotizacion; oportunidadId: string }) {
+  const { dispatch } = useStore()
+  const [uploading, setUploading] = useState<'apu' | 'pdf' | null>(null)
+  const apuRef = useRef<HTMLInputElement>(null)
+  const pdfRef = useRef<HTMLInputElement>(null)
+
+  async function handleUpload(file: File, kind: 'apu' | 'pdf') {
+    setUploading(kind)
+    const res = await uploadCotizacionFile(oportunidadId, cot.id, file, kind)
+    if ('error' in res) {
+      showToast('error', res.error)
+    } else {
+      const updates = kind === 'apu'
+        ? { id: cot.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre }
+        : { id: cot.id, archivo_pdf_url: res.url, archivo_pdf_nombre: res.nombre }
+      await svcCotizaciones.updateCotizacion(updates)
+      dispatch({ type: 'UPDATE_COTIZACION', payload: updates })
+      showToast('success', `${kind.toUpperCase()} adjuntado a ${cot.numero}`)
+    }
+    setUploading(null)
+  }
+
+  async function handleDownload(url: string, _name: string) {
+    const signed = await getSignedUrl(url)
+    if (signed) window.open(signed, '_blank')
+    else showToast('error', 'No se pudo generar el enlace')
+  }
+
+  async function handleRemove(kind: 'apu' | 'pdf') {
+    const url = kind === 'apu' ? cot.archivo_apu_url : cot.archivo_pdf_url
+    const nombre = kind === 'apu' ? cot.archivo_apu_nombre : cot.archivo_pdf_nombre
+    if (!window.confirm(`¿Eliminar adjunto "${nombre}" de ${cot.numero}?`)) return
+    if (url) await deleteProductFile(url).catch(() => {})
+    const updates = kind === 'apu'
+      ? { id: cot.id, archivo_apu_url: null, archivo_apu_nombre: null }
+      : { id: cot.id, archivo_pdf_url: null, archivo_pdf_nombre: null }
+    await svcCotizaciones.updateCotizacion(updates)
+    dispatch({ type: 'UPDATE_COTIZACION', payload: updates as any })
+    showToast('success', `${kind.toUpperCase()} eliminado`)
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-dashed border-[var(--color-border)] flex flex-wrap gap-2">
+      {/* APU */}
+      {cot.archivo_apu_nombre && cot.archivo_apu_url ? (
+        <div className="inline-flex items-stretch rounded bg-green-50 border border-green-200 overflow-hidden">
+          <button
+            onClick={() => handleDownload(cot.archivo_apu_url!, cot.archivo_apu_nombre!)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-green-100 text-[10px] text-green-800"
+          >
+            <FileSpreadsheet size={12} /> {cot.archivo_apu_nombre} <Download size={10} />
+          </button>
+          <button
+            onClick={() => handleRemove('apu')}
+            className="px-1.5 border-l border-green-200 hover:bg-red-100 hover:text-red-600 text-green-700 text-[10px]"
+            title="Eliminar APU"
+          >
+            <X size={10} />
+          </button>
+        </div>
+      ) : (
+        <>
+          <input ref={apuRef} type="file" accept={acceptString('apu')} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f, 'apu') }} />
+          <button
+            onClick={() => apuRef.current?.click()}
+            disabled={uploading !== null}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-green-300 bg-white hover:bg-green-50 text-[10px] text-green-700 disabled:opacity-50"
+          >
+            <FileSpreadsheet size={12} /> {uploading === 'apu' ? 'Subiendo…' : '+ APU Excel'}
+          </button>
+        </>
+      )}
+      {/* PDF */}
+      {cot.archivo_pdf_nombre && cot.archivo_pdf_url ? (
+        <div className="inline-flex items-stretch rounded bg-red-50 border border-red-200 overflow-hidden">
+          <button
+            onClick={() => handleDownload(cot.archivo_pdf_url!, cot.archivo_pdf_nombre!)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-red-100 text-[10px] text-red-700"
+          >
+            <File size={12} /> {cot.archivo_pdf_nombre} <Download size={10} />
+          </button>
+          <button
+            onClick={() => handleRemove('pdf')}
+            className="px-1.5 border-l border-red-200 hover:bg-red-100 hover:text-red-700 text-red-700 text-[10px]"
+            title="Eliminar PDF"
+          >
+            <X size={10} />
+          </button>
+        </div>
+      ) : (
+        <>
+          <input ref={pdfRef} type="file" accept={acceptString('pdf')} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f, 'pdf') }} />
+          <button
+            onClick={() => pdfRef.current?.click()}
+            disabled={uploading !== null}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-red-300 bg-white hover:bg-red-50 text-[10px] text-red-600 disabled:opacity-50"
+          >
+            <File size={12} /> {uploading === 'pdf' ? 'Subiendo…' : '+ PDF'}
+          </button>
+        </>
       )}
     </div>
   )

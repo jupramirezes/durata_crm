@@ -16,6 +16,10 @@ function toDbRow(cot: Partial<Cotizacion> & { id?: string }): Record<string, unk
   if (cot.incluyeTransporte !== undefined) row.incluye_transporte = cot.incluyeTransporte
   if (cot.condicionesItems !== undefined) row.condiciones_items = cot.condicionesItems
   if (cot.noIncluyeItems !== undefined) row.no_incluye_items = cot.noIncluyeItems
+  if (cot.archivo_apu_url !== undefined) row.archivo_apu_url = cot.archivo_apu_url
+  if (cot.archivo_apu_nombre !== undefined) row.archivo_apu_nombre = cot.archivo_apu_nombre
+  if (cot.archivo_pdf_url !== undefined) row.archivo_pdf_url = cot.archivo_pdf_url
+  if (cot.archivo_pdf_nombre !== undefined) row.archivo_pdf_nombre = cot.archivo_pdf_nombre
   return row
 }
 
@@ -34,6 +38,10 @@ function fromDbRow(row: Record<string, unknown>): Cotizacion {
     incluyeTransporte: row.incluye_transporte as boolean | undefined,
     condicionesItems: row.condiciones_items as string[] | undefined,
     noIncluyeItems: row.no_incluye_items as string[] | undefined,
+    archivo_apu_url: row.archivo_apu_url as string | null | undefined,
+    archivo_apu_nombre: row.archivo_apu_nombre as string | null | undefined,
+    archivo_pdf_url: row.archivo_pdf_url as string | null | undefined,
+    archivo_pdf_nombre: row.archivo_pdf_nombre as string | null | undefined,
   }
 }
 

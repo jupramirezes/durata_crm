@@ -74,6 +74,40 @@ function sanitizeFileName(name: string): string {
   return (safeBase || 'archivo') + ext.toLowerCase()
 }
 
+/**
+ * Upload a file scoped to a specific cotización (for APU/PDF adjuntos at
+ * cotización level — see M10).
+ * Path: {oportunidadId}/cotizaciones/{cotizacionId}/{kind}_{safeName}
+ */
+export async function uploadCotizacionFile(
+  oportunidadId: string,
+  cotizacionId: string,
+  file: File,
+  kind: FileKind,
+): Promise<{ url: string; nombre: string } | { error: string }> {
+  if (!isSupabaseReady) return { error: 'Supabase no disponible' }
+  if (file.size > MAX_SIZE) return { error: 'Archivo excede 10MB' }
+
+  const allowed = allowedTypes(kind)
+  if (!allowed.includes(file.type)) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const validExts = kind === 'apu' ? ['xlsx', 'xlsm', 'xls'] : ['pdf']
+    if (!validExts.includes(ext)) {
+      return { error: `Tipo no permitido. Usar ${kind === 'apu' ? '.xlsx/.xlsm/.xls' : '.pdf'}` }
+    }
+  }
+
+  const safeName = sanitizeFileName(file.name)
+  const path = `${oportunidadId}/cotizaciones/${cotizacionId}/${kind}_${safeName}`
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type || 'application/octet-stream',
+  })
+  if (error) return { error: error.message }
+  return { url: path, nombre: file.name }
+}
+
 export async function uploadProductFile(
   oportunidadId: string,
   productoId: string,

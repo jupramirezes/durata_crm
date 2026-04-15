@@ -295,6 +295,11 @@ export interface Cotizacion {
   incluyeTransporte?: boolean
   condicionesItems?: string[]
   noIncluyeItems?: string[]
+  // Adjuntos por cotización (M10) — storage path + filename original
+  archivo_apu_url?: string | null
+  archivo_apu_nombre?: string | null
+  archivo_pdf_url?: string | null
+  archivo_pdf_nombre?: string | null
 }
 
 // ==============================
