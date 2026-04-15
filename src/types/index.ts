@@ -84,11 +84,13 @@ for (const [alias, id] of Object.entries(_COTIZADOR_ALIASES)) {
   if (cot) _cotizadorIndex.set(alias, cot)
 }
 /** Find a COTIZADOR by id, iniciales, nombre, or alias (handles mixed legacy data) */
-export function findCotizador(cotizadorAsignado: string) {
+export function findCotizador(cotizadorAsignado: string | null | undefined) {
+  if (cotizadorAsignado == null) return null
   return _cotizadorIndex.get(cotizadorAsignado) ?? _cotizadorIndex.get(cotizadorAsignado.trim()) ?? null
 }
 /** Check if a cotizador_asignado value matches a given COTIZADOR id */
-export function matchCotizador(cotizadorAsignado: string, cotId: string) {
+export function matchCotizador(cotizadorAsignado: string | null | undefined, cotId: string) {
+  if (cotizadorAsignado == null) return false
   const resolved = findCotizador(cotizadorAsignado)
   return resolved ? resolved.id === cotId : false
 }

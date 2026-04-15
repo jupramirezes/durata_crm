@@ -744,11 +744,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch.isHydrated = true
         rawDispatch({ type: '_HYDRATE', payload: patch })
 
-        // Fix 15: One-time normalization of legacy cotizador values with trailing spaces
+        // Fix 15: One-time normalization of legacy cotizador values with trailing spaces.
+        // Guard contra null — fix-cotizador-cero.sql convirtió '0' a NULL, y null.trim() crashea.
         if (opp.data.length > 0) {
-          const toFix = opp.data.filter(o => o.cotizador_asignado !== o.cotizador_asignado.trim() || o.cotizador_asignado === '0')
+          const toFix = opp.data.filter(o => {
+            const v = o.cotizador_asignado
+            if (v == null) return false
+            return v !== v.trim() || v === '0'
+          })
           for (const o of toFix) {
-            const trimmed = o.cotizador_asignado.trim()
+            const trimmed = (o.cotizador_asignado || '').trim()
             if (trimmed && trimmed !== '0') {
               svcOportunidades.updateOportunidad({ id: o.id, cotizador_asignado: trimmed } as any)
             }
