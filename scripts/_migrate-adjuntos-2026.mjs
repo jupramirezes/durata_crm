@@ -42,6 +42,8 @@ const args = process.argv.slice(2)
 const DRY_RUN = args.includes('--dry-run')
 const APU_ONLY = args.includes('--apu-only')
 const PDF_ONLY = args.includes('--pdf-only')
+const REPORT = args.includes('--report')  // Export detailed CSV of no-match files
+const FUZZY = args.includes('--fuzzy')    // Fallback match: si 2026-128A no existe, intentar 2026-128 (base)
 
 // ── Config de rutas ─────────────────────────────────────────
 const APU_ROOT = 'P:\\Cotización\\1. COTIZACION 2026\\3. APU'  // 4 subcarpetas por cotizador
@@ -92,6 +94,15 @@ function sanitizeFileName(name) {
   return (safeBase || 'archivo') + ext.toLowerCase()
 }
 
+// Folders to exclude from scan (templates, backups, etc.)
+const EXCLUDED_FOLDERS = [
+  'PLANTILLAS ESTANDARIZADAS',
+  'PLANTILLAS',
+  'BACKUP',
+  'TEMP',
+  '.git',
+]
+
 // Walk recursively and collect files matching predicate
 function walk(dir, predicate, out = []) {
   if (!existsSync(dir)) return out
@@ -101,7 +112,11 @@ function walk(dir, predicate, out = []) {
     const full = join(dir, name)
     let st
     try { st = statSync(full) } catch { continue }
-    if (st.isDirectory()) walk(full, predicate, out)
+    if (st.isDirectory()) {
+      // Skip excluded folders (case-insensitive)
+      if (EXCLUDED_FOLDERS.some(ex => name.toUpperCase().includes(ex))) continue
+      walk(full, predicate, out)
+    }
     else if (predicate(name)) out.push({ path: full, name, size: st.size })
   }
   return out
@@ -136,21 +151,33 @@ if (!APU_ONLY) {
 
 // ── Match files to cotizaciones ─────────────────────────────
 function classify(files, kind) {
-  const stats = { matched: [], no_match: [], already_has: [], too_big: [], duplicate_match: new Map() }
+  const stats = { matched: [], no_match: [], already_has: [], too_big: [], duplicate_match: new Map(), fuzzy_matched: [] }
   for (const f of files) {
     const cot_num = extractCot(f.name)
     if (!cot_num) { stats.no_match.push(f); continue }
-    const cot = cotMap.get(normalizeCot(cot_num))
+    let cot = cotMap.get(normalizeCot(cot_num))
+    let matchedVia = 'exact'
+
+    // Fuzzy fallback: si no existe la variante con letra, intentar base
+    if (!cot && FUZZY) {
+      const base = cot_num.replace(/[A-Z]+$/, '')
+      if (base !== cot_num) {
+        cot = cotMap.get(normalizeCot(base))
+        if (cot) matchedVia = 'fuzzy_base'
+      }
+    }
+
     if (!cot) { stats.no_match.push({ ...f, cot_num }); continue }
     const alreadyField = kind === 'apu' ? cot.archivo_apu_url : cot.archivo_pdf_url
     if (alreadyField) { stats.already_has.push({ ...f, cot_num, cot_id: cot.id }); continue }
     if (f.size > MAX_SIZE_MB * 1024 * 1024) { stats.too_big.push({ ...f, cot_num }); continue }
-    // Dedup: si hay 2+ archivos para el mismo COT, solo subir el primero, reportar los demás
-    if (stats.duplicate_match.has(cot_num)) {
-      stats.duplicate_match.get(cot_num).push(f.name)
+    if (stats.duplicate_match.has(cot.numero)) {
+      stats.duplicate_match.get(cot.numero).push(f.name)
     } else {
-      stats.duplicate_match.set(cot_num, [])
-      stats.matched.push({ ...f, cot_num, cot_id: cot.id, oportunidad_id: cot.oportunidad_id })
+      stats.duplicate_match.set(cot.numero, [])
+      const entry = { ...f, cot_num, cot_id: cot.id, oportunidad_id: cot.oportunidad_id, matchedVia }
+      stats.matched.push(entry)
+      if (matchedVia === 'fuzzy_base') stats.fuzzy_matched.push(entry)
     }
   }
   return stats
@@ -161,7 +188,7 @@ const pdfStats = APU_ONLY ? null : classify(pdfFiles, 'pdf')
 
 function printReport(label, stats) {
   console.log(`─── ${label} ───`)
-  console.log(`  Match (para subir):    ${stats.matched.length}`)
+  console.log(`  Match (para subir):    ${stats.matched.length}${stats.fuzzy_matched?.length ? ` (${stats.fuzzy_matched.length} via fuzzy→base)` : ''}`)
   console.log(`  Ya tienen adjunto:     ${stats.already_has.length}`)
   console.log(`  Sin match en BD:       ${stats.no_match.length}`)
   console.log(`  >10MB (omitir):        ${stats.too_big.length}`)
@@ -178,6 +205,79 @@ console.log('  REPORTE')
 console.log('══════════════════════════════════════')
 if (apuStats) printReport('APUs (xlsx)', apuStats)
 if (pdfStats) printReport('PDFs', pdfStats)
+
+if (REPORT) {
+  // Genera CSV con todos los archivos sin match + diagnóstico.
+  // Colonas: tipo,archivo,carpeta,tamano_kb,cot_extraido,motivo,sugerencia
+  const { writeFileSync } = await import('fs')
+
+  // Construir índice de COTs por base (sin letra) para sugerencias fuzzy
+  const cotsByBase = new Map()
+  for (const c of cots) {
+    const n = normalizeCot(c.numero)
+    const m = n.match(/^(\d{4}-\d+)([A-Z]*)$/)
+    const base = m ? m[1] : n
+    if (!cotsByBase.has(base)) cotsByBase.set(base, [])
+    cotsByBase.get(base).push(n)
+  }
+
+  function diagnose(file) {
+    const folder = file.path.replace(/\\[^\\]+$/, '').replace(/.*\\/, '')
+    const cot_extraido = file.cot_num || extractCot(file.name) || ''
+    let motivo = ''
+    let sugerencia = ''
+    if (!cot_extraido) {
+      motivo = 'No se pudo extraer número COT del nombre de archivo'
+      sugerencia = 'Renombrar archivo incluyendo formato "2026-XXX" (ej: "2026-443 ...")'
+    } else {
+      const year = cot_extraido.slice(0, 4)
+      if (year !== '2026') {
+        motivo = `COT es de ${year} (no 2026)`
+        sugerencia = 'Mover a carpeta de su año correspondiente o agregar al historial'
+      } else {
+        // Existe año 2026 pero no está en BD
+        const base = cot_extraido.replace(/[A-Z]+$/, '')
+        const variants = cotsByBase.get(base) || []
+        if (variants.length > 0) {
+          motivo = `COT ${cot_extraido} no existe. Base ${base} tiene: ${variants.join(', ')}`
+          sugerencia = `Revisar si el COT correcto es uno de: ${variants.slice(0, 3).join(', ')}`
+        } else {
+          motivo = `COT ${cot_extraido} no existe en BD (ni con otras letras)`
+          sugerencia = 'Agregar cotización al CRM o verificar numeración'
+        }
+      }
+    }
+    return { folder, cot_extraido, motivo, sugerencia }
+  }
+
+  const rows = [['tipo', 'archivo', 'carpeta', 'tamano_kb', 'cot_extraido', 'motivo', 'sugerencia']]
+  if (apuStats) {
+    for (const f of apuStats.no_match) {
+      const d = diagnose(f)
+      rows.push(['APU', f.name, d.folder, String(Math.round(f.size / 1024)), d.cot_extraido, d.motivo, d.sugerencia])
+    }
+    for (const f of apuStats.too_big) {
+      rows.push(['APU', f.name, f.path.replace(/\\[^\\]+$/, '').replace(/.*\\/, ''), String(Math.round(f.size / 1024)), f.cot_num || '', '>10MB', 'Reducir tamaño o subir manualmente'])
+    }
+  }
+  if (pdfStats) {
+    for (const f of pdfStats.no_match) {
+      const d = diagnose(f)
+      rows.push(['PDF', f.name, d.folder, String(Math.round(f.size / 1024)), d.cot_extraido, d.motivo, d.sugerencia])
+    }
+  }
+
+  const csv = rows.map(r => r.map(v => {
+    const s = String(v ?? '')
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }).join(',')).join('\n')
+  const outPath = resolve('scripts/data/_adjuntos-sin-match.csv')
+  writeFileSync(outPath, csv)
+  console.log(`\n📋 Reporte generado: ${outPath}`)
+  console.log(`   ${rows.length - 1} archivos sin match documentados (con diagnóstico + sugerencia)`)
+  console.log(`   Abrí con Excel para filtrar/priorizar qué arreglar antes de la migración real.`)
+  process.exit(0)
+}
 
 if (DRY_RUN) {
   console.log('\n🔍 DRY-RUN mode — no se subió nada. Ejecuta sin --dry-run para aplicar.')
