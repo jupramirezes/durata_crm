@@ -112,6 +112,7 @@ export default function Pipeline() {
   const [filtroMisCots, setFiltroMisCots] = useState(false)
   const [filtroDateRange, setFiltroDateRange] = useState('')
   const [filtroSector, setFiltroSector] = useState('')
+  const [sortBy, setSortBy] = useState<'valor_desc' | 'valor_asc' | 'fecha_desc' | 'fecha_asc' | 'empresa_asc' | 'cotizador' | 'numero_desc'>('valor_desc')
   const [currentUserCotId, setCurrentUserCotId] = useState<string | null>(null)
   const [tooltipData, setTooltipData] = useState<{ id: string; x: number; y: number } | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -340,6 +341,20 @@ export default function Pipeline() {
           <option value="">Sector: Todos</option>
           {CONFIG_DEFAULTS.sectores.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value as typeof sortBy)}
+          className="h-10 px-3 rounded-[10px] text-[13px] border border-[var(--color-border)] bg-white text-[var(--color-text)]"
+          title="Ordenar tarjetas del pipeline"
+        >
+          <option value="valor_desc">Orden: Valor ↓</option>
+          <option value="valor_asc">Valor ↑</option>
+          <option value="fecha_desc">Fecha recientes</option>
+          <option value="fecha_asc">Fecha antiguas</option>
+          <option value="empresa_asc">Empresa A-Z</option>
+          <option value="cotizador">Cotizador</option>
+          <option value="numero_desc">Número COT ↓</option>
+        </select>
         {hasFilters && (
           <button
             onClick={() => { setFiltroCotizador(''); setFiltroYear(''); setFiltroMonth(''); setFiltroValorMin(0); setSearchEmpresa(''); setFiltroMisCots(false); setFiltroDateRange(''); setFiltroSector('') }}
@@ -353,7 +368,25 @@ export default function Pipeline() {
         {ETAPAS.map(etapa => {
           const oportunidades = filtered
             .filter(o => o.etapa === etapa.key)
-            .sort((a, b) => b.valor_cotizado - a.valor_cotizado)
+            .sort((a, b) => {
+              switch (sortBy) {
+                case 'valor_asc': return a.valor_cotizado - b.valor_cotizado
+                case 'fecha_desc': return (b.fecha_envio || b.fecha_ingreso || '').localeCompare(a.fecha_envio || a.fecha_ingreso || '')
+                case 'fecha_asc': return (a.fecha_envio || a.fecha_ingreso || '').localeCompare(b.fecha_envio || b.fecha_ingreso || '')
+                case 'empresa_asc': {
+                  const ea = state.empresas.find(e => e.id === a.empresa_id)?.nombre || ''
+                  const eb = state.empresas.find(e => e.id === b.empresa_id)?.nombre || ''
+                  return ea.localeCompare(eb)
+                }
+                case 'cotizador': return (a.cotizador_asignado || '').localeCompare(b.cotizador_asignado || '')
+                case 'numero_desc': {
+                  const ca = state.cotizaciones.find(c => c.oportunidad_id === a.id)?.numero || ''
+                  const cb = state.cotizaciones.find(c => c.oportunidad_id === b.id)?.numero || ''
+                  return cb.localeCompare(ca)
+                }
+                default: return b.valor_cotizado - a.valor_cotizado
+              }
+            })
           const valorTotal = oportunidades.reduce((s, o) => s + o.valor_cotizado, 0)
           const isOver = dragOverCol === etapa.key
           const gradient = ETAPA_GRADIENT[etapa.key] || 'from-gray-50 to-white'
@@ -387,6 +420,10 @@ export default function Pipeline() {
                   const cotizador = findCotizador(o.cotizador_asignado)
                   const dias = daysSince(o.fecha_ingreso)
                   const hasNotas = o.notas && o.notas.trim().length > 0
+                  // Latest active cotización number (prefer non-descartada)
+                  const oppCots = state.cotizaciones.filter(c => c.oportunidad_id === o.id)
+                  const activeCot = oppCots.find(c => c.estado !== 'descartada') || oppCots[oppCots.length - 1]
+                  const cotNumero = activeCot?.numero
                   // Urgency border for cotizacion_enviada
                   const urgencyDias = o.etapa === 'cotizacion_enviada'
                     ? Math.floor((Date.now() - new Date(o.fecha_envio || o.fecha_ingreso).getTime()) / 86400000)
@@ -411,7 +448,12 @@ export default function Pipeline() {
                         dragging === o.id ? 'opacity-40 scale-95' : 'hover:shadow-[0_8px_25px_rgba(0,0,0,0.08)] hover:-translate-y-[3px]'
                       }`}
                     >
-                      <div className="font-semibold text-[15px] truncate text-[var(--color-text)] mb-1">{empresa?.nombre}</div>
+                      {cotNumero && (
+                        <span className="absolute top-2 right-2 text-[10px] font-semibold text-[#64748b] bg-[#f1f5f9] px-2 py-0.5 rounded-md tabular-nums">
+                          {cotNumero}
+                        </span>
+                      )}
+                      <div className="font-semibold text-[15px] truncate text-[var(--color-text)] mb-1 pr-16">{empresa?.nombre}</div>
                       {contactoNombre && (
                         <div className="text-sm text-[#64748b] truncate mb-2">{contactoNombre}</div>
                       )}

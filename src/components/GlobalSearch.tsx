@@ -77,7 +77,8 @@ export default function GlobalSearch() {
       })
     }
 
-    // Cotizaciones
+    // Cotizaciones — navegar a la OPORTUNIDAD (vista con contexto completo).
+    // El editor lineal es solo para edición explícita desde el panel /cotizaciones.
     const cots = state.cotizaciones.filter(c => c.numero.toLowerCase().includes(lower)).slice(0, 3)
     for (const c of cots) {
       const opp = state.oportunidades.find(o => o.id === c.oportunidad_id)
@@ -87,7 +88,7 @@ export default function GlobalSearch() {
         id: c.id,
         title: c.numero,
         subtitle: `${emp?.nombre || ''} — ${formatCOP(c.total)}`,
-        navigateTo: `/cotizaciones/${c.id}/editar`,
+        navigateTo: opp ? `/oportunidades/${opp.id}` : `/cotizaciones/${c.id}/editar`,
       })
     }
 
