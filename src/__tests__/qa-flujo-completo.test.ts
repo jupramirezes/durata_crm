@@ -33,6 +33,7 @@ function baseState() {
     productos: [] as ProductoCliente[],
     cotizaciones: [] as Cotizacion[],
     precios: [] as PrecioMaestro[],
+    isHydrated: false,
   }
 }
 

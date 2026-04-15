@@ -21,6 +21,15 @@ export default function Empresas() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [deleteModal, setDeleteModal] = useState<string | null>(null)
 
+  // A-03: derive sector list from actual empresa data so that sectors added via Supabase
+  // config (or present in historical data) always appear in the filter dropdown.
+  const sectoresDisponibles = useMemo(() => {
+    const fromData = [...new Set(state.empresas.map(e => e.sector).filter(Boolean))]
+    const fromDefaults = CONFIG_DEFAULTS.sectores
+    const merged = [...new Set([...fromDefaults, ...fromData])].sort()
+    return merged
+  }, [state.empresas])
+
   const empresaStats = useMemo(() => {
     const map = new Map<string, { opCount: number; valorCotizado: number; valorAdjudicado: number }>()
     for (const o of state.oportunidades) {
@@ -123,7 +132,7 @@ export default function Empresas() {
           className="px-3 py-2 rounded-lg text-xs min-w-[160px] border border-[var(--color-border)] bg-white"
         >
           <option value="">Todos los sectores</option>
-          {CONFIG_DEFAULTS.sectores.map(s => <option key={s} value={s}>{s}</option>)}
+          {sectoresDisponibles.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
