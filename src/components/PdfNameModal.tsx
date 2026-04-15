@@ -54,7 +54,7 @@ export default function PdfNameModal({ defaultNumero, defaultNombreProducto, emp
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="bg-white modal-card w-full max-w-md mx-4"
+        className="bg-white modal-card w-full max-w-2xl mx-4"
         onMouseDown={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
       >

@@ -4,7 +4,8 @@ import { useStore } from '../lib/store'
 import { findCotizador } from '../types'
 import { formatCOP, formatDate, getAvatarColor } from '../lib/utils'
 import { PageHeader } from '../components/ui'
-import { FileText, Copy, Trash2, Edit3, ChevronUp, ChevronDown, Search } from 'lucide-react'
+import { FileText, Copy, Trash2, Edit3, ChevronUp, ChevronDown, Search, Download } from 'lucide-react'
+import { exportCotizacionesExcel } from '../lib/exportar-cotizaciones'
 
 const PAGE_SIZE = 50
 
@@ -90,10 +91,26 @@ export default function Cotizaciones() {
 
   return (
     <div className="p-6 space-y-4 animate-fade-in">
-      <PageHeader
-        title="Cotizaciones"
-        subtitle={`${state.cotizaciones.length} cotizacion${state.cotizaciones.length !== 1 ? 'es' : ''} generada${state.cotizaciones.length !== 1 ? 's' : ''}`}
-      />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader
+          title="Cotizaciones"
+          subtitle={`${state.cotizaciones.length} cotizacion${state.cotizaciones.length !== 1 ? 'es' : ''} generada${state.cotizaciones.length !== 1 ? 's' : ''}`}
+        />
+        <button
+          onClick={() => {
+            exportCotizacionesExcel({
+              cotizaciones: sorted,
+              oportunidades: state.oportunidades,
+              empresas: state.empresas,
+              contactos: state.contactos,
+            })
+          }}
+          className="mt-6 flex items-center gap-2 h-10 px-4 rounded-lg text-sm font-medium bg-[var(--color-accent-green)] hover:opacity-90 text-white transition-all shadow-sm"
+          title={`Exportar ${filtered.length} cotizaciones visibles a Excel`}
+        >
+          <Download size={14} /> Exportar Excel
+        </button>
+      </div>
 
       {/* Search and filter bar */}
       <div className="flex gap-2">

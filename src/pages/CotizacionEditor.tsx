@@ -64,10 +64,34 @@ export default function CotizacionEditor() {
 
     function getCategory(desc: string): string {
       const d = desc.toLowerCase()
+      // Check for most specific matches first
+      if (d.includes('barra abatible') || d.includes('barra discapac')) return 'Barra Discapacitados'
+      if (d.includes('barra l')) return 'Barra L Discapacitados'
+      if (d.includes('barra')) return 'Barra'
+      if (d.includes('lavaollas')) return 'Lavaollas'
+      if (d.includes('lavaescobas')) return 'Lavaescobas'
+      if (d.includes('lavabotas')) return 'Lavabotas'
+      if (d.includes('vertedero')) return 'Vertedero'
+      if (d.includes('caja sifonada')) return 'Caja Sifonada'
+      if (d.includes('deslizador')) return 'Deslizador Bandejas'
+      if (d.includes('ducto')) return 'Ducto'
+      if (d.includes('gabinete corredizo')) return 'Gabinete Corredizo'
+      if (d.includes('gabinete')) return 'Gabinete'
+      if (d.includes('mueble inferior')) return 'Mueble Inferior'
+      if (d.includes('mueble superior')) return 'Mueble Superior'
+      if (d.includes('mueble')) return 'Mueble'
       if (d.includes('mesa')) return 'Mesa'
+      if (d.includes('mesón') || d.includes('meson')) return 'Mesón'
       if (d.includes('pozuelo') || d.includes('poceta')) return 'Pozuelo'
+      if (d.includes('campana isla')) return 'Campana Isla'
+      if (d.includes('campana mural')) return 'Campana Mural'
       if (d.includes('campana')) return 'Campana'
+      if (d.includes('estantería graduable') || d.includes('estanteria graduable')) return 'Estantería Graduable'
+      if (d.includes('estantería perforada') || d.includes('estanteria perforada')) return 'Estantería Perforada'
+      if (d.includes('estantería ranurada') || d.includes('estanteria ranurada')) return 'Estantería Ranurada'
+      if (d.includes('escabiladero')) return 'Escabiladero'
       if (d.includes('estante') || d.includes('repisa')) return 'Estantería'
+      if (d.includes('cárcamo') || d.includes('carcamo')) return 'Cárcamo'
       if (d.includes('autoservicio')) return 'Autoservicio'
       if (d.includes('pasamanos')) return 'Pasamanos'
       return 'Mobiliario'
@@ -194,12 +218,12 @@ export default function CotizacionEditor() {
       noIncluyeItems,
       cotizadorAsignado: oportunidad?.cotizador_asignado,
       cliente: {
-        empresa: empresa.nombre,
-        nombre: contacto.nombre,
-        whatsapp: contacto.whatsapp,
-        correo: contacto.correo,
-        nit: empresa.nit,
-        ubicacion: oportunidad?.ubicacion || empresa.direccion,
+        empresa: empresa?.nombre || '',
+        nombre: contacto?.nombre || '',
+        whatsapp: contacto?.whatsapp || '',
+        correo: contacto?.correo || '',
+        nit: empresa?.nit || '',
+        ubicacion: oportunidad?.ubicacion || empresa?.direccion || '',
       },
       productos: productosForPdf,
     })
@@ -218,7 +242,7 @@ export default function CotizacionEditor() {
     setShowPdfModal(false)
   }
 
-  if (!cotizacion || !oportunidad || !empresa || !contacto) {
+  if (!cotizacion) {
     return (
       <div className="p-6 text-[var(--color-text-muted)]">
         <p className="text-sm">Cotizacion no encontrada.</p>
@@ -228,6 +252,16 @@ export default function CotizacionEditor() {
       </div>
     )
   }
+  if (!oportunidad || !empresa) {
+    return (
+      <div className="p-6 text-[var(--color-text-muted)]">
+        <p className="text-sm">Cotización <b>{cotizacion.numero}</b> tiene referencias incompletas (oportunidad o empresa no existen).</p>
+        <p className="text-xs mt-2">Esta cotización histórica puede no ser editable. <button onClick={() => navigate('/cotizaciones')} className="text-[var(--color-primary)] hover:underline">Volver</button></p>
+      </div>
+    )
+  }
+  // NOTE: `contacto` may be null for historical cotizaciones that never had a
+  // contacto_id assigned. All usages below are guarded with `?.` accessor.
 
   function fmtQty(n: number): string {
     if (Number.isInteger(n)) return String(n)
@@ -283,11 +317,11 @@ export default function CotizacionEditor() {
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <Mail size={12} className="text-[var(--color-text-muted)]" />
-                <span>{contacto.correo || '—'}</span>
+                <span>{contacto?.correo || '—'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <Phone size={12} className="text-[var(--color-text-muted)]" />
-                <span>{contacto.whatsapp || '—'}</span>
+                <span>{contacto?.whatsapp || '—'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <MapPin size={12} className="text-[var(--color-text-muted)]" />
@@ -551,8 +585,8 @@ export default function CotizacionEditor() {
         <PdfNameModal
           defaultNumero={cotizacion.numero}
           defaultNombreProducto={suggestedProductName}
-          empresaNombre={empresa.nombre}
-          contactoNombre={contacto.nombre}
+          empresaNombre={empresa?.nombre || ''}
+          contactoNombre={contacto?.nombre || ''}
           onConfirm={handleGenerarPdf}
           onClose={() => setShowPdfModal(false)}
         />

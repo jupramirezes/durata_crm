@@ -171,7 +171,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
-      <div className="bg-white rounded-2xl border border-[var(--color-border)] w-full max-w-xl shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] w-full max-w-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-5 border-b border-[var(--color-border)]">
           <h3 className="text-lg font-bold">Nueva Oportunidad</h3>

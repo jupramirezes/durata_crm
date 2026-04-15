@@ -123,8 +123,15 @@ export default function Dashboard() {
     const items = oportunidades
       .filter(o => o.etapa === 'cotizacion_enviada')
       .map(o => {
-        const refDate = o.fecha_envio || o.fecha_ingreso
-        const dias = Math.floor((nowMs - new Date(refDate).getTime()) / 86400000)
+        // Prefer fecha_envio > fecha_ingreso > fecha_ultimo_contacto.
+        // If ALL are null (common in historical data), skip — we can't compute age.
+        const refDate = o.fecha_envio || o.fecha_ingreso || o.fecha_ultimo_contacto
+        if (!refDate) return null
+        const refMs = new Date(refDate).getTime()
+        if (!Number.isFinite(refMs) || refMs <= 0) return null
+        const dias = Math.floor((nowMs - refMs) / 86400000)
+        // Sanity cap: reject absurd values (more than 10 years) — data corruption
+        if (dias > 3650 || dias < 0) return null
         const cots = cotizaciones.filter(c => c.oportunidad_id === o.id)
         const ultimaCot = cots.length > 0 ? cots.sort((a, b) => b.numero.localeCompare(a.numero))[0] : null
         return {
@@ -136,7 +143,7 @@ export default function Dashboard() {
           cotizador: findCotizador(o.cotizador_asignado)?.iniciales || '—',
         }
       })
-      .filter(a => a.dias > 7)
+      .filter((a): a is NonNullable<typeof a> => a !== null && a.dias > 7)
       .sort((a, b) => b.dias - a.dias)
     const over7 = items.length
     const over14 = items.filter(a => a.dias > 14).length
@@ -145,7 +152,7 @@ export default function Dashboard() {
   }, [oportunidades, cotizaciones, empresaNameMap])
 
   /* ── SECCIÓN 1: Resumen general ───────────────────── */
-  const { activas, valorPipeline, cotsMes, totalMes, tasaCierre, etapaCounts, totalOps, adjOportunidades } = useMemo(() => {
+  const { activas, valorPipeline, cotsMes, totalMes, tasaCierre, tasaCierreValor, etapaCounts, totalOps, adjOportunidades } = useMemo(() => {
     const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida')
     const valorPipeline = activas.reduce((s, o) => s + o.valor_cotizado, 0)
     const cotsMes = cotizaciones.filter(c => {
@@ -153,13 +160,19 @@ export default function Dashboard() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     })
     const totalMes = cotsMes.reduce((s, c) => s + c.total, 0)
-    const adjTotal = oportunidades.filter(o => o.etapa === 'adjudicada').length
-    const perTotal = oportunidades.filter(o => o.etapa === 'perdida').length
-    const tasaCierre = adjTotal + perTotal > 0 ? Math.round((adjTotal / (adjTotal + perTotal)) * 100) : 0
+    const adjOps = oportunidades.filter(o => o.etapa === 'adjudicada')
+    const perOps = oportunidades.filter(o => o.etapa === 'perdida')
+    // Tasa por CANTIDAD (original)
+    const tasaCierre = adjOps.length + perOps.length > 0 ? Math.round((adjOps.length / (adjOps.length + perOps.length)) * 100) : 0
+    // Tasa por VALOR: suma adjudicado / (suma adjudicado + suma cotizado perdido)
+    const valorAdjudicado = adjOps.reduce((s, o) => s + (o.valor_adjudicado || o.valor_cotizado || 0), 0)
+    const valorPerdido = perOps.reduce((s, o) => s + (o.valor_cotizado || 0), 0)
+    const tasaCierreValor = valorAdjudicado + valorPerdido > 0
+      ? Math.round((valorAdjudicado / (valorAdjudicado + valorPerdido)) * 100)
+      : 0
     const etapaCounts = ETAPAS.map(e => ({ ...e, count: oportunidades.filter(o => o.etapa === e.key).length }))
     const totalOps = oportunidades.length || 1
-    const adjOportunidades = oportunidades.filter(o => o.etapa === 'adjudicada')
-    return { activas, valorPipeline, cotsMes, totalMes, adjTotal, perTotal, tasaCierre, etapaCounts, totalOps, adjOportunidades }
+    return { activas, valorPipeline, cotsMes, totalMes, tasaCierre, tasaCierreValor, etapaCounts, totalOps, adjOportunidades: adjOps }
   }, [oportunidades, cotizaciones])
 
   function getAdjMonth(o: typeof oportunidades[0]): { year: number; month: number } | null {
@@ -410,11 +423,12 @@ export default function Dashboard() {
       )}
 
       {/* ─── KPI CARDS ──────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-5">
-        <KPICard label="Oportunidades activas" value={String(activas.length)} icon={Target} subtitle="En pipeline actual" />
-        <KPICard label="Valor del pipeline" value={formatCOP(valorPipeline)} icon={DollarSign} small subtitle="Suma valor cotizado activo" />
-        <KPICard label={`Cotizaciones del mes (${cotsMes.length})`} value={formatCOP(totalMes)} icon={FileText} small subtitle={currentMonthLabel} />
-        <KPICard label="Tasa de cierre" value={`${tasaCierre}%`} icon={TrendingUp} subtitle="Historica — por cantidad" />
+      <div className="grid grid-cols-5 gap-3">
+        <KPICard small label="Oportunidades activas" value={String(activas.length)} icon={Target} subtitle="En pipeline actual" />
+        <KPICard small label="Valor del pipeline" value={formatCOP(valorPipeline)} icon={DollarSign} subtitle="Suma valor cotizado activo" />
+        <KPICard small label={`Cotizaciones del mes (${cotsMes.length})`} value={formatCOP(totalMes)} icon={FileText} subtitle={currentMonthLabel} />
+        <KPICard small label="Tasa cierre (cantidad)" value={`${tasaCierre}%`} icon={TrendingUp} subtitle="Adj / (Adj + Perd)" />
+        <KPICard small label="Tasa cierre (valor)" value={`${tasaCierreValor}%`} icon={DollarSign} subtitle="$Adj / ($Adj + $Perd)" />
       </div>
 
       {/* ─── PIPELINE BAR ───────────────────────────── */}
@@ -611,7 +625,12 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {pipelineActivo.map((r) => (
-                  <tr key={r.id} className="border-b border-[#f8fafc] last:border-0 hover:bg-[#fafbfc] transition-colors">
+                  <tr
+                    key={r.id}
+                    onClick={() => navigate(`/oportunidades/${r.id}`)}
+                    className="border-b border-[#f8fafc] last:border-0 hover:bg-blue-50/60 transition-colors cursor-pointer"
+                    title="Ver oportunidad"
+                  >
                     <td className={`${tdCls} pl-3 font-semibold text-[var(--color-text)] max-w-36 truncate`}>{r.empresa}</td>
                     <td className={tdCls}><EtapaBadge etapa={r.etapa} /></td>
                     <td className={`${tdCls} text-center text-[#64748b]`}>

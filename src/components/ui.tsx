@@ -17,18 +17,21 @@ export function EtapaBadge({ etapa, size = 'sm' }: { etapa: string; size?: 'sm' 
 
 /* ── KPICard ────────────────────────────────────────── */
 
-export function KPICard({ label, value, subtitle }: {
+export function KPICard({ label, value, subtitle, small }: {
   label: string
   value: string
   icon?: React.ElementType
   small?: boolean
   subtitle?: string
 }) {
+  const valueClass = small
+    ? 'text-[22px] font-extrabold text-[var(--color-text)] tabular-nums tracking-tight leading-none my-1.5 truncate'
+    : 'text-[28px] font-extrabold text-[var(--color-text)] tabular-nums tracking-tight leading-none my-2 truncate'
   return (
-    <div className="card card-hover p-7 min-h-[130px] flex flex-col justify-between">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8] mb-2">{label}</p>
-      <p className="text-[44px] font-extrabold text-[var(--color-text)] tabular-nums tracking-tight leading-none my-2">{value}</p>
-      {subtitle && <p className="text-[13px] text-[#94a3b8] mt-2">{subtitle}</p>}
+    <div className="card card-hover p-5 min-h-[120px] flex flex-col justify-between overflow-hidden">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8] mb-1.5 truncate" title={label}>{label}</p>
+      <p className={valueClass} title={value}>{value}</p>
+      {subtitle && <p className="text-[11px] text-[#94a3b8] mt-1.5 truncate" title={subtitle}>{subtitle}</p>}
     </div>
   )
 }

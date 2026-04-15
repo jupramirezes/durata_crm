@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useStore } from '../lib/store'
+import { useStore, todayLocalISO } from '../lib/store'
 import { ETAPAS, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
 import { formatDate, formatCOP, daysSince } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
@@ -443,16 +443,15 @@ export default function OportunidadDetalle() {
     if (!dupCotId || !dupSelectedOppId) return
     const cot = state.cotizaciones.find(c => c.id === dupCotId)
     if (!cot) return
-    const nuevoNumero = getDefaultNumero(cot.numero)
-    const newId = crypto.randomUUID()
-    // Create cotización copy on the target oportunidad
+    const nuevoNumero = getDefaultNumero()  // fresh consecutive, not letter version — it's a new opp
+    const newCotId = crypto.randomUUID()
     dispatch({
       type: 'ADD_COTIZACION',
       payload: {
-        id: newId,
+        id: newCotId,
         oportunidad_id: dupSelectedOppId,
         numero: nuevoNumero,
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: todayLocalISO(),
         total: cot.total,
         estado: 'borrador' as const,
         productos_snapshot: cot.productos_snapshot,
@@ -460,7 +459,6 @@ export default function OportunidadDetalle() {
         noIncluyeItems: cot.noIncluyeItems,
       } as any,
     })
-    // If the target oportunidad is still in nuevo_lead, move it forward
     const targetOpp = state.oportunidades.find(o => o.id === dupSelectedOppId)
     if (targetOpp?.etapa === 'nuevo_lead') {
       dispatch({ type: 'MOVE_ETAPA', payload: { oportunidadId: dupSelectedOppId, nuevaEtapa: 'en_cotizacion' } })
@@ -468,6 +466,54 @@ export default function OportunidadDetalle() {
     setDupCotId(null)
     showToast('success', `Cotizacion ${nuevoNumero} duplicada en otra oportunidad`)
     setTimeout(() => navigate(`/oportunidades/${dupSelectedOppId}`), 100)
+  }
+
+  /** Duplicar cotización como NUEVA oportunidad (misma o distinta empresa). */
+  function handleDupAsNewOportunidad() {
+    if (!dupCotId || !dupSelectedEmpId) return
+    const cot = state.cotizaciones.find(c => c.id === dupCotId)
+    if (!cot) return
+    const nuevoNumero = getDefaultNumero()
+    const newOppId = crypto.randomUUID()
+    const newCotId = crypto.randomUUID()
+    // 1) Create new oportunidad in nuevo_lead
+    dispatch({
+      type: 'ADD_OPORTUNIDAD',
+      payload: {
+        id: newOppId,
+        empresa_id: dupSelectedEmpId,
+        contacto_id: null as any,
+        etapa: 'nuevo_lead',
+        valor_estimado: cot.total,
+        valor_cotizado: cot.total,
+        valor_adjudicado: 0,
+        cotizador_asignado: opp.cotizador_asignado,
+        fuente_lead: 'Duplicada',
+        motivo_perdida: '',
+        ubicacion: opp.ubicacion || '',
+        fecha_ingreso: todayLocalISO(),
+        fecha_ultimo_contacto: todayLocalISO(),
+        notas: `COT: ${nuevoNumero} | Duplicada de ${cot.numero}`,
+      } as any,
+    })
+    // 2) Create cotización copy on new oportunidad
+    dispatch({
+      type: 'ADD_COTIZACION',
+      payload: {
+        id: newCotId,
+        oportunidad_id: newOppId,
+        numero: nuevoNumero,
+        fecha: todayLocalISO(),
+        total: cot.total,
+        estado: 'borrador' as const,
+        productos_snapshot: cot.productos_snapshot,
+        condicionesItems: cot.condicionesItems,
+        noIncluyeItems: cot.noIncluyeItems,
+      } as any,
+    })
+    setDupCotId(null)
+    showToast('success', `Nueva oportunidad con cotización ${nuevoNumero} creada`)
+    setTimeout(() => navigate(`/oportunidades/${newOppId}`), 100)
   }
 
   function handleDescargarPdf(cotId: string) {
@@ -587,7 +633,18 @@ export default function OportunidadDetalle() {
 
           {productos.length > 0 && (
             <button
-              onClick={() => setShowCotModal(true)}
+              onClick={() => {
+                // If there's an existing draft for this opp (e.g. just-recotizada or previously started),
+                // go to its editor instead of creating a new one — prevents duplicate cotizaciones.
+                const draft = cotizaciones
+                  .filter(c => c.oportunidad_id === opp.id && c.estado === 'borrador')
+                  .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+                if (draft) {
+                  navigate(`/cotizaciones/${draft.id}/editar`)
+                } else {
+                  setShowCotModal(true)
+                }
+              }}
               className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium bg-[#059669] hover:opacity-90 text-white transition-all shadow-sm"
             >
               <FileText size={14} /> Generar cotizacion
@@ -753,7 +810,7 @@ export default function OportunidadDetalle() {
                 <Package size={28} className="text-[var(--color-border)] mx-auto mb-2" />
                 <p className="text-xs text-[var(--color-text-muted)] mb-3">Sin productos configurados.</p>
                 <button
-                  onClick={() => navigate(`/oportunidades/${id}/configurar`)}
+                  onClick={() => setShowProductModal(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-primary)] hover:opacity-90 text-white transition-all"
                 >
                   <Wrench size={13} /> Configurar primer producto
@@ -852,32 +909,62 @@ export default function OportunidadDetalle() {
                       {(p.archivo_apu_nombre || p.archivo_pdf_nombre) && (
                         <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-wrap gap-2">
                           {p.archivo_apu_nombre && (
-                            <button
-                              onClick={async () => {
-                                if (!p.archivo_apu_url) return
-                                const url = await getSignedUrl(p.archivo_apu_url)
-                                if (url) window.open(url, '_blank')
-                              }}
-                              className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-50 border border-green-200 hover:bg-green-100 transition-all text-[10px] text-green-800"
-                            >
-                              <FileSpreadsheet size={12} className="text-green-600" />
-                              {p.archivo_apu_nombre}
-                              <Download size={10} />
-                            </button>
+                            <div className="inline-flex items-stretch rounded bg-green-50 border border-green-200 overflow-hidden">
+                              <button
+                                onClick={async () => {
+                                  if (!p.archivo_apu_url) return
+                                  const url = await getSignedUrl(p.archivo_apu_url)
+                                  if (url) window.open(url, '_blank')
+                                }}
+                                className="flex items-center gap-1.5 px-2 py-1 hover:bg-green-100 transition-all text-[10px] text-green-800"
+                              >
+                                <FileSpreadsheet size={12} className="text-green-600" />
+                                {p.archivo_apu_nombre}
+                                <Download size={10} />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(`¿Eliminar adjunto "${p.archivo_apu_nombre}"?`)) return
+                                  if (p.archivo_apu_url) await deleteProductFile(p.archivo_apu_url).catch(() => {})
+                                  await svcOportunidades.updateProducto({ id: p.id, archivo_apu_url: null, archivo_apu_nombre: null } as any)
+                                  dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_apu_url: null, archivo_apu_nombre: null } as any })
+                                  showToast('success', 'APU eliminado')
+                                }}
+                                className="px-1.5 border-l border-green-200 hover:bg-red-100 hover:text-red-600 text-green-700 text-[10px]"
+                                title="Eliminar APU"
+                              >
+                                <X size={10} />
+                              </button>
+                            </div>
                           )}
                           {p.archivo_pdf_nombre && (
-                            <button
-                              onClick={async () => {
-                                if (!p.archivo_pdf_url) return
-                                const url = await getSignedUrl(p.archivo_pdf_url)
-                                if (url) window.open(url, '_blank')
-                              }}
-                              className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-50 border border-red-200 hover:bg-red-100 transition-all text-[10px] text-red-700"
-                            >
-                              <File size={12} className="text-red-500" />
-                              {p.archivo_pdf_nombre}
-                              <Download size={10} />
-                            </button>
+                            <div className="inline-flex items-stretch rounded bg-red-50 border border-red-200 overflow-hidden">
+                              <button
+                                onClick={async () => {
+                                  if (!p.archivo_pdf_url) return
+                                  const url = await getSignedUrl(p.archivo_pdf_url)
+                                  if (url) window.open(url, '_blank')
+                                }}
+                                className="flex items-center gap-1.5 px-2 py-1 hover:bg-red-100 transition-all text-[10px] text-red-700"
+                              >
+                                <File size={12} className="text-red-500" />
+                                {p.archivo_pdf_nombre}
+                                <Download size={10} />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(`¿Eliminar adjunto "${p.archivo_pdf_nombre}"?`)) return
+                                  if (p.archivo_pdf_url) await deleteProductFile(p.archivo_pdf_url).catch(() => {})
+                                  await svcOportunidades.updateProducto({ id: p.id, archivo_pdf_url: null, archivo_pdf_nombre: null } as any)
+                                  dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_pdf_url: null, archivo_pdf_nombre: null } as any })
+                                  showToast('success', 'PDF eliminado')
+                                }}
+                                className="px-1.5 border-l border-red-200 hover:bg-red-100 hover:text-red-700 text-red-700 text-[10px]"
+                                title="Eliminar PDF"
+                              >
+                                <X size={10} />
+                              </button>
+                            </div>
                           )}
                         </div>
                       )}
@@ -1694,8 +1781,14 @@ export default function OportunidadDetalle() {
                 )}
                 {dupSelectedEmpId && (
                   <div className="mt-3">
-                    <p className="text-xs text-[var(--color-text-muted)] mb-1.5 font-medium">Seleccionar oportunidad:</p>
-                    <div className="max-h-28 overflow-y-auto space-y-1">
+                    <p className="text-xs text-[var(--color-text-muted)] mb-1.5 font-medium">Elige destino:</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      <button
+                        onClick={handleDupAsNewOportunidad}
+                        className="w-full text-left px-3 py-2 rounded-lg text-xs transition-all border border-dashed border-[var(--color-primary)] bg-blue-50/40 text-[var(--color-primary)] font-semibold hover:bg-blue-50"
+                      >
+                        + Crear nueva oportunidad con esta cotización
+                      </button>
                       {state.oportunidades.filter(o => o.empresa_id === dupSelectedEmpId).map(o => (
                         <button
                           key={o.id}
@@ -1710,7 +1803,7 @@ export default function OportunidadDetalle() {
                 )}
                 {dupSelectedOppId && (
                   <button onClick={handleDupToOtherClient} className="mt-3 w-full py-2.5 rounded-lg bg-[var(--color-primary)] text-white text-sm font-bold hover:opacity-90 transition-all">
-                    Duplicar cotizacion
+                    Duplicar en oportunidad seleccionada
                   </button>
                 )}
               </div>

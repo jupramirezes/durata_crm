@@ -56,6 +56,24 @@ function acceptString(kind: FileKind): string {
 
 export { acceptString }
 
+/**
+ * Sanitize a filename for use as Supabase Storage path.
+ * Storage rejects non-ASCII (á, ñ, etc.), commas, and some symbols.
+ * Preserves the extension and keeps the result readable.
+ */
+function sanitizeFileName(name: string): string {
+  const dot = name.lastIndexOf('.')
+  const base = dot > 0 ? name.slice(0, dot) : name
+  const ext = dot > 0 ? name.slice(dot) : ''
+  const safeBase = base
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+    .replace(/[^a-zA-Z0-9._-]+/g, '_') // any non-safe → underscore
+    .replace(/_+/g, '_') // collapse multiples
+    .replace(/^_|_$/g, '') // trim leading/trailing _
+    .slice(0, 120) // cap length
+  return (safeBase || 'archivo') + ext.toLowerCase()
+}
+
 export async function uploadProductFile(
   oportunidadId: string,
   productoId: string,
@@ -76,7 +94,8 @@ export async function uploadProductFile(
     }
   }
 
-  const path = `${oportunidadId}/${productoId}/${kind}_${file.name}`
+  const safeName = sanitizeFileName(file.name)
+  const path = `${oportunidadId}/${productoId}/${kind}_${safeName}`
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
@@ -85,6 +104,7 @@ export async function uploadProductFile(
 
   if (error) return { error: error.message }
 
+  // Return the ORIGINAL filename for display; the path (safe) is what we persist
   return { url: path, nombre: file.name }
 }
 
@@ -108,7 +128,8 @@ export async function uploadOppFile(
   if (!isSupabaseReady) return { error: 'Supabase no disponible' }
   if (file.size > MAX_SIZE) return { error: 'Archivo excede 10MB' }
   const ts = Date.now()
-  const path = `${oportunidadId}/archivos/${ts}_${file.name}`
+  const safeName = sanitizeFileName(file.name)
+  const path = `${oportunidadId}/archivos/${ts}_${safeName}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
     contentType: file.type || 'application/octet-stream',

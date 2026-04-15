@@ -90,7 +90,7 @@ export default function CotizacionModal({ defaultNumero, onConfirm, onClose }: P
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-2xl w-full max-w-2xl mx-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-2xl w-full max-w-4xl mx-4" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]">
           <div className="flex items-center gap-3">
@@ -115,16 +115,16 @@ export default function CotizacionModal({ defaultNumero, onConfirm, onClose }: P
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto">
+        <div className="px-8 py-6 space-y-5 max-h-[70vh] overflow-y-auto">
           {activeTab === 'general' && (
             <>
               <div>
                 <label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">N&uacute;mero de cotizaci&oacute;n</label>
-                <input type="text" value={numero} onChange={e => setNumero(e.target.value)} className="w-full px-4 py-2.5 rounded-xl text-sm font-mono" placeholder="COT-2026-001" />
+                <input type="text" value={numero} onChange={e => setNumero(e.target.value)} className="w-full px-4 py-3 rounded-xl text-base font-mono" placeholder="COT-2026-001" />
               </div>
               <div>
                 <label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Tiempo de entrega</label>
-                <input type="text" value={tiempoEntrega} onChange={e => setTiempoEntrega(e.target.value)} className="w-full px-4 py-2.5 rounded-xl text-sm" />
+                <input type="text" value={tiempoEntrega} onChange={e => setTiempoEntrega(e.target.value)} className="w-full px-4 py-3 rounded-xl text-base" />
               </div>
               <label className="flex items-center gap-2.5 text-sm cursor-pointer rounded-xl p-3 bg-[var(--color-bg)] border border-[var(--color-border)]">
                 <input type="checkbox" checked={incluyeTransporte} onChange={e => setIncluyeTransporte(e.target.checked)} className="rounded shrink-0" />
@@ -146,7 +146,7 @@ export default function CotizacionModal({ defaultNumero, onConfirm, onClose }: P
               </div>
               {customCondiciones.map((c, i) => (
                 <div key={i} className="flex gap-2">
-                  <input type="text" value={c} onChange={e => updateCustom(customCondiciones, i, e.target.value, setCustomCondiciones)} className="flex-1 px-3 py-2 rounded-xl text-xs" placeholder="Condici\u00f3n adicional..." />
+                  <input type="text" value={c} onChange={e => updateCustom(customCondiciones, i, e.target.value, setCustomCondiciones)} className="flex-1 px-4 py-2.5 rounded-xl text-sm" placeholder="Condici\u00f3n adicional..." />
                   <button onClick={() => removeCustom(customCondiciones, i, setCustomCondiciones)} className="text-red-400 hover:text-red-300 p-1"><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -169,7 +169,7 @@ export default function CotizacionModal({ defaultNumero, onConfirm, onClose }: P
               </div>
               {customNoIncluye.map((c, i) => (
                 <div key={i} className="flex gap-2">
-                  <input type="text" value={c} onChange={e => updateCustom(customNoIncluye, i, e.target.value, setCustomNoIncluye)} className="flex-1 px-3 py-2 rounded-xl text-xs" placeholder="Cl\u00e1usula adicional..." />
+                  <input type="text" value={c} onChange={e => updateCustom(customNoIncluye, i, e.target.value, setCustomNoIncluye)} className="flex-1 px-4 py-2.5 rounded-xl text-sm" placeholder="Cl\u00e1usula adicional..." />
                   <button onClick={() => removeCustom(customNoIncluye, i, setCustomNoIncluye)} className="text-red-400 hover:text-red-300 p-1"><Trash2 size={14} /></button>
                 </div>
               ))}

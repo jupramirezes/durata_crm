@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { formatCOP } from '../lib/utils'
 import { PageHeader } from '../components/ui'
-import { Search, Save, Upload, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { Search, Save, Upload, ChevronLeft, ChevronRight, Filter, ChevronUp, ChevronDown } from 'lucide-react'
+
+type SortKey = 'grupo' | 'subgrupo' | 'nombre' | 'codigo' | 'unidad' | 'precio' | 'proveedor' | 'updated_at'
+type SortDir = 'asc' | 'desc'
 
 const GRUPO_COLORS: Record<string, string> = {
   INOX: 'bg-[#f0fdf4] text-[#15803d] border-[#bbf7d0]',
@@ -31,6 +34,18 @@ export default function Precios() {
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(50)
+  const [sortKey, setSortKey] = useState<SortKey>('grupo')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+    setPage(1)
+  }
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronDown size={10} className="opacity-30" />
+    return sortDir === 'desc' ? <ChevronDown size={10} className="text-[var(--color-primary)]" /> : <ChevronUp size={10} className="text-[var(--color-primary)]" />
+  }
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -50,7 +65,7 @@ export default function Precios() {
   }, [state.precios, filtroGrupo])
 
   const filtered = useMemo(() => {
-    return state.precios.filter(p => {
+    const res = state.precios.filter(p => {
       const s = search.toLowerCase()
       const matchSearch = !search || (p.nombre || '').toLowerCase().includes(s) || (p.codigo || '').toLowerCase().includes(s) || (p.proveedor || '').toLowerCase().includes(s)
       const matchGrupo = filtroGrupo === 'TODOS' || p.grupo === filtroGrupo
@@ -58,7 +73,14 @@ export default function Precios() {
       const matchPrecio = filtroPrecio === 'todos' || (filtroPrecio === 'con_precio' ? p.precio > 0 : p.precio === 0)
       return matchSearch && matchGrupo && matchSubgrupo && matchPrecio
     })
-  }, [state.precios, search, filtroGrupo, filtroSubgrupo, filtroPrecio])
+    const mult = sortDir === 'asc' ? 1 : -1
+    return [...res].sort((a, b) => {
+      const av = (a as any)[sortKey]
+      const bv = (b as any)[sortKey]
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * mult
+      return String(av || '').localeCompare(String(bv || '')) * mult
+    })
+  }, [state.precios, search, filtroGrupo, filtroSubgrupo, filtroPrecio, sortKey, sortDir])
 
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
@@ -183,14 +205,14 @@ export default function Precios() {
           <table className="w-full text-[10px]">
             <thead>
               <tr className="bg-[var(--color-surface)] text-left text-[var(--color-text-muted)]">
-                <th className="px-3 py-2.5 font-medium">Grupo</th>
-                <th className="px-3 py-2.5 font-medium">Subgrupo</th>
-                <th className="px-3 py-2.5 font-medium">Nombre</th>
-                <th className="px-3 py-2.5 font-medium">Codigo</th>
-                <th className="px-3 py-2.5 font-medium">Und</th>
-                <th className="px-3 py-2.5 font-medium text-right">Precio</th>
-                <th className="px-3 py-2.5 font-medium">Proveedor</th>
-                <th className="px-3 py-2.5 font-medium">Actualizado</th>
+                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('grupo')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Grupo <SortIcon col="grupo" /></button></th>
+                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('subgrupo')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Subgrupo <SortIcon col="subgrupo" /></button></th>
+                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('nombre')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Nombre <SortIcon col="nombre" /></button></th>
+                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('codigo')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Codigo <SortIcon col="codigo" /></button></th>
+                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('unidad')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Und <SortIcon col="unidad" /></button></th>
+                <th className="px-3 py-2.5 font-medium text-right"><button onClick={() => toggleSort('precio')} className="flex items-center gap-1 hover:text-[var(--color-text)] ml-auto">Precio <SortIcon col="precio" /></button></th>
+                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('proveedor')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Proveedor <SortIcon col="proveedor" /></button></th>
+                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('updated_at')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Actualizado <SortIcon col="updated_at" /></button></th>
               </tr>
             </thead>
             <tbody>
