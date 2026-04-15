@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = '05c37c2f-3e93-4d5b-82b0-d6af77015dd1'
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('05c37c2f-3e93-4d5b-82b0-d6af77015dd1', 'Pozuelo Pedestal Ancho', 'pozuelos', 38, '[instalado:Suministro e instalación de|Suministro de] pozuelo con pedestal ancho en acero inoxidable 304, pedestal cal 20 sat de {ancho_pedestal} m x {largo_pedestal} m x {alto} m, mesa cal 18 de {largo_mesa} m x {ancho_mesa} m, [tiene_poz_redondo:pozuelo esférico redondo 37cm, |][tiene_poz_rect:{num_pozuelos} pozuelo(s) rectangular(es) de {alto_pozuelo} m, |]salpicadero de {alto_salpicadero} m, [tiene_rh:refuerzo RH 12mm, |]soldadura TIG con argón, acabado pulido satinado. [poliza:Incluye póliza.|Sin póliza.]', true, 44);
+  ('05c37c2f-3e93-4d5b-82b0-d6af77015dd1', 'Pozuelo Pedestal Ancho', 'pozuelos', 38, '[instalado:Suministro e instalación de|Suministro de] pozuelo con pedestal ancho en acero inoxidable AISI 304, pedestal en lámina calibre 20 satinado de {ancho_pedestal} m x {largo_pedestal} m x {alto} m, mesa en lámina calibre 18 de {largo_mesa} m x {ancho_mesa} m, [tiene_poz_redondo:pozuelo esférico redondo de 37 cm integrado, |][tiene_poz_rect:{num_pozuelos} pozuelo(s) rectangular(es) de {alto_pozuelo} m de profundidad, |]salpicadero trasero de {alto_salpicadero} m, [tiene_rh:refuerzo estructural en madera RH 12mm, |]soldadura TIG con argón, acabado pulido satinado grado sanitario. [poliza:Incluye póliza.|Sin póliza.]', true, 44);
 
 -- producto_variables (17)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'd5173086-024b-4593-ba5a-d978acdf23f3'
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('d5173086-024b-4593-ba5a-d978acdf23f3', 'Estantería Escabiladero', 'estanterias', 38, '[instalado:Suministro e instalación de|Suministro de] estantería tipo escabiladero en acero inoxidable 304 de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {num_niveles} niveles de ángulos en lámina cal 14, {num_patas} patas en tubo cuadrado 1 pulg cal 16, 2 ruedas con freno y 2 sin freno en inox 4 pulg, manija de {largo_manija} m, soldadura TIG con gas argón, acabado pulido. [poliza:Incluye póliza.|Sin póliza.]', true, 34);
+  ('d5173086-024b-4593-ba5a-d978acdf23f3', 'Estantería Escabiladero', 'estanterias', 38, '[instalado:Suministro e instalación de|Suministro de] estantería tipo escabiladero en acero inoxidable AISI 304 de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {num_niveles} niveles de ángulos en lámina calibre 14, {num_patas} patas en tubo cuadrado 1 pulg calibre 16, 2 ruedas con freno y 2 sin freno en inox 4 pulg, manija de {largo_manija} m en tubo 1 pulg, soldadura TIG con gas argón, acabado pulido satinado. [poliza:Incluye póliza.|Sin póliza.]', true, 34);
 
 -- producto_variables (10)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

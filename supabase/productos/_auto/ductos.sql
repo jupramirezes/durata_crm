@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'ductos';
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('ductos', 'Ductos', 'campanas', 38, 'Suministro e instalación de ductos en acero inoxidable 304 de {largo} m de largo, sección {ancho} m x {alto} m, con {codos} codo(s) y {uniones} unión(es), soldadura TIG con argón, acabado satinado', true, 11);
+  ('ductos', 'Ductos', 'campanas', 38, '[instalado:Suministro e instalación de|Suministro de] ductos en acero inoxidable AISI 304 de {largo} m de largo, sección {ancho} m x {alto} m, cuerpo en lámina calibre {acero_cuerpo} y uniones reforzadas en calibre {acero_uniones}, con {codos} codo(s) ornamental(es) inox y {uniones} unión(es) de acople tipo junta sanitaria, soldadura TIG con gas argón continua en todo el perímetro, acabado pulido satinado grado alimentario. [poliza:Incluye póliza.|Sin póliza.]', true, 11);
 
 -- producto_variables (10)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = '8b1cd428-c583-44cb-8cdd-7ef00314c71a'
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('8b1cd428-c583-44cb-8cdd-7ef00314c71a', 'Pozuelo Solo', 'accesorios', 38, '[instalado:Suministro e instalación de|Suministro de] pozuelo quirúrgico en acero inoxidable 304 mate de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con 8 dobles perimetrales, {troquel_agua} troquel para desagüe de agua, babero en acero inoxidable 304, soldadura TIG con gas argón, acabado pulido con abrasivos, corte láser, apto para uso hospitalario y sanitario en quirófanos. [poliza:Incluye póliza.|Sin póliza.]', true, 20);
+  ('8b1cd428-c583-44cb-8cdd-7ef00314c71a', 'Pozuelo Solo', 'accesorios', 38, '[instalado:Suministro e instalación de|Suministro de] pozuelo quirúrgico independiente en acero inoxidable AISI 304 mate calibre 18 de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con 8 dobleces perimetrales para refuerzo estructural, {troquel_agua} troquel(es) para desagüe de agua, babero frontal en acero inoxidable 304, soldadura TIG con gas argón continua, acabado pulido sanitario grado quirúrgico, apto para uso hospitalario en quirófanos y áreas estériles. [poliza:Incluye póliza.|Sin póliza.]', true, 20);
 
 -- producto_variables (7)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

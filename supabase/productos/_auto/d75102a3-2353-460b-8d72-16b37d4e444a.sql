@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'd75102a3-2353-460b-8d72-16b37d4e444a'
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('d75102a3-2353-460b-8d72-16b37d4e444a', 'Estantería Ranurada', 'estanterias', 38, '[instalado:Suministro e instalación de|Suministro de] estantería ranurada en acero inoxidable 304 de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {num_entrepanos} entrepaños ranurados en cal 18 con omegas de {ancho_omegas} m, {num_patas} parales en lámina cal 12 2B con niveladores, soldadura TIG con gas argón, acabado pulido satinado. [poliza:Incluye póliza.|Sin póliza.]', true, 33);
+  ('d75102a3-2353-460b-8d72-16b37d4e444a', 'Estantería Ranurada', 'estanterias', 38, '[instalado:Suministro e instalación de|Suministro de] estantería ranurada en acero inoxidable AISI 304 satinado de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {num_entrepanos} entrepaño(s) ranurado(s) en lámina calibre 18 con omegas de refuerzo de {ancho_omegas} m, {num_patas} parales en lámina calibre 12 2B con niveladores inox roscados, soldadura TIG con gas argón, acabado pulido satinado grado alimentario. [poliza:Incluye póliza.|Sin póliza.]', true, 33);
 
 -- producto_variables (9)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

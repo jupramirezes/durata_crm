@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'a28c1c1d-13f6-45b1-b4e1-6424b7e5f999'
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('a28c1c1d-13f6-45b1-b4e1-6424b7e5f999', 'Estantería Perforada', 'estanterias', 38, '[instalado:Suministro e instalación de|Suministro de] estantería perforada en acero inoxidable 304 satinado de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {num_entrepanos} entrepaños perforados en cal 18 satinado con omegas de refuerzo, {num_patas} parales en lámina cal 12 2B con niveladores, soldadura TIG con gas argón, acabado pulido satinado. [poliza:Incluye póliza.|Sin póliza.]', true, 32);
+  ('a28c1c1d-13f6-45b1-b4e1-6424b7e5f999', 'Estantería Perforada', 'estanterias', 38, '[instalado:Suministro e instalación de|Suministro de] estantería perforada en acero inoxidable AISI 304 satinado de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {num_entrepanos} entrepaño(s) perforado(s) en lámina calibre 18 satinado con omegas de refuerzo, {num_patas} parales en lámina calibre 12 2B con niveladores inox, soldadura TIG con gas argón, acabado pulido satinado. [poliza:Incluye póliza.|Sin póliza.]', true, 32);
 
 -- producto_variables (8)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES
