@@ -98,8 +98,10 @@ const stats = {
   contactos_skipped: 0,
   oportunidades_created: 0,
   oportunidades_skipped: 0,
+  oportunidades_advanced: 0,
   cotizaciones_created: 0,
   cotizaciones_skipped: 0,
+  cotizaciones_advanced: 0,
   enriched_2026: 0,
   errors: 0,
 }
@@ -155,13 +157,23 @@ async function main() {
   // ================================================================
   console.log('PASO 1: Leyendo estado actual de Supabase...')
 
-  const existingOps = await fetchAll<{ id: string; notas: string | null }>(
-    'oportunidades', 'id, notas',
+  const existingOps = await fetchAll<{ id: string; notas: string | null; etapa: string }>(
+    'oportunidades', 'id, notas, etapa',
   )
   const existingCots = new Set<string>()
+  const existingOpByCot = new Map<string, { id: string; etapa: string }>()
   for (const op of existingOps) {
     const c = extractCotFromNotas(op.notas)
-    if (c) existingCots.add(c)
+    if (c) {
+      existingCots.add(c)
+      existingOpByCot.set(c, { id: op.id, etapa: op.etapa })
+    }
+  }
+
+  // Order of etapas for "never go backwards" safety
+  const etapaOrden: Record<string, number> = {
+    nuevo_lead: 0, en_cotizacion: 1, cotizacion_enviada: 2,
+    en_seguimiento: 3, en_negociacion: 4, adjudicada: 5, perdida: 5,
   }
 
   const existingEmpresas = await fetchAll<{ id: string; nombre: string }>('empresas', 'id, nombre')
@@ -316,6 +328,29 @@ async function main() {
 
   const opQueue: OpEntry[] = []
   const seenInExcel = new Set<string>()
+  // Queue of opportunities that already exist but are stalled in an early etapa
+  // and the MAESTRO row indicates they should advance.
+  interface AdvanceEntry {
+    id: string
+    numCot: string
+    nuevaEtapa: string
+    valor: number
+    fechaIngreso: string | null
+    fechaAdj: string | null
+    valorAdj: number
+  }
+  const advanceQueue: AdvanceEntry[] = []
+
+  // Derives etapa from MAESTRO row (shared between insert and advance paths)
+  function deriveEtapaFromMaestro(estadoI: string, anio: number, fechaIngreso: string | null): string {
+    if (estadoI === 'ADJUDICADA') return 'adjudicada'
+    if (estadoI === 'PERDIDA') return 'perdida'
+    if (estadoI === 'COTIZADA' && anio < 2026) return 'perdida'
+    if (estadoI === 'COTIZADA' && anio >= 2026 && fechaIngreso) return 'cotizacion_enviada'
+    if (estadoI === 'COTIZADA' && anio >= 2026) return 'en_cotizacion'
+    if (!estadoI) return 'nuevo_lead'
+    return 'perdida'
+  }
 
   for (let i = 0; i < maestroData.length; i++) {
     const r = maestroData[i]
@@ -327,9 +362,27 @@ async function main() {
     const numCot = normalizeCot(numCotRaw)
     if (!numCot) continue
 
-    // Already in Supabase → SKIP (no tocar)
+    // Already in Supabase → check if stalled and needs to advance
     if (existingCots.has(numCot)) {
       stats.oportunidades_skipped++
+      const existing = existingOpByCot.get(numCot)
+      if (existing && (existing.etapa === 'nuevo_lead' || existing.etapa === 'en_cotizacion')) {
+        const estadoI = toStr(r[8]).toUpperCase()
+        const anio = toNum(r[2])
+        const fechaIngreso = excelDateToISO(r[1])
+        const nuevaEtapa = deriveEtapaFromMaestro(estadoI, anio, fechaIngreso)
+        if ((etapaOrden[nuevaEtapa] ?? 0) > (etapaOrden[existing.etapa] ?? 0)) {
+          advanceQueue.push({
+            id: existing.id,
+            numCot,
+            nuevaEtapa,
+            valor: toNum(r[7]),
+            fechaIngreso,
+            fechaAdj: excelDateToISO(r[11]),
+            valorAdj: toNum(r[9]),
+          })
+        }
+      }
       continue
     }
     // Dup within this Excel run → skip after first
@@ -428,6 +481,47 @@ async function main() {
   )
 
   // ================================================================
+  // PASO 5.5 — Avanzar oportunidades estancadas (basado en MAESTRO)
+  // ================================================================
+  // Las que ya existían en BD en etapa "temprana" (nuevo_lead/en_cotizacion)
+  // pero MAESTRO ahora indica que avanzaron (COTIZADA/ADJUDICADA/PERDIDA).
+  // Nunca retrocede etapa (garantizado por etapaOrden check).
+  if (advanceQueue.length > 0) {
+    console.log(`PASO 5.5: Avanzando ${advanceQueue.length} oportunidades estancadas...`)
+    for (const adv of advanceQueue) {
+      const updates: Record<string, unknown> = {
+        etapa: adv.nuevaEtapa,
+        valor_cotizado: adv.valor,
+        valor_estimado: adv.valor,
+      }
+      if (adv.nuevaEtapa === 'cotizacion_enviada' && adv.fechaIngreso) {
+        updates.fecha_envio = adv.fechaIngreso
+      }
+      if (adv.nuevaEtapa === 'adjudicada') {
+        updates.valor_adjudicado = adv.valorAdj
+        if (adv.fechaAdj) updates.fecha_adjudicacion = adv.fechaAdj
+      }
+      const { error } = await sb.from('oportunidades').update(updates).eq('id', adv.id)
+      if (error) {
+        console.error(`  ERROR advance ${adv.numCot}: ${error.message}`)
+        stats.errors++
+      } else {
+        stats.oportunidades_advanced++
+        // Update the cotización matching this numCot to reflect the new state
+        const newCotEstado =
+          adv.nuevaEtapa === 'adjudicada' ? 'aprobada' :
+          adv.nuevaEtapa === 'perdida' ? 'rechazada' :
+          adv.nuevaEtapa === 'cotizacion_enviada' ? 'enviada' : 'borrador'
+        const cotUpd: Record<string, unknown> = { estado: newCotEstado, total: adv.valor }
+        if (adv.nuevaEtapa === 'cotizacion_enviada' && adv.fechaIngreso) cotUpd.fecha_envio = adv.fechaIngreso
+        const { error: ce } = await sb.from('cotizaciones').update(cotUpd).eq('numero', adv.numCot)
+        if (!ce) stats.cotizaciones_advanced++
+      }
+    }
+    console.log(`  ✓ ${stats.oportunidades_advanced} avanzadas, ${stats.cotizaciones_advanced} cotizaciones sincronizadas\n`)
+  }
+
+  // ================================================================
   // PASO 6 — Enriquecer 2026 (SOLO las recién creadas)
   // ================================================================
   console.log('PASO 6: Enriqueciendo 2026 (solo recién creadas)...')
@@ -439,8 +533,22 @@ async function main() {
     const numCot = normalizeCot(numCotRaw)
     if (!numCot) continue
 
+    // Resolve target opportunity: first the one created in this run, else an
+    // existing stalled one. Never touch ops that are already advanced.
     const created = justCreated.get(numCot)
-    if (!created) continue // ya existía antes, NO TOCAR
+    let targetId: string | null = null
+    let currentEtapa: string | null = null
+    if (created) {
+      targetId = created.id
+      currentEtapa = created.etapa
+    } else {
+      const existing = existingOpByCot.get(numCot)
+      if (existing && (existing.etapa === 'nuevo_lead' || existing.etapa === 'en_cotizacion' || existing.etapa === 'cotizacion_enviada')) {
+        targetId = existing.id
+        currentEtapa = existing.etapa
+      }
+    }
+    if (!targetId) continue  // not in this run and not stalled → NO TOCAR
 
     const proyecto = toStr(r[3])
     const fechaEnvio = excelDateToISO(r[8])
@@ -459,8 +567,11 @@ async function main() {
     const updates: Record<string, unknown> = {}
     if (proyecto) updates.ubicacion = proyecto
     if (fechaEnvio) updates.fecha_envio = fechaEnvio
-    if (etapa) updates.etapa = etapa
-    if (etapa === 'adjudicada') {
+    // Never regress etapa: only set if strictly greater than current
+    if (etapa && currentEtapa && (etapaOrden[etapa] ?? 0) > (etapaOrden[currentEtapa] ?? 0)) {
+      updates.etapa = etapa
+    }
+    if (etapa === 'adjudicada' && currentEtapa && etapaOrden[etapa] > etapaOrden[currentEtapa]) {
       updates.valor_adjudicado = valorAdj2026
       if (fechaAdj2026) updates.fecha_adjudicacion = fechaAdj2026
     }
@@ -468,13 +579,13 @@ async function main() {
 
     if (Object.keys(updates).length === 0) continue
 
-    const { error } = await sb.from('oportunidades').update(updates).eq('id', created.id)
+    const { error } = await sb.from('oportunidades').update(updates).eq('id', targetId)
     if (error) {
       console.error(`  ERROR enriching ${numCot}: ${error.message}`)
       stats.errors++
     } else {
       stats.enriched_2026++
-      if (etapa) created.etapa = etapa
+      if (created && updates.etapa) created.etapa = updates.etapa as string
     }
     logProgress('Enriquecimiento', i + 1, data2026.length)
   }
@@ -538,6 +649,7 @@ async function main() {
   console.log(`  Empresas:       ${stats.empresas_created} creadas, ${stats.empresas_skipped} existían`)
   console.log(`  Contactos:      ${stats.contactos_created} creados, ${stats.contactos_skipped} existían`)
   console.log(`  Oportunidades:  ${stats.oportunidades_created} nuevas, ${stats.oportunidades_skipped} existían (saltadas)`)
+  console.log(`  Avanzadas:      ${stats.oportunidades_advanced} estancadas → nueva etapa (${stats.cotizaciones_advanced} cotizaciones sincronizadas)`)
   console.log(`  Total ops en Supabase: ${totalOpsAfter}`)
   console.log(`  Enriquecidas 2026: ${stats.enriched_2026}`)
   console.log(`  Cotizaciones:   ${stats.cotizaciones_created} nuevas, ${stats.cotizaciones_skipped} existían`)

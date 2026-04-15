@@ -26,3 +26,18 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Claude Code — keep launch.json but ignore local settings and worktrees
+.claude/settings.local.json
+.claude/worktrees/
+
+# Datos de negocio: Excel fuentes + outputs de diagnostics con COTs/valores reales.
+# Solo versionamos los scripts (scripts/*.mjs); los datos se regeneran al correr.
+scripts/data/*.xlsx
+scripts/data/~$*
+scripts/data/_*.json
+scripts/data/_*.sql
+scripts/data/_*.md
+
+# Plantillas Excel (son 45 archivos históricos — no son código)
+docs/plantillas-excel/
