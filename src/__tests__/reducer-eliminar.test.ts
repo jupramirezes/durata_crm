@@ -22,6 +22,7 @@ function makeState() {
     productos: [prod, prod2],
     cotizaciones: [cot],
     precios: [],
+    isHydrated: false,
   }
 }
 

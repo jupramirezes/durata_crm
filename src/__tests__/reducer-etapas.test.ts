@@ -11,6 +11,7 @@ function makeState(overrides: Record<string, unknown> = {}) {
     productos: [] as ProductoCliente[],
     cotizaciones: [] as Cotizacion[],
     precios: [] as PrecioMaestro[],
+    isHydrated: false,
     ...overrides,
   }
 }

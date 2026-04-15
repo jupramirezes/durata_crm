@@ -16,6 +16,7 @@ function makeState(overrides: Partial<ReturnType<typeof reducer>> = {}) {
       { id: 'cot570', oportunidad_id: 'opp1', numero: '2026-570', fecha: '2026-01-15', estado: 'enviada' as const, total: 100000000 },
     ] as Cotizacion[],
     precios: [],
+    isHydrated: false,
     ...overrides,
   }
 }
