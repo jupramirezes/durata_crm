@@ -22,6 +22,8 @@ interface State {
   productos: ProductoCliente[]
   cotizaciones: Cotizacion[]
   precios: PrecioMaestro[]
+  /** A-05: true once Supabase hydration has completed (or Supabase is not configured). */
+  isHydrated: boolean
 }
 
 export type Action =
@@ -47,6 +49,8 @@ export type Action =
   | { type: 'RECOTIZAR'; payload: { cotizacionId: string; nuevoNumero: string; newCotId?: string } }
   | { type: 'BULK_UPSERT_PRECIOS'; payload: PrecioMaestro[] }
   | { type: '_HYDRATE'; payload: Partial<State> }
+  /** B-01: internal rollback when an ADD sync to Supabase fails — does NOT re-sync to DB. */
+  | { type: '_ROLLBACK_ADD'; payload: { entity: 'oportunidad' | 'cotizacion'; id: string } }
 
 /* ══════════════════════════════════════════════════════════
    HELPERS
@@ -70,12 +74,14 @@ export function todayLocalISO(): string {
   return `${y}-${m}-${day}`
 }
 
-/** Get valor_cotizado from the latest ACTIVE cotizacion (not descartada) */
+/**
+ * N-03: valor_cotizado = SUM of active cotizaciones (not descartada, not rechazada).
+ * Excludes rechazada so that after adjudicación/pérdida the dashboard doesn't inflate.
+ */
 export function getActiveCotizacionValor(cotizaciones: Cotizacion[], oportunidadId: string): number {
-  const oppCots = cotizaciones
-    .filter(c => c.oportunidad_id === oportunidadId && c.estado !== 'descartada')
-    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
-  return oppCots[0]?.total || 0
+  return cotizaciones
+    .filter(c => c.oportunidad_id === oportunidadId && c.estado !== 'descartada' && c.estado !== 'rechazada')
+    .reduce((sum, c) => sum + (c.total || 0), 0)
 }
 
 const STORAGE_KEY = 'durata_crm_state'
@@ -89,6 +95,7 @@ const defaultState: State = {
   productos: [],
   cotizaciones: [],
   precios: DEMO_PRECIOS,
+  isHydrated: false,
 }
 
 function loadState(): State {
@@ -101,7 +108,8 @@ function loadState(): State {
         localStorage.removeItem(STORAGE_KEY)
         return defaultState
       }
-      return parsed
+      // A-05: isHydrated is runtime state, never persisted — always start as false
+      return { ...parsed, isHydrated: false }
     }
   } catch { /* corrupted – fall back */ }
   return defaultState
@@ -252,6 +260,8 @@ export function reducer(state: State, action: Action): State {
           return { ...c, estado: 'rechazada' as const }
         })
       }
+      // N-03: keep valor_cotizado in sync with cotizacion states after any etapa move
+      updates.valor_cotizado = getActiveCotizacionValor(updCots, oportunidadId)
       return {
         ...state,
         cotizaciones: updCots,
@@ -395,6 +405,25 @@ export function reducer(state: State, action: Action): State {
         oportunidades: state.oportunidades.map(o => o.id === original.oportunidad_id ? { ...o, valor_cotizado: valor } : o),
       }
     }
+    // B-01: local rollback when Supabase INSERT fails — never synced back to DB
+    case '_ROLLBACK_ADD': {
+      const { entity, id } = action.payload
+      if (entity === 'oportunidad') {
+        return { ...state, oportunidades: state.oportunidades.filter(o => o.id !== id) }
+      }
+      if (entity === 'cotizacion') {
+        const cot = state.cotizaciones.find(c => c.id === id)
+        const filteredCots = state.cotizaciones.filter(c => c.id !== id)
+        if (!cot) return { ...state, cotizaciones: filteredCots }
+        const valorCot = getActiveCotizacionValor(filteredCots, cot.oportunidad_id)
+        return {
+          ...state,
+          cotizaciones: filteredCots,
+          oportunidades: state.oportunidades.map(o => o.id === cot.oportunidad_id ? { ...o, valor_cotizado: valorCot } : o),
+        }
+      }
+      return state
+    }
     default: return state
   }
 }
@@ -403,7 +432,11 @@ export function reducer(state: State, action: Action): State {
    SUPABASE SYNC (fire-and-forget)
    ══════════════════════════════════════════════════════════ */
 
-function syncToSupabase(action: Action, stateBefore: State) {
+/**
+ * B-01: rawDispatch is passed so that on INSERT failure we can dispatch a local-only
+ * _ROLLBACK_ADD action that removes the optimistic entry without re-syncing to DB.
+ */
+function syncToSupabase(action: Action, stateBefore: State, rawDispatch: React.Dispatch<Action>) {
   if (!isSupabaseReady) return
 
   const log = (label: string, result: { error?: string | null }) => {
@@ -429,9 +462,15 @@ function syncToSupabase(action: Action, stateBefore: State) {
     case 'UPDATE_CONTACTO':
       svcOportunidades.updateContacto(action.payload).then(r => log('UPDATE_CONTACTO', r))
       break
-    case 'ADD_OPORTUNIDAD':
-      svcOportunidades.createOportunidad(action.payload).then(r => log('ADD_OPORTUNIDAD', r))
+    case 'ADD_OPORTUNIDAD': {
+      // B-01: capture id before async (payload always has explicit id from callers)
+      const oppId = (action.payload as { id?: string }).id
+      svcOportunidades.createOportunidad(action.payload).then(r => {
+        log('ADD_OPORTUNIDAD', r)
+        if (r.error && oppId) rawDispatch({ type: '_ROLLBACK_ADD', payload: { entity: 'oportunidad', id: oppId } })
+      })
       break
+    }
     case 'UPDATE_OPORTUNIDAD':
       svcOportunidades.updateOportunidad(action.payload).then(r => log('UPDATE_OPORTUNIDAD', r))
       break
@@ -460,6 +499,33 @@ function syncToSupabase(action: Action, stateBefore: State) {
           updates.motivo_perdida = ''
         }
       }
+      // N-03: compute new valor_cotizado by simulating the post-action cotizacion states
+      {
+        const oppCotsAll = stateBefore.cotizaciones.filter(c => c.oportunidad_id === oportunidadId)
+        // Mirror reducer: yaAprobada prevents picking a new winner (C-02 fix)
+        const yaAprobada = oppCotsAll.some(c => c.estado === 'aprobada')
+        const winner = (nuevaEtapa === 'adjudicada' && !yaAprobada)
+          ? oppCotsAll.filter(c => c.estado === 'enviada' || c.estado === 'borrador')
+                      .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+          : null
+        const simulatedCots = stateBefore.cotizaciones.map(c => {
+          if (c.oportunidad_id !== oportunidadId) return c
+          if (isLeavingFinal) {
+            if (c.estado === 'descartada') return c
+            if (c.estado === 'aprobada' || c.estado === 'rechazada') return { ...c, estado: 'enviada' as const }
+          } else if (nuevaEtapa === 'adjudicada') {
+            if (winner && c.id === winner.id) return { ...c, estado: 'aprobada' as const }
+            if (c.estado === 'descartada' || c.estado === 'aprobada') return c
+            return { ...c, estado: 'rechazada' as const }
+          } else if (nuevaEtapa === 'perdida') {
+            if (c.estado === 'descartada' || c.estado === 'aprobada') return c
+            return { ...c, estado: 'rechazada' as const }
+          }
+          return c
+        })
+        updates.valor_cotizado = getActiveCotizacionValor(simulatedCots, oportunidadId)
+      }
+
       svcOportunidades.updateOportunidad(updates).then(r => log('MOVE_ETAPA', r))
       svcOportunidades.createHistorial({ oportunidad_id: oportunidadId, etapa_anterior: etapaAnt, etapa_nueva: nuevaEtapa, created_at: new Date().toISOString() }).then(r => log('MOVE_ETAPA historial', r))
 
@@ -475,7 +541,9 @@ function syncToSupabase(action: Action, stateBefore: State) {
         }
       } else if (nuevaEtapa === 'adjudicada' || nuevaEtapa === 'perdida') {
         const oppCots = stateBefore.cotizaciones.filter(c => c.oportunidad_id === oportunidadId)
-        const winner = nuevaEtapa === 'adjudicada'
+        // C-02: mirror reducer — if a cot is already aprobada, don't pick another winner
+        const yaAprobadaSync = oppCots.some(c => c.estado === 'aprobada')
+        const winner = (nuevaEtapa === 'adjudicada' && !yaAprobadaSync)
           ? oppCots.filter(c => c.estado === 'enviada' || c.estado === 'borrador')
                    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
           : null
@@ -521,8 +589,14 @@ function syncToSupabase(action: Action, stateBefore: State) {
       svcPrecios.updatePrecioProveedor(action.payload.id, action.payload.proveedor).then(r => log('UPDATE_PRECIO_PROVEEDOR', r))
       break
     case 'ADD_COTIZACION': {
+      // B-01: use the id already in payload (callers always pre-generate with crypto.randomUUID())
+      // so reducer and DB always share the same UUID — no double-newId() race
       const newCot = { ...action.payload, id: action.payload.id || newId() } as Cotizacion
-      svcCotizaciones.createCotizacion(newCot).then(r => log('ADD_COTIZACION', r))
+      const cotId = newCot.id
+      svcCotizaciones.createCotizacion(newCot).then(r => {
+        log('ADD_COTIZACION', r)
+        if (r.error) rawDispatch({ type: '_ROLLBACK_ADD', payload: { entity: 'cotizacion', id: cotId } })
+      })
       // Persist oportunidad.valor_cotizado (reducer recomputes it from active cotizaciones).
       // The etapa transition is handled by an explicit MOVE_ETAPA dispatch in the caller.
       const allCots = [...stateBefore.cotizaciones, newCot]
@@ -604,6 +678,7 @@ function syncToSupabase(action: Action, stateBefore: State) {
     }
     case 'BULK_UPSERT_PRECIOS':
     case '_HYDRATE':
+    case '_ROLLBACK_ADD': // local-only — never sync to DB
       break
   }
 }
@@ -622,11 +697,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef(state)
   useEffect(() => { stateRef.current = state }, [state])
 
-  // Wrapped dispatch: reduce locally + sync to Supabase
+  // Wrapped dispatch: reduce locally + sync to Supabase.
+  // rawDispatch is passed to syncToSupabase so it can issue local-only _ROLLBACK_ADD
+  // without triggering another sync cycle (B-01).
   const dispatch = useCallback((action: Action) => {
-    syncToSupabase(action, stateRef.current)
+    syncToSupabase(action, stateRef.current, rawDispatch)
     rawDispatch(action)
-  }, []) // stable reference — stateRef.current always fresh
+  }, [rawDispatch]) // rawDispatch is stable; stateRef.current always fresh
 
   // Persist to localStorage (cache/fallback, quota-safe)
   useEffect(() => {
@@ -635,7 +712,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Hydrate from Supabase on mount
   useEffect(() => {
-    if (!isSupabaseReady) return
+    if (!isSupabaseReady) {
+      // A-05: no Supabase — localStorage is the source of truth, mark hydrated immediately
+      rawDispatch({ type: '_HYDRATE', payload: { isHydrated: true } })
+      return
+    }
 
     async function hydrate() {
       try {
@@ -659,9 +740,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!cot.error) patch.cotizaciones = cot.data
         if (!prec.error && prec.data.length > 0) patch.precios = prec.data
 
-        if (Object.keys(patch).length > 0) {
-          rawDispatch({ type: '_HYDRATE', payload: patch })
-        }
+        // A-05: always set isHydrated after fetch (even if patch is empty)
+        patch.isHydrated = true
+        rawDispatch({ type: '_HYDRATE', payload: patch })
 
         // Fix 15: One-time normalization of legacy cotizador values with trailing spaces
         if (opp.data.length > 0) {
@@ -702,6 +783,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('[Supabase hydrate]', err)
         showToast('error', 'Error al cargar datos de Supabase')
+        // A-05: still mark hydrated so UI shows "not found" instead of spinner on error
+        rawDispatch({ type: '_HYDRATE', payload: { isHydrated: true } })
       } finally {
         setLoading(false)
       }
