@@ -26,12 +26,20 @@ export interface DefaultsCotizacion {
   no_incluye: string[]
 }
 
+export interface EtapaCustom {
+  label?: string
+  color?: string
+}
+
 export interface ConfigSistema {
   datos_empresa: DatosEmpresa
   cotizadores: Cotizador[]
   defaults_cotizacion: DefaultsCotizacion
   fuentes_lead: string[]
   sectores: string[]
+  /** Overrides for etapa labels/colors (by key). Keys themselves are NEVER customizable
+   * — the reducer depends on hardcoded keys. Only visible label/color can be changed. */
+  etapas_custom?: Record<string, EtapaCustom>
 }
 
 // ── Defaults ─────────────────────────────────────────────────
@@ -68,6 +76,17 @@ export const CONFIG_DEFAULTS: ConfigSistema = {
   },
   fuentes_lead: ['Referido', 'Página web', 'WhatsApp', 'Llamada', 'Licitación', 'Histórico Excel', 'Otro'],
   sectores: ['Restaurantes', 'Clínicas/Hospitales', 'Hoteles', 'Industrial', 'Residencial', 'Institucional', 'Comercial', 'Otro'],
+  etapas_custom: {},
+}
+
+/** Lee la config custom desde localStorage (sync). Usado por ETAPAS_WITH_OVERRIDES en types. */
+export function loadEtapasCustomSync(): Record<string, EtapaCustom> {
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed.etapas_custom || {}
+  } catch { return {} }
 }
 
 const LS_KEY = 'durata_config'
@@ -150,6 +169,7 @@ export async function loadConfig(): Promise<ConfigSistema> {
     defaults_cotizacion: (remote.defaults_cotizacion as DefaultsCotizacion) ?? local.defaults_cotizacion,
     fuentes_lead: (remote.fuentes_lead as string[]) ?? local.fuentes_lead,
     sectores: (remote.sectores as string[]) ?? local.sectores,
+    etapas_custom: (remote.etapas_custom as Record<string, EtapaCustom>) ?? local.etapas_custom ?? {},
   }
 
   // Cache locally

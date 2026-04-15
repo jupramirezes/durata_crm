@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'carcamo';
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('carcamo', 'Cárcamo', 'Cárcamos', 0.38, NULL, true, 3);
+  ('carcamo', 'Cárcamo', 'Cárcamos', 0.38, '[instalacion:Suministro e instalación de|Suministro de] cárcamo industrial en acero inoxidable AISI 304 calibre {calibre_cuerpo} de {largo} m de largo x {ancho} m de ancho x {alto} m de profundidad, con tapa en lámina cal.{calibre_tapa} antideslizante, tubo de desagüe de {largo_desague} m en acero inoxidable 2 pulg cal.18, pendiente interna para drenaje, bordes redondeados sanitarios, soldadura TIG con gas argón, acabado pulido sanitario para uso en cocinas industriales y áreas de proceso. [poliza:Incluye póliza.|Sin póliza.]', true, 3);
 
 -- producto_variables (8)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

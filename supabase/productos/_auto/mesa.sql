@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'mesa';
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('mesa', 'Mesa en acero inoxidable', 'Mesas', 0.38, NULL, true, 1);
+  ('mesa', 'Mesa en acero inoxidable', 'Mesas', 0.38, '[instalado:Suministro e instalación de|Suministro de] mesa en acero inoxidable AISI {tipo_acero} calibre {calibre} acabado {acabado} de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {patas} patas en tubo cuadrado 1-1/2 pulg cal.16 con niveladores inox, {salp_longitudinal} salpicadero(s) longitudinal(es) de {alto_salpicadero} m de alto, {salp_costado} salpicadero(s) de costado, [babero:con babero de {alto_babero} m de alto en {babero_costados} costado(s), |sin babero, ][refuerzo_rh:refuerzo estructural en RH 15 mm, |][pozuelos_rect:{pozuelos_rect} pozuelo(s) rectangular(es) de {poz_largo} x {poz_ancho} x {poz_alto} m, |][pozuelo_redondo:{pozuelo_redondo} pozuelo(s) redondo(s) integrado(s), |][vertedero:{vertedero} vertedero(s) de {diametro_vertedero} m diám x {prof_vertedero} m prof, |][escabiladero:con escabiladero inferior de {cant_bandejeros} bandejeros, |][ruedas:con {num_ruedas} ruedas industriales inox 4 pulg con freno, |][entrepanos:{entrepanos} entrepaño(s) inferior(es) en cal.18, |]soldadura TIG con gas argón, acabado pulido grado sanitario. [poliza:Incluye póliza.|Sin póliza.]', true, 1);
 
 -- producto_variables (34)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

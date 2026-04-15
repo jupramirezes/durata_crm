@@ -3,7 +3,9 @@
 // ==============================
 export type Etapa = 'nuevo_lead' | 'en_cotizacion' | 'cotizacion_enviada' | 'en_seguimiento' | 'en_negociacion' | 'adjudicada' | 'perdida'
 
-export const ETAPAS: { key: Etapa; label: string; color: string }[] = [
+interface EtapaDef { key: Etapa; label: string; color: string }
+
+const ETAPAS_DEFAULTS: EtapaDef[] = [
   { key: 'nuevo_lead', label: 'Nuevo Lead', color: '#3b82f6' },
   { key: 'en_cotizacion', label: 'En Cotización', color: '#a855f7' },
   { key: 'cotizacion_enviada', label: 'Cotización Enviada', color: '#06b6d4' },
@@ -12,6 +14,35 @@ export const ETAPAS: { key: Etapa; label: string; color: string }[] = [
   { key: 'adjudicada', label: 'Adjudicada', color: '#22c55e' },
   { key: 'perdida', label: 'Perdida', color: '#ef4444' },
 ]
+
+/** Reads custom label/color overrides from localStorage (set by Configuración page). */
+function readEtapasCustom(): Record<string, { label?: string; color?: string }> {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('durata_config') : null
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed.etapas_custom || {}
+  } catch { return {} }
+}
+
+/** ETAPAS is a Proxy-like getter that applies customizations from localStorage each read.
+ * Keys are NEVER customizable — reducer logic depends on them. Only label/color. */
+export const ETAPAS: EtapaDef[] = new Proxy(ETAPAS_DEFAULTS, {
+  get(target, prop) {
+    if (prop === 'map' || prop === 'filter' || prop === 'find' || prop === 'forEach' || prop === 'length' || prop === Symbol.iterator) {
+      const custom = readEtapasCustom()
+      const merged = target.map(e => ({
+        ...e,
+        label: custom[e.key]?.label || e.label,
+        color: custom[e.key]?.color || e.color,
+      }))
+      // Forward the call to the merged array
+      const val = merged[prop as keyof typeof merged]
+      return typeof val === 'function' ? val.bind(merged) : val
+    }
+    return target[prop as keyof typeof target]
+  },
+}) as EtapaDef[]
 
 // ==============================
 // CONSTANTS

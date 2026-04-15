@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'repisa';
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('repisa', 'Repisa', 'otros', 38, 'Suministro de repisa de pared en acero inoxidable 304 satinado de {largo} m de largo x {ancho} m de ancho', true, 10);
+  ('repisa', 'Repisa', 'otros', 38, '[instalado:Suministro e instalación de|Suministro de] repisa de pared en acero inoxidable AISI 304 satinado de {largo} m de largo x {ancho} m de ancho, cuerpo en lámina calibre {acero_repisa}, [tiene_omega:con omega de refuerzo posterior de {ancho_omega} m en cal {acero_omegas}, |][pieamigos_integrado:{pieamigos_integrado} pieamigo(s) integrado(s) en cal {acero_pieamigos}, |]{pieamigos_extras} pieamigo(s) adicional(es) para fijación a muro en cal {acero_pieamigos}, {salpicadero_long} salpicadero(s) longitudinal(es) de {alto_salpicadero} m de alto, {salpicadero_costado} salpicadero(s) lateral(es), soldadura TIG con gas argón, acabado pulido satinado, chapetas de fijación incluidas. [poliza:Incluye póliza.|Sin póliza.]', true, 10);
 
 -- producto_variables (14)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES

@@ -165,7 +165,13 @@ export default function Configuracion() {
       {/* ─── TAB CONTENT ───────────────────────────────────── */}
       {tab === 'empresa' && <TabEmpresa data={config.datos_empresa} onSave={v => handleSave('datos_empresa', v)} saving={saving} />}
       {tab === 'equipo' && <TabEquipo data={config.cotizadores} onSave={v => handleSave('cotizadores', v)} saving={saving} />}
-      {tab === 'pipeline' && <TabPipeline />}
+      {tab === 'pipeline' && (
+        <TabPipeline
+          customs={config.etapas_custom || {}}
+          onSave={v => handleSave('etapas_custom', v)}
+          saving={saving}
+        />
+      )}
       {tab === 'cotizacion' && <TabCotizacion data={config.defaults_cotizacion} onSave={v => handleSave('defaults_cotizacion', v)} saving={saving} />}
       {tab === 'fuentes' && <TabListaEditable items={config.fuentes_lead} onSave={v => handleSave('fuentes_lead', v)} saving={saving} label="Fuentes de lead" placeholder="Nueva fuente…" />}
       {tab === 'sectores' && <TabListaEditable items={config.sectores} onSave={v => handleSave('sectores', v)} saving={saving} label="Sectores" placeholder="Nuevo sector…" />}
@@ -332,43 +338,98 @@ function TabEquipo({ data, onSave, saving }: { data: Cotizador[]; onSave: (v: Co
   )
 }
 
-/* ── Tab 3: Pipeline (read-only) ────────────────────────────── */
+/* ── Tab 3: Pipeline (editable label + color) ───────────────── */
 
-function TabPipeline() {
+function TabPipeline({ customs, onSave, saving }: {
+  customs: Record<string, { label?: string; color?: string }>
+  onSave: (v: Record<string, { label?: string; color?: string }>) => void
+  saving: boolean
+}) {
+  const [draft, setDraft] = useState(customs)
+  const hasChanges = JSON.stringify(draft) !== JSON.stringify(customs)
+
+  function updateField(key: string, field: 'label' | 'color', value: string) {
+    setDraft(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }))
+  }
+
+  function resetOne(key: string) {
+    const next = { ...draft }
+    delete next[key]
+    setDraft(next)
+  }
+
   return (
     <div className="card p-6 space-y-4">
-      <div>
-        <h3 className="font-semibold text-sm text-[var(--color-text)]">Etapas del pipeline</h3>
-        <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">Configuración actual de las etapas. Edición disponible en una fase futura.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-sm text-[var(--color-text)]">Etapas del pipeline</h3>
+          <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">Personaliza el nombre visible y color. La clave técnica no se puede cambiar.</p>
+        </div>
+        <button
+          onClick={() => onSave(draft)}
+          disabled={!hasChanges || saving}
+          className="px-4 py-2 bg-[var(--color-primary)] text-white text-xs font-semibold rounded-md hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Guardando…' : hasChanges ? 'Guardar cambios' : 'Sin cambios'}
+        </button>
       </div>
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-[var(--color-border)]">
             <th className="pb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider w-8">#</th>
             <th className="pb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Color</th>
-            <th className="pb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Etapa</th>
+            <th className="pb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Etapa (editable)</th>
             <th className="pb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Clave</th>
-            <th className="pb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Dato extra</th>
+            <th className="pb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider w-20"></th>
           </tr>
         </thead>
         <tbody>
-          {ETAPAS.map((e, i) => (
-            <tr key={e.key} className="border-b border-[var(--color-border)] last:border-0">
-              <td className="py-2.5 text-xs text-[var(--color-text-muted)] font-medium">{i + 1}</td>
-              <td className="py-2.5">
-                <div className="w-5 h-5 rounded" style={{ background: e.color }} />
-              </td>
-              <td className="py-2.5 text-xs font-medium text-[var(--color-text)]">{e.label}</td>
-              <td className="py-2.5 text-[10px] font-mono text-[var(--color-text-muted)]">{e.key}</td>
-              <td className="py-2.5 text-[10px] text-[var(--color-text-muted)]">
-                {e.key === 'adjudicada' && <span className="text-emerald-600 font-medium">Pide valor adjudicado</span>}
-                {e.key === 'perdida' && <span className="text-red-500 font-medium">Pide motivo de pérdida</span>}
-                {e.key !== 'adjudicada' && e.key !== 'perdida' && '—'}
-              </td>
-            </tr>
-          ))}
+          {ETAPAS.map((e, i) => {
+            const override = draft[e.key] || {}
+            const currentLabel = override.label ?? e.label
+            const currentColor = override.color ?? e.color
+            const hasOverride = override.label !== undefined || override.color !== undefined
+            return (
+              <tr key={e.key} className="border-b border-[var(--color-border)] last:border-0">
+                <td className="py-2.5 text-xs text-[var(--color-text-muted)] font-medium">{i + 1}</td>
+                <td className="py-2.5">
+                  <input
+                    type="color"
+                    value={currentColor}
+                    onChange={ev => updateField(e.key, 'color', ev.target.value)}
+                    className="w-8 h-7 rounded cursor-pointer border border-[var(--color-border)]"
+                    title={currentColor}
+                  />
+                </td>
+                <td className="py-2.5">
+                  <input
+                    type="text"
+                    value={currentLabel}
+                    onChange={ev => updateField(e.key, 'label', ev.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-md text-xs border border-[var(--color-border)]"
+                    placeholder={e.label}
+                  />
+                </td>
+                <td className="py-2.5 text-[10px] font-mono text-[var(--color-text-muted)]">{e.key}</td>
+                <td className="py-2.5">
+                  {hasOverride && (
+                    <button
+                      onClick={() => resetOne(e.key)}
+                      className="text-[10px] text-red-500 hover:text-red-700 font-medium"
+                      title="Restaurar valores por defecto"
+                    >
+                      Resetear
+                    </button>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
+      {hasChanges && (
+        <p className="text-[10px] text-amber-600">Tenés cambios sin guardar. Recargar la página después de guardar para ver los cambios en Pipeline y Dashboard.</p>
+      )}
     </div>
   )
 }

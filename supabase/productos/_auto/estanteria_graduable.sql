@@ -15,7 +15,7 @@ DELETE FROM productos_catalogo WHERE id = 'estanteria_graduable';
 
 -- productos_catalogo
 INSERT INTO productos_catalogo (id, nombre, grupo, margen_default, desc_template, activo, orden) VALUES
-  ('estanteria_graduable', 'Estantería Graduable', 'Estanterías', 0.38, NULL, true, 4);
+  ('estanteria_graduable', 'Estantería Graduable', 'Estanterías', 0.38, '[instalacion:Suministro e instalación de|Suministro de] estantería graduable en acero inoxidable AISI 304 de {largo} m de largo x {ancho} m de ancho x {alto} m de alto, con {num_entrepanos} entrepaño(s) en lámina calibre {calibre_entrepano} con refuerzos tipo omega, altura regulable mediante {num_patas} parales en lámina calibre {calibre_patas} 2B con niveladores inox roscados, soldadura TIG con gas argón, acabado pulido satinado grado alimentario. [poliza:Incluye póliza.|Sin póliza.]', true, 4);
 
 -- producto_variables (9)
 INSERT INTO producto_variables (producto_id, nombre, label, tipo, default_valor, min_val, max_val, unidad, grupo_ui, orden, opciones, nota) VALUES
