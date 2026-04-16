@@ -348,7 +348,7 @@ export default function Dashboard() {
     { metric: 'Adjudicaciones', prev: String(prevYearMetrics.adjQty), curr: String(thisYearMetrics.adjQty), variation: pctChange(thisYearMetrics.adjQty, prevYearMetrics.adjQty), suffix: '%' },
     { metric: 'Valor adjudicado', prev: formatCOP(prevYearMetrics.adjValor), curr: formatCOP(thisYearMetrics.adjValor), variation: pctChange(thisYearMetrics.adjValor, prevYearMetrics.adjValor), suffix: '%' },
     { metric: '% Adjudicación', prev: `${prevYearMetrics.pctAdj.toFixed(1)}%`, curr: `${thisYearMetrics.pctAdj.toFixed(1)}%`, variation: thisYearMetrics.pctAdj - prevYearMetrics.pctAdj, suffix: 'pp' },
-    { metric: 'Días promedio', prev: thisYearMetrics.dias > 0 ? prevYearMetrics.dias.toFixed(1) : '—', curr: thisYearMetrics.dias > 0 ? thisYearMetrics.dias.toFixed(1) : '—', variation: pctChange(thisYearMetrics.dias, prevYearMetrics.dias), suffix: '%', invert: true },
+    { metric: 'Días promedio', prev: prevYearMetrics.dias > 0 ? prevYearMetrics.dias.toFixed(1) : '—', curr: thisYearMetrics.dias > 0 ? thisYearMetrics.dias.toFixed(1) : '—', variation: pctChange(thisYearMetrics.dias, prevYearMetrics.dias), suffix: '%', invert: true },
   ], [oportunidades, cotizaciones])
 
   /* ── Table styles ────────────────────────────────── */
