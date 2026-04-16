@@ -1,0 +1,59 @@
+tipo,archivo,carpeta,tamano_kb,cot_extraido,motivo,sugerencia
+APU,2020-736B.xlsx,APU CAMILO,2168,2020-736B,COT es de 2020 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2026-26...xlsx,APU CAMILO,2740,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,2025-1311A.xlsx,APU JUAN PABLO,645,2025-1311A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2026-318.xlsx,APU JUAN PABLO,541,2026-318,COT 2026-318 no existe. Base 2026-318 tiene: 2026-318A,Revisar si el COT correcto es uno de: 2026-318A
+APU,Actualizacion Durata.xlsx,OTROS,18,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,ANALISIS VENTAS 10 AÑOS.xlsx,OTROS,3480,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,CATALOGO MAESTRO.xlsx,OTROS,13,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Formato.xlsm,OTROS,791,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,2025-1031A.xlsx,APU OMAR 2026,95,2025-1031A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2025-124.xlsx,APU OMAR 2026,5854,2025-124,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2025-1246A.xlsx,APU OMAR 2026,428,2025-1246A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2025-1283A.xlsx,APU OMAR 2026,485,2025-1283A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2025-1288B.xlsx,APU OMAR 2026,1481,2025-1288B,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2025-1337A.xlsx,APU OMAR 2026,338,2025-1337A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2025-965A.xlsx,APU OMAR 2026,57,2025-965A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2026-318.xlsx,APU SEBASTIAN,541,2026-318,COT 2026-318 no existe. Base 2026-318 tiene: 2026-318A,Revisar si el COT correcto es uno de: 2026-318A
+APU,2026-472.xlsx,APU SEBASTIAN,2233,2026-472,COT 2026-472 no existe en BD (ni con otras letras),Agregar cotización al CRM o verificar numeración
+APU,bimbau_lsuministroeinstalacion_laminados__22122025-131232.xlsx,2026-120,66,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,2025-1279.xlsx,2026-136,792,2025-1279,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,2025-1279A.xlsx,2026-136,1307,2025-1279A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,(Carp metalica) anexo1listadodeactividadesycantidades-4AkaV.xlsx,2026-139 SOLUCIONES INMOBILIARIAS-CARP METALICA,1640,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,CGA-Puertas adecuación corrales Durata.xlsx,2026-146,431,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Anexo 5 Acero Inox - La libertad.xlsx,2026-176 - MOBILIARIO Y BAÑOS INFRAESTRUCTURA JARDIN INFANTIL LA LIBERTAD CORREO CLIENTE - INDECO CONSTRUCTORA - LUIS CARLOS VELASCO ALZATE,149,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Anexo 5 Acero Inox - La libertad.xlsx,2026-176A - MOBILIARIO BUEN COMIENZO LA LIBERTAD INDECO CONSTRUCTORA - LUIS CARLOS VELASCO ALZATE,297,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,2025-339.xlsx,2026-187,814,2025-339,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+APU,HOJA DE CALCULO RENTAS BOVINAS 2026 V.1 SOLICITUD DURATA.xlsx,2026-190 - LISTA VARIOS CORREO CLIENTE - IDEAS ATIR - GREGORY ALEXANDER PEREZ GALICIA,164,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,20260127 PLIEGO DE COTIZACION PASAMANOS METALICO v2.xlsx,2026-195 - PASAMANOS HARMONIQUE CORREO - COMPOSE - DAVID URIBE,16,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Lista de compras_Le brunch.xlsx,2026-213 - COCINA WPP CAMILO - LE BRUNCH,5479,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,0.0 15012026 FORMATO BASE COTIZACIONES QUARZTONE.xlsx,2026-242 - MESONES BAR WPP SEBAS - MUROS Y TECHOS - DANIELA,993,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,20260205 CANTIDADES MESONES DISTRITO PLAZA T2.xlsx,2026-246 - BIENES Y BIENES MESONES,45,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Plantilla de Actividades.xlsx,2026-249 - LICITACION ESTRUCTURA RIVIERE TORRE 5 - CONINSA - LICITACION NO. 202600158,11,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,PASAMANOS SOLICITUD COTIZACION.xlsx,2026-250 - PASAMANOS CONTREE LAS PALMAS T2  CORREO CLIENTE_SEBAS - CONCONCRETO - JOSE CAMILO GONZALES JARAMILLO,22,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Anexo 2. Formulario lamina en terraza piso 8 11022026.xlsx,2026-286 - PASAMANOS TERRAZA VIVA ENVIGADO CORREO SEBAS - GRUPO EXITO - JORGE HUMBERTO LOPEZ PEREZ,1750,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,BIMBAU_LSuministro_CARP METALICA.xlsx,2026-290 - CARPINTERIA METALICA VIVA CLARO CONCONCRETO,66,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,omirrrrrrrrrrrrrrrrrrrrrrr.xlsx,2026-292A - 2 SUPERFICIES y DEMAS MUEBLES WPP CAMILO - LE BRUNCH - MANUEL DE LA NUEZ,2711,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,3. Formulario de actividades-DURATA SAS.xlsx,2026-302 MATERA VORTEX,68,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Cantidades Central Ganadera.xlsx,2026-313 - DINPRO CENTRAL GANADERA,6937,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Cantidades REDES.xlsx,2026-313 - DINPRO CENTRAL GANADERA,6934,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,CGA-Cuadro de Cantidades Edificio de Sacrificio Central Ganadera SOLICITUD DURATA.xlsx,2026-314 - IDEAS ATIR CENTRAL GANADERA,470,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,Anexo No. 22 Cantidades de Obra-ACERO INOX v2.xlsx,2026-375 - ELEMENTOS METALICOS MARMATO CALDAS - IDEAS ATIR - GREGORY ALEXANDER PEREZ GALICIA,886,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,(COT DARIO) VALORES UNITARIOS PERSIANAS 315 DURATA.xlsx,2026-428 - FACHADA Y TECHO CASETAS - AOP - JUAN ESTEBAN,11,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,SOLICITUD DE COTIZACION DURATA COTIZACION 159B.xlsx,laboratorio de diseño-labmaster 27 de marzo,329,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,COTIZACION ACERO INOXIDABLE COCINA.xlsx,2026-444 - VARIOS COCINA INOXIDABLE CHAMBACU CORREO CLIENTE - CONSORCIO JARDÍN MH 2024 - DANIELA PAZMIÑO,34,,No se pudo extraer número COT del nombre de archivo,"Renombrar archivo incluyendo formato ""2026-XXX"" (ej: ""2026-443 ..."")"
+APU,2026-313.xlsx,APU JUAN PABLO,11458,2026-313,>10MB,Reducir tamaño o subir manualmente
+APU,2026-314.xlsx,APU JUAN PABLO,11442,2026-314,>10MB,Reducir tamaño o subir manualmente
+APU,2026-276.xlsx,APU SEBASTIAN,10652,2026-276,>10MB,Reducir tamaño o subir manualmente
+APU,2026-304.xlsx,APU SEBASTIAN,13255,2026-304,>10MB,Reducir tamaño o subir manualmente
+PDF,COTIZACION 2025-1031A ESCUDOS INOXIDABLES-SAN NICOLAS-MYT-MARISOL HERRERA.pdf,COTIZACIONES 2026,581,2025-1031A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+PDF,COTIZACION 2025-1246A VIDRIOS TEMPLADO - MUROS Y TECHOS - SAN NICOLAS - MARISOL HERRERA.pdf,COTIZACIONES 2026,570,2025-1246A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+PDF,COTIZACION 2025-1283A BASURERA 2 PERF + RECIPIENTES INOXIDABLE - CEH SAS - HPTU - MONICA BASTO.pdf,COTIZACIONES 2026,587,2025-1283A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+PDF,COTIZACION 2025-1288B ENCHAPE INOXIDABLE ACCESO-VALENTINA GOMEZ.pdf,COTIZACIONES 2026,593,2025-1288B,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+PDF,COTIZACION 2025-1311A COLUMNAS GASES INOXIDABLE - UAM - CLINICA VETERINARIA DE PEQUEÑAS ESPECIES.pdf,COTIZACIONES 2026,274,2025-1311A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+PDF,COTIZACION 2025-1337A LAVAMANOS ESFERICO-JUAN JOSE BLANCO.pdf,COTIZACIONES 2026,591,2025-1337A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+PDF,COTIZACION 2025-965A PULIDO BOLILLO DE PASAMANOS - MUROS Y TECHOS - SAN NICOLAS - MARISOL HERRERA.pdf,COTIZACIONES 2026,567,2025-965A,COT es de 2025 (no 2026),Mover a carpeta de su año correspondiente o agregar al historial
+PDF,COTIZACION 2026-318 SOPORTE AIRE NEUROMEDICA-GRUPO LCA-LUIS CARLOS ARANGO.pdf,COTIZACIONES 2026,279,2026-318,COT 2026-318 no existe. Base 2026-318 tiene: 2026-318A,Revisar si el COT correcto es uno de: 2026-318A
+PDF,COTIZACION 2026-472 FLORX1 MODULO INOX 430 CON VAIVEN-ENTORNO AZUL-FELIPE OSPINA.pdf,COTIZACIONES 2026,302,2026-472,COT 2026-472 no existe en BD (ni con otras letras),Agregar cotización al CRM o verificar numeración
+PDF,COTIZACION 2026-473 PASAMANOS ETAPA 6 Y ESCALAS METALICAS CCIAL SAN NICOLAS-MYT-MARISOL HERRERA.pdf,COTIZACIONES 2026,316,2026-473,COT 2026-473 no existe en BD (ni con otras letras),Agregar cotización al CRM o verificar numeración
+PDF,COTIZACION 2026-474 CAMPANA DE EXTRACCION DE GASES-CSI-JANDY JAVIER.pdf,COTIZACIONES 2026,307,2026-474,COT 2026-474 no existe en BD (ni con otras letras),Agregar cotización al CRM o verificar numeración

@@ -74,8 +74,17 @@ input:focus, select:focus, textarea:focus {
 /* Tabular numbers for money & data */
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
-/* Global transitions */
-button, a { transition: all 150ms ease; }
+/* Global transitions + cursor + min tap target */
+button, a { transition: all 150ms ease; cursor: pointer; }
+button:not(:disabled):hover { filter: brightness(0.95); }
+button:disabled { cursor: not-allowed; opacity: 0.5; }
+/* Minimum 40px touch target for accessibility (WCAG 2.5.8) */
+button, a, select, [role="button"] { min-height: 36px; }
+/* Focus-visible ring for keyboard navigation */
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 12px; height: 12px; }
@@ -96,17 +105,43 @@ button, a { transition: all 150ms ease; }
   transform: translateY(-2px);
 }
 
+/* ── Spacing helpers ───────────────────────────────── */
+/* Sections within a page should breathe */
+.space-y-4 > * + * { margin-top: 1rem; }
+.space-y-5 > * + * { margin-top: 1.25rem; }
+.space-y-6 > * + * { margin-top: 1.5rem; }
+
+/* Table rows — comfortable vertical rhythm */
+table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+
+/* Badges and pills — consistent spacing */
+.badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.6875rem; font-weight: 600; white-space: nowrap; }
+
 /* ── Modal overlay ──────────────────────────────── */
 .modal-overlay {
   background: rgba(0,0,0,0.3);
   backdrop-filter: blur(4px);
 }
 .modal-card {
-  max-width: 520px;
+  max-width: 720px;
   border-radius: 20px;
-  padding: 32px;
+  padding: 36px;
   box-shadow: var(--shadow-modal);
   animation: scaleIn 200ms ease-out;
+}
+
+/* Inputs inside modals — more generous sizing */
+.modal-card input, .modal-card select, .modal-card textarea {
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  border-radius: 12px;
+}
+.modal-card label {
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+  display: block;
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 /* ── Animations ─────────────────────────────────── */
