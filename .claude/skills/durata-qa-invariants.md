@@ -22,8 +22,10 @@ UNION ALL
 SELECT 'perdida_con_aprobada', COUNT(*)::text, CASE WHEN COUNT(*)=0 THEN 'PASS' ELSE 'FAIL' END
   FROM oportunidades o WHERE o.etapa='perdida' AND EXISTS (SELECT 1 FROM cotizaciones c WHERE c.oportunidad_id=o.id AND c.estado='aprobada')
 UNION ALL
+-- valor_desync aplica solo a ops NO perdidas. Para etapa='perdida' el valor_cotizado
+-- es histórico (incluye rechazadas) por diseño — ver commit 15797b6.
 SELECT 'valor_desync', COUNT(*)::text, CASE WHEN COUNT(*)=0 THEN 'PASS' ELSE 'FAIL' END
-  FROM oportunidades o WHERE o.valor_cotizado != COALESCE((SELECT SUM(c.total) FROM cotizaciones c WHERE c.oportunidad_id=o.id AND c.estado NOT IN ('descartada','rechazada')), 0)
+  FROM oportunidades o WHERE o.etapa != 'perdida' AND o.valor_cotizado != COALESCE((SELECT SUM(c.total) FROM cotizaciones c WHERE c.oportunidad_id=o.id AND c.estado NOT IN ('descartada','rechazada')), 0)
 UNION ALL
 SELECT 'cot_sin_estado', COUNT(*)::text, CASE WHEN COUNT(*)=0 THEN 'PASS' ELSE 'FAIL' END
   FROM cotizaciones WHERE estado IS NULL OR estado = ''
