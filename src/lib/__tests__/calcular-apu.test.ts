@@ -122,12 +122,10 @@ describe('calcularApuMesa', () => {
 describe('types consistency', () => {
   it('SECTORES includes expected values', async () => {
     const { SECTORES } = await import('../../types')
-    expect(SECTORES).toContain('Alimentos')
-    expect(SECTORES).toContain('Salud')
-    expect(SECTORES).toContain('Construcci\u00f3n')
+    expect(SECTORES).toContain('Restaurantes')
+    expect(SECTORES).toContain('Cl\u00ednicas/Hospitales')
     expect(SECTORES).toContain('Industrial')
-    expect(SECTORES).toContain('Sector P\u00fablico')
-    expect(SECTORES).toContain('Persona Natural')
+    expect(SECTORES).toContain('Comercial')
     expect(SECTORES).toContain('Otro')
   })
 

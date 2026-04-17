@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { calcularApuRaw, preloadProductData, isMotorGenericoReady } from '../lib/motor-generico'
 import { evalFormula } from '../lib/evaluar-formula'
@@ -112,10 +112,15 @@ function buildDescription(pid: string, v: Variables, descTemplate?: string): str
 /* ── Component ─────────────────────────────────────── */
 export default function ConfiguradorGenerico() {
   const { id, productoId: paramPid } = useParams<{ id: string; productoId: string }>()
+  const [searchParams] = useSearchParams()
+  const editProductoId = searchParams.get('editar')
   const navigate = useNavigate()
   const { state, dispatch } = useStore()
   const empresa = state.empresas.find(e => state.oportunidades.find(o => o.id === id)?.empresa_id === e.id)
   const productoId = paramPid || 'mesa'
+
+  // If editing, load existing product
+  const productoExistente = editProductoId ? state.productos.find(p => p.id === editProductoId) : null
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -158,7 +163,26 @@ export default function ConfiguradorGenerico() {
           else if (v.tipo === 'calculado') defs[v.nombre] = 0
           else defs[v.nombre] = parseFloat(v.default_valor || '0') || 0
         }
+        // If editing, restore saved variable values over defaults
+        if (productoExistente?.configuracion?.variables) {
+          const saved = productoExistente.configuracion.variables as Variables
+          for (const key of Object.keys(saved)) {
+            if (key in defs) defs[key] = saved[key]
+          }
+        }
         setValores(defs)
+        // Restore editing state
+        if (productoExistente) {
+          if (productoExistente.cantidad) setCantidad(productoExistente.cantidad)
+          if (productoExistente.configuracion?.totales?.margen != null) {
+            const m = productoExistente.configuracion.totales.margen
+            setMargen(m >= 1 ? m / 100 : m)
+          }
+          if (productoExistente.descripcion_comercial) {
+            setDescripcionEdit(productoExistente.descripcion_comercial)
+            setDescManual(true)
+          }
+        }
         const grps = [...new Set(vars.map(v => v.grupo_ui).filter(g => !g.startsWith('_')))]
         setExpandedGroups(new Set(grps.slice(0, 4)))
         const ok = await preloadProductData(productoId)
@@ -331,8 +355,13 @@ export default function ConfiguradorGenerico() {
       descripcion_comercial: desc,
     }
 
-    dispatch({ type: 'ADD_PRODUCTO', payload: { oportunidad_id: id!, categoria: productoNombre, subtipo: productoNombre, configuracion: snapshot, apu_resultado: apuAjustado, precio_calculado: precioVentaAjustado, descripcion_comercial: desc, cantidad } })
-    showToast('success', `${productoNombre} agregado al pedido`)
+    if (editProductoId && productoExistente) {
+      dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: editProductoId, configuracion: snapshot, apu_resultado: apuAjustado, precio_calculado: precioVentaAjustado, descripcion_comercial: desc, cantidad } })
+      showToast('success', `${productoNombre} actualizado`)
+    } else {
+      dispatch({ type: 'ADD_PRODUCTO', payload: { oportunidad_id: id!, categoria: productoNombre, subtipo: productoNombre, configuracion: snapshot, apu_resultado: apuAjustado, precio_calculado: precioVentaAjustado, descripcion_comercial: desc, cantidad } })
+      showToast('success', `${productoNombre} agregado al pedido`)
+    }
     setTimeout(() => navigate(`/oportunidades/${id}`), 500)
   }
 
@@ -346,7 +375,7 @@ export default function ConfiguradorGenerico() {
         <button onClick={() => navigate(`/oportunidades/${id}`)} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:underline"><ArrowLeft size={16} /> Volver</button>
         <div className="flex-1" />
         <div className="text-right">
-          <h2 className="text-2xl font-bold text-[var(--color-text)]">Configurar: {productoNombre}</h2>
+          <h2 className="text-2xl font-bold text-[var(--color-text)]">{editProductoId ? 'Editar' : 'Configurar'}: {productoNombre}</h2>
           <p className="text-sm text-slate-500">Empresa: {empresa?.nombre}</p>
         </div>
       </div>
@@ -534,7 +563,7 @@ export default function ConfiguradorGenerico() {
 
           {/* Actions */}
           <div className="flex gap-2">
-            <button onClick={handleAdd} disabled={!resultado} className="flex-1 flex items-center justify-center gap-2 h-12 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-40"><Package size={16} /> AGREGAR AL PEDIDO</button>
+            <button onClick={handleAdd} disabled={!resultado} className="flex-1 flex items-center justify-center gap-2 h-12 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-40"><Package size={16} /> {editProductoId ? 'ACTUALIZAR PRODUCTO' : 'AGREGAR AL PEDIDO'}</button>
             <button onClick={() => navigate(`/oportunidades/${id}`)} className="px-5 h-12 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
           </div>
         </div>

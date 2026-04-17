@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore, todayLocalISO } from '../lib/store'
 import { ETAPAS, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
-import { formatDate, formatCOP, daysSince } from '../lib/utils'
+import { formatDate, formatCOP, daysSince, downloadBlob } from '../lib/utils'
 import { EtapaBadge, EstadoBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
@@ -521,7 +521,7 @@ export default function OportunidadDetalle() {
     const cot = cotizaciones.find(c => c.id === cotId)
     if (!cot || !contacto) return
     try {
-      generarPdfCotizacion({
+      const { blob, filename, totalFinal } = generarPdfCotizacion({
         numero: cot.numero,
         fecha: cot.fecha,
         nombreProducto: productos[0]?.subtipo || 'Producto',
@@ -539,6 +539,31 @@ export default function OportunidadDetalle() {
         condicionesItems: cot.condicionesItems || [],
         noIncluyeItems: cot.noIncluyeItems || [],
         cotizadorAsignado: opp.cotizador_asignado,
+      })
+
+      // Trigger download immediately
+      downloadBlob(blob, filename)
+
+      // Fire-and-forget: upload PDF to Supabase Storage and persist URL
+      const file = new File([blob], filename, { type: 'application/pdf' })
+      uploadCotizacionFile(opp.id, cot.id, file, 'pdf').then(res => {
+        if ('error' in res) {
+          console.warn('[PDF upload] Error:', res.error)
+          return
+        }
+        dispatch({
+          type: 'UPDATE_COTIZACION',
+          payload: {
+            id: cot.id,
+            archivo_pdf_url: res.url,
+            archivo_pdf_nombre: res.nombre,
+          },
+        })
+        svcCotizaciones.updateCotizacion({
+          id: cot.id,
+          archivo_pdf_url: res.url,
+          archivo_pdf_nombre: res.nombre,
+        } as any)
       })
     } catch (err) {
       console.error('Error generando PDF:', err)
@@ -858,7 +883,14 @@ export default function OportunidadDetalle() {
                           <div className="text-[13px] text-[#94a3b8] tabular-nums">{'\u00d7'} {p.cantidad} = <span className="font-semibold text-[var(--color-text)]">{formatCOP((p.precio_calculado || 0) * p.cantidad)}</span></div>
                           <div className="flex items-center justify-end gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
-                              onClick={() => navigate(`/oportunidades/${id}/configurar?editar=${p.id}`)}
+                              onClick={() => {
+                                const pid = p.configuracion?.producto_id
+                                if (!pid || pid === 'mesa') {
+                                  navigate(`/oportunidades/${id}/configurar?editar=${p.id}`)
+                                } else {
+                                  navigate(`/oportunidades/${id}/configurar-producto/${pid}?editar=${p.id}`)
+                                }
+                              }}
                               className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] transition-all"
                               title="Editar"
                             >
@@ -882,13 +914,38 @@ export default function OportunidadDetalle() {
                               <button
                                 onClick={() => {
                                   const cot = cotizaciones.length > 0 ? cotizaciones[cotizaciones.length - 1] : null
-                                  exportApuExcel({
+                                  const { blob: apuBlob, filename: apuFilename } = exportApuExcel({
                                     resultado: p.apu_resultado!,
                                     config: p.configuracion || CONFIG_MESA_DEFAULT,
                                     cotizacionNumero: cot?.numero,
                                     empresaNombre: emp.nombre,
                                     contactoNombre: contacto?.nombre,
                                   })
+                                  downloadBlob(apuBlob, apuFilename)
+
+                                  // Fire-and-forget: upload APU to Supabase Storage
+                                  if (cot) {
+                                    const apuFile = new File([apuBlob], apuFilename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+                                    uploadCotizacionFile(opp.id, cot.id, apuFile, 'apu').then(res => {
+                                      if ('error' in res) {
+                                        console.warn('[APU upload] Error:', res.error)
+                                        return
+                                      }
+                                      dispatch({
+                                        type: 'UPDATE_COTIZACION',
+                                        payload: {
+                                          id: cot.id,
+                                          archivo_apu_url: res.url,
+                                          archivo_apu_nombre: res.nombre,
+                                        },
+                                      })
+                                      svcCotizaciones.updateCotizacion({
+                                        id: cot.id,
+                                        archivo_apu_url: res.url,
+                                        archivo_apu_nombre: res.nombre,
+                                      } as any)
+                                    })
+                                  }
                                 }}
                                 className="p-1.5 rounded text-green-500 hover:text-green-700 hover:bg-green-50 transition-all"
                                 title="Descargar APU Excel"

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { CONFIG_MESA_DEFAULT, ConfigMesa, ApuResultado, ApuLinea } from '../types'
 import { calcularApuGenerico, preloadProductData, isMotorGenericoReady } from '../lib/motor-generico'
-import { formatCOP } from '../lib/utils'
+import { formatCOP, downloadBlob } from '../lib/utils'
 import { exportApuExcel as exportApuExcelFn } from '../lib/exportar-apu'
 import type { Mesa3DViewerRef } from '../components/Mesa3DViewer'
 import {
@@ -479,7 +479,8 @@ export default function ConfiguradorMesa() {
 
   function handlePreviewApuExcel() {
     if (!adjustedResultado) return
-    exportApuExcelFn({ resultado: adjustedResultado, config: cfg as Record<string, any>, preview: true })
+    const { blob, filename } = exportApuExcelFn({ resultado: adjustedResultado, config: cfg as Record<string, any>, preview: true })
+    downloadBlob(blob, filename)
   }
 
   return (

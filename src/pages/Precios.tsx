@@ -252,7 +252,7 @@ export default function Precios() {
                             }}
                             onBlur={() => setEditingId(null)}
                           />
-                          <button onClick={() => saveEdit(p.id)} className="text-green-600 hover:opacity-80 p-0.5 rounded hover:bg-green-50"><Save size={11} /></button>
+                          <button onMouseDown={e => { e.preventDefault(); saveEdit(p.id) }} className="text-green-600 hover:opacity-80 p-0.5 rounded hover:bg-green-50"><Save size={11} /></button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1 justify-end">
@@ -283,7 +283,7 @@ export default function Precios() {
                             }}
                             onBlur={() => setEditingProvId(null)}
                           />
-                          <button onClick={() => saveProvEdit(p.id)} className="text-green-600 hover:opacity-80 p-0.5 rounded hover:bg-green-50"><Save size={11} /></button>
+                          <button onMouseDown={e => { e.preventDefault(); saveProvEdit(p.id) }} className="text-green-600 hover:opacity-80 p-0.5 rounded hover:bg-green-50"><Save size={11} /></button>
                         </div>
                       ) : (
                         <span

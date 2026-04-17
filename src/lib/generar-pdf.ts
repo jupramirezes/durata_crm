@@ -391,7 +391,8 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const nombreClean = clean(nombreProducto)
   const empresaClean = clean(cliente.empresa)
   const contactoClean = clean(cliente.nombre)
-  doc.save(`Cotizacion_${numero}_${nombreClean}_${empresaClean}_${contactoClean}.pdf`)
+  const filename = `Cotizacion_${numero}_${nombreClean}_${empresaClean}_${contactoClean}.pdf`
+  const blob = doc.output('blob')
 
-  return totalFinal
+  return { blob, filename, totalFinal }
 }

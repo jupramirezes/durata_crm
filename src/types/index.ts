@@ -47,8 +47,10 @@ export const ETAPAS: EtapaDef[] = new Proxy(ETAPAS_DEFAULTS, {
 // ==============================
 // CONSTANTS
 // ==============================
-export const SECTORES = ['Alimentos', 'Salud', 'Construcción', 'Industrial', 'Sector Público', 'Persona Natural', 'Otro'] as const
-export type Sector = typeof SECTORES[number]
+// Default sectors — canonical values live in CONFIG_DEFAULTS (useConfiguracion.ts).
+// Users can add custom sectors via /config, so the type is string (not a union).
+export const SECTORES: string[] = ['Restaurantes', 'Clínicas/Hospitales', 'Hoteles', 'Industrial', 'Residencial', 'Institucional', 'Comercial', 'Otro']
+export type Sector = string
 
 export const COTIZADORES = [
   { id: 'OC', nombre: 'Omar Cossio', iniciales: 'O.C' },
@@ -58,8 +60,10 @@ export const COTIZADORES = [
   { id: 'DG', nombre: 'Daniela Galindo', iniciales: 'D.G' },
 ] as const
 
-export const FUENTES_LEAD = ['WhatsApp', 'Correo', 'Llamada', 'Referido', 'Licitación', 'Web', 'Otro'] as const
-export type FuenteLead = typeof FUENTES_LEAD[number]
+// Default lead sources — canonical values live in CONFIG_DEFAULTS (useConfiguracion.ts).
+// Users can add custom fuentes via /config, so the type is string (not a union).
+export const FUENTES_LEAD: string[] = ['Referido', 'Página web', 'WhatsApp', 'Llamada', 'Licitación', 'Residente', 'Histórico Excel', 'Otro']
+export type FuenteLead = string
 
 export const MOTIVOS_PERDIDA = ['Precio', 'Tiempo de entrega', 'Eligió competencia', 'Cambió de alcance', 'Sin respuesta', 'Presupuesto cancelado', 'Proyecto congelado', 'Licitación del cliente', 'Otro'] as const
 

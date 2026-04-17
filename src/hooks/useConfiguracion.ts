@@ -74,7 +74,7 @@ export const CONFIG_DEFAULTS: ConfigSistema = {
       'Instalación (cotizar aparte)',
     ],
   },
-  fuentes_lead: ['Referido', 'Página web', 'WhatsApp', 'Llamada', 'Licitación', 'Histórico Excel', 'Otro'],
+  fuentes_lead: ['Referido', 'Página web', 'WhatsApp', 'Llamada', 'Licitación', 'Residente', 'Histórico Excel', 'Otro'],
   sectores: ['Restaurantes', 'Clínicas/Hospitales', 'Hoteles', 'Industrial', 'Residencial', 'Institucional', 'Comercial', 'Otro'],
   etapas_custom: {},
 }
@@ -177,12 +177,16 @@ export async function loadConfig(): Promise<ConfigSistema> {
   return merged
 }
 
-export async function saveConfig(key: keyof ConfigSistema, value: unknown): Promise<void> {
+export async function saveConfig(key: keyof ConfigSistema, value: unknown): Promise<boolean> {
   // Update localStorage
   const current = loadFromLS()
   ;(current as unknown as Record<string, unknown>)[key] = value
   saveToLS(current)
 
-  // Sync to Supabase (fire-and-forget)
-  saveKeyToSupabase(key, value)
+  // Sync to Supabase (await so callers know if it failed)
+  const ok = await saveKeyToSupabase(key, value)
+  if (!ok) {
+    console.warn('[config] Supabase write failed for key:', key, '— saved to localStorage only')
+  }
+  return ok
 }

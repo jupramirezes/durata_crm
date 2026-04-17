@@ -389,13 +389,23 @@ export function reducer(state: State, action: Action): State {
       if (!original) return state
       // Discard the original
       const updatedCots = state.cotizaciones.map(c => c.id === cotizacionId ? { ...c, estado: 'descartada' as const } : c)
-      // Create new version copying products and conditions
+      // Create new version copying conditions but clearing stale snapshot/files
+      // D-02 fix: clear productos_snapshot so the editor reads fresh from
+      // productos_oportunidad (which includes any products added after the
+      // original cotización was generated).
       const newCot: Cotizacion = {
         ...original,
         id: newCotId || newId(),
         numero: nuevoNumero,
         estado: 'borrador',
         fecha: todayLocalISO(),
+        total: 0,
+        productos_snapshot: undefined,
+        fecha_envio: undefined,
+        archivo_pdf_url: null,
+        archivo_pdf_nombre: null,
+        archivo_apu_url: null,
+        archivo_apu_nombre: null,
       }
       const allCots = [...updatedCots, newCot]
       const valor = getActiveCotizacionValor(allCots, original.oportunidad_id)
@@ -663,13 +673,26 @@ function syncToSupabase(action: Action, stateBefore: State, rawDispatch: React.D
         const newCotId = action.payload.newCotId || newId()
         // Discard original in DB
         svcCotizaciones.updateCotizacion({ id: origCot.id, estado: 'descartada' }).then(r => log('RECOTIZAR discard', r))
-        // Create new version in DB with explicit id (NOT upsert by numero)
-        svcCotizaciones.duplicateCotizacion(origCot, action.payload.nuevoNumero, newCotId)
-          .then(r => log('RECOTIZAR new', r))
-        // Persist oportunidad.valor_cotizado — new version copies original's total and becomes active
+        // D-02 fix: create new version WITHOUT stale productos_snapshot / files
+        // so the editor reads fresh from productos_oportunidad.
+        svcCotizaciones.createCotizacion({
+          id: newCotId,
+          oportunidad_id: origCot.oportunidad_id,
+          numero: action.payload.nuevoNumero,
+          estado: 'borrador',
+          fecha: todayLocalISO(),
+          total: 0,
+          // Carry over editing conditions from original
+          tiempoEntrega: origCot.tiempoEntrega,
+          incluyeTransporte: origCot.incluyeTransporte,
+          condicionesItems: origCot.condicionesItems,
+          noIncluyeItems: origCot.noIncluyeItems,
+          // productos_snapshot intentionally omitted — editor will load from productos_oportunidad
+        }).then(r => log('RECOTIZAR new', r))
+        // Persist oportunidad.valor_cotizado — new version starts at 0 until PDF is generated
         const simulatedCots = stateBefore.cotizaciones
           .map(c => c.id === origCot.id ? { ...c, estado: 'descartada' as const } : c)
-          .concat([{ ...origCot, id: newCotId, numero: action.payload.nuevoNumero, estado: 'borrador' as const, fecha: todayLocalISO() }])
+          .concat([{ ...origCot, id: newCotId, numero: action.payload.nuevoNumero, estado: 'borrador' as const, fecha: todayLocalISO(), total: 0 }])
         const valor = getActiveCotizacionValor(simulatedCots, origCot.oportunidad_id)
         svcOportunidades.updateOportunidad({ id: origCot.oportunidad_id, valor_cotizado: valor })
           .then(r => log('RECOTIZAR opp', r))

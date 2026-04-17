@@ -40,7 +40,7 @@ export default function EmpresaDetalle() {
 
   function saveEmpresa() {
     if (!empresa) return
-    dispatch({ type: 'UPDATE_EMPRESA', payload: { ...empresa, ...empForm, sector: empForm.sector as Sector } })
+    dispatch({ type: 'UPDATE_EMPRESA', payload: { ...empresa, ...empForm } })
     setEditingEmpresa(false)
     showToast('success', 'Empresa actualizada')
   }

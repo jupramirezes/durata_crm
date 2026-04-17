@@ -34,3 +34,13 @@ export function daysSince(date: string | null | undefined): number {
   if (isNaN(d.getTime()) || d.getFullYear() < 2000) return 0
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000))
 }
+
+/** Trigger a browser download from an in-memory Blob. */
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}

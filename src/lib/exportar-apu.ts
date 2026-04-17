@@ -247,5 +247,8 @@ export function exportApuExcel(params: ApuExportParams) {
     filename += '.xlsx'
   }
 
-  XLSX.writeFile(wb, filename)
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+
+  return { blob, filename }
 }

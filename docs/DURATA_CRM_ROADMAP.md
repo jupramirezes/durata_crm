@@ -145,11 +145,22 @@ Para que los 5 cotizadores empiecen a usar el sistema, necesitan funcionar SIN f
 
 ## 🎯 POST-ESTABILIZACIÓN FASE 1 — Operación diaria (mayo 2026)
 
-### Mejoras UX críticas para adopción
+### UI/UX OVERHAUL (definitivamente necesario — feedback de la demo)
+La interfaz actual no transmite confianza ni profesionalismo. Los usuarios compararon mentalmente con Excel y el sistema se vio inferior visualmente. **Hay que hacer un overhaul completo de UI/UX:**
+- [ ] Migrar a shadcn/ui (componentes profesionales: Button, Dialog, Dropdown, Table, Toast, Tabs)
+- [ ] Rediseñar modales: más grandes, más espaciados, inputs más altos, labels claros
+- [ ] Rediseñar ConfiguradorGenerico: layout profesional tipo CPQ real (ver Figma/Dribbble refs de cotizadores industriales)
+- [ ] Rediseñar Dashboard: cards más limpias, gráficos más informativos, mejor jerarquía visual
+- [ ] Pipeline: cards más informativas, mejor contraste, responsive
+- [ ] Detalle oportunidad: sidebar rediseñado, timeline mejorado, acciones más claras
+- [ ] Paginación y ordenamiento por headers en TODOS los paneles (cotizaciones, precios, empresas)
+- [ ] Responsive completo para tablet/móvil
+- [ ] Tipografía y espaciado consistentes, sistema de design tokens
+- [ ] Flujo de onboarding / tutorial interactivo para nuevos usuarios
+- [ ] Auditar las 12 páginas contra un checklist visual de calidad
+
+### Mejoras funcionales para adopción
 - [ ] D-16: Mejorar ConfiguradorGenerico (crear productos nuevos desde sistema, no Excel)
-- [ ] Modales más grandes y espaciados (generar cotización, nueva oportunidad)
-- [ ] Paginación y ordenamiento por headers en todos los paneles
-- [ ] Responsive para tablet/móvil (Pipeline especialmente)
 - [ ] Paso a paso interactivo / onboarding para cotizadores
 
 ### Automatización básica

@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useStore } from '../lib/store'
-import { SECTORES, COTIZADORES, FUENTES_LEAD, Sector, FuenteLead, Empresa } from '../types'
+import { SECTORES, COTIZADORES, FUENTES_LEAD, Empresa } from '../types'
 import { formatCOP } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 import { X, Building2, UserPlus, Target, ChevronRight, Search, CheckCircle } from 'lucide-react'
+import { loadConfig } from '../hooks/useConfiguracion'
 
 // Map auth email → cotizador ID
 const EMAIL_TO_COTIZADOR: Record<string, string> = {
@@ -26,7 +27,7 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   const [empresaMode, setEmpresaMode] = useState<'search' | 'create'>('search')
   const [empresaSearch, setEmpresaSearch] = useState('')
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string | null>(null)
-  const [newEmpresa, setNewEmpresa] = useState({ nombre: '', nit: '', direccion: '', sector: 'Alimentos' as Sector, notas: '' })
+  const [newEmpresa, setNewEmpresa] = useState({ nombre: '', nit: '', direccion: '', sector: 'Alimentos' as string, notas: '' })
 
   // === Contacto state ===
   const [contactoMode, setContactoMode] = useState<'select' | 'create'>('create')
@@ -38,18 +39,26 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   // === Oportunidad state (cotizador defaults to logged-in user) ===
   const [oportunidad, setOportunidad] = useState({
     cotizador_asignado: 'OC',
-    fuente_lead: 'WhatsApp' as FuenteLead,
+    fuente_lead: 'WhatsApp' as string,
     ubicacion: '',
     notas: '',
   })
 
-  // Auto-assign cotizador from logged-in user
+  // Dynamic config lists (fuentes_lead, sectores from configuracion_sistema)
+  const [cfgFuentes, setCfgFuentes] = useState<string[]>([...FUENTES_LEAD])
+  const [cfgSectores, setCfgSectores] = useState<string[]>([...SECTORES])
+
+  // Auto-assign cotizador from logged-in user + load dynamic config
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         const cotId = EMAIL_TO_COTIZADOR[session.user.email]
         if (cotId) setOportunidad(p => ({ ...p, cotizador_asignado: cotId }))
       }
+    })
+    loadConfig().then(cfg => {
+      if (cfg.fuentes_lead?.length) setCfgFuentes(cfg.fuentes_lead)
+      if (cfg.sectores?.length) setCfgSectores(cfg.sectores)
     })
   }, [])
 
@@ -241,8 +250,8 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
                       <input value={newEmpresa.nit} onChange={e => setNewEmpresa(p => ({ ...p, nit: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl text-sm" />
                     </div>
                     <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Sector</label>
-                      <select value={newEmpresa.sector} onChange={e => setNewEmpresa(p => ({ ...p, sector: e.target.value as Sector }))} className="w-full px-3 py-2.5 rounded-xl text-sm">
-                        {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
+                      <select value={newEmpresa.sector} onChange={e => setNewEmpresa(p => ({ ...p, sector: e.target.value as string }))} className="w-full px-3 py-2.5 rounded-xl text-sm">
+                        {cfgSectores.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                   </div>
@@ -366,8 +375,8 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
                   </select>
                 </div>
                 <div><label className="text-xs font-medium text-[var(--color-text-muted)] mb-1.5 block">Fuente del lead</label>
-                  <select value={oportunidad.fuente_lead} onChange={e => setOportunidad(p => ({ ...p, fuente_lead: e.target.value as FuenteLead }))} className="w-full px-3 py-2.5 rounded-xl text-sm">
-                    {FUENTES_LEAD.map(f => <option key={f} value={f}>{f}</option>)}
+                  <select value={oportunidad.fuente_lead} onChange={e => setOportunidad(p => ({ ...p, fuente_lead: e.target.value as string }))} className="w-full px-3 py-2.5 rounded-xl text-sm">
+                    {cfgFuentes.map(f => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
               </div>

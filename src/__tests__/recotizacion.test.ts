@@ -46,10 +46,10 @@ describe('Recotización', () => {
       type: 'RECOTIZAR',
       payload: { cotizacionId: 'cot570', nuevoNumero: '2026-570A' },
     })
-    // nueva cotización hereda total del original (borrador starts with same total)
+    // nueva cotización starts with total=0 (snapshot cleared, recalculated at PDF gen)
+    // original was descartada so valor_cotizado = sum of non-descartada/rechazada = new version's total
     const opp = result.oportunidades.find(o => o.id === 'opp1')
-    // valor should be the new cotizacion's total (same as original since it copies)
-    expect(opp?.valor_cotizado).toBe(100000000)
+    expect(opp?.valor_cotizado).toBe(0)
   })
 
   it('Al adjudicar, aprueba la última activa y descarta las demás', () => {
