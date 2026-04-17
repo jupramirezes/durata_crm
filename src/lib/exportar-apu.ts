@@ -242,9 +242,7 @@ export function exportApuExcel(params: ApuExportParams) {
   if (preview) {
     filename = `APU_PREVIEW_${dimStr}.xlsx`
   } else {
-    filename = `APU_${cotNum}_${dimStr}`
-    if (empresaNombre) filename += `_${cleanFilename(empresaNombre)}`
-    filename += '.xlsx'
+    filename = `APU_${cotNum}.xlsx`
   }
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })

@@ -110,3 +110,8 @@
 5. **El cotizador es inferior a Excel** (D-16) — no convence para migrar
 
 **Siguiente paso:** Priorizar D-01 a D-05 (bloqueantes de flujo) antes de volver a presentar. D-11/D-12 (etapa recotizada) requiere diseño antes de implementar.
+
+## Nuevos bugs
+- Nombre de APU generado debe ser solo numero de cotización
+- Persiste que al generar cotización no queda guardado el APU en la oportunidad
+

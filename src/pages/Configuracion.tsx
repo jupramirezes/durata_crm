@@ -123,9 +123,13 @@ export default function Configuracion() {
   async function handleSave(key: keyof ConfigSistema, value: unknown) {
     setSaving(true)
     setConfig(prev => ({ ...prev, [key]: value }))
-    await saveConfig(key, value)
+    const ok = await saveConfig(key, value)
     setSaving(false)
-    showToast('Cambios guardados')
+    if (ok) {
+      showToast('Cambios guardados')
+    } else {
+      showToast('Error: solo se guardó localmente, no en servidor')
+    }
   }
 
   if (loading) {
