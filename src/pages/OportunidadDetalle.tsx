@@ -976,20 +976,9 @@ export default function OportunidadDetalle() {
                             >
                               <Paperclip size={13} />
                             </button>
-                            {(() => {
-                              const pid = (p.configuracion?.producto_id || '').toLowerCase()
-                              const spreadsheetEligible = pid === 'mesa' || pid === 'carcamo'
-                              if (!spreadsheetEligible) return null
-                              return (
-                                <button
-                                  onClick={() => navigate(`/oportunidades/${id}/spreadsheet/${pid}`)}
-                                  className="p-1.5 rounded text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition-all border border-dashed border-amber-300"
-                                  title="Probar cotizador tipo Excel (experimental)"
-                                >
-                                  <span className="text-[11px] font-semibold">🧪 Spreadsheet</span>
-                                </button>
-                              )
-                            })()}
+                            {/* Prototipo spreadsheet oculto — queda como referencia, no visible a usuarios.
+                                Si se quiere reactivar: descomentar el bloque y la ruta en App.tsx está activa.
+                                Accesible solo por URL directa: /oportunidades/:id/spreadsheet/:productoId (mesa|carcamo) */}
                             {p.apu_resultado && (
                               <button
                                 onClick={() => {

@@ -605,6 +605,8 @@ async function main() {
   }
 
   const cotQueue: CotRow[] = []
+
+  // 7a) Cotizaciones de oportunidades recién creadas en esta corrida
   for (const [numCot, op] of justCreated) {
     if (existingCotizacionesNumeros.has(numCot)) {
       stats.cotizaciones_skipped++
@@ -623,6 +625,41 @@ async function main() {
       fecha: op.fechaIngreso,
       estado,
       total: op.valorCot,
+    })
+  }
+
+  // 7b) FIX: oportunidades que YA existían en BD pero sin cotización asociada.
+  // Antes este caso se ignoraba — el script saltaba toda la fila en PASO 5 sin
+  // insertar la cotización. Ahora re-leemos MAESTRO para detectar estos casos.
+  for (let i = 1; i < maestroRows.length; i++) {
+    const r = maestroRows[i]
+    if (!r) continue
+    const numCotRaw = toStr(r[6])
+    if (!numCotRaw) continue
+    const numCot = normalizeCot(numCotRaw)
+    if (!numCot) continue
+    // Solo interesa: existe la oportunidad pero NO la cotización
+    if (!existingCots.has(numCot)) continue
+    if (existingCotizacionesNumeros.has(numCot)) continue
+    const existing = existingOpByCot.get(numCot)
+    if (!existing) continue
+    const estadoI = toStr(r[8]).toUpperCase()
+    const anio = toNum(r[2])
+    const fechaIngreso = excelDateToISO(r[1])
+    const derivedEtapa = deriveEtapaFromMaestro(estadoI, anio, fechaIngreso)
+    let estado: string
+    switch (derivedEtapa) {
+      case 'adjudicada': estado = 'aprobada'; break
+      case 'perdida': estado = 'rechazada'; break
+      case 'cotizacion_enviada': estado = 'enviada'; break
+      default: estado = 'borrador'
+    }
+    cotQueue.push({
+      oportunidad_id: existing.id,
+      numero: numCot,
+      fecha: fechaIngreso,
+      estado,
+      total: toNum(r[7]),
     })
   }
 
