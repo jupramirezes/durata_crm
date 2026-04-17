@@ -181,8 +181,9 @@ export default function Dashboard() {
     // D-11: 'recotizada' es estado terminal — se excluye del pipeline activo para no inflar el KPI.
     const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida' && o.etapa !== 'recotizada')
     const valorPipeline = activas.reduce((s, o) => s + o.valor_cotizado, 0)
-    // D-09: Excluir borradores/descartadas/rechazadas (match Excel REGISTRO = cotizadas + adjudicadas)
-    const activeCots = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+    // D-09: Match Excel REGISTRO = todas las cotizaciones cotizadas (enviadas/aprobadas/rechazadas/borrador con valor).
+    // Solo se excluyen las 'descartada' (versiones viejas de recotizaciones) y borradores vacíos (total=0).
+    const activeCots = cotizaciones.filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
     const cotsMes = activeCots.filter(c => {
       const d = new Date(c.fecha)
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -226,7 +227,7 @@ export default function Dashboard() {
   function buildMonthRow(year: number, month: number): MetricsRow {
     // D-09: Excluir borradores (no son cotizaciones emitidas)
     const cotsM = cotizaciones
-      .filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+      .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
       .filter(c => { const d = new Date(c.fecha); return d.getMonth() === month && d.getFullYear() === year })
     const cotValor = cotsM.reduce((s, c) => s + c.total, 0)
 
@@ -296,7 +297,7 @@ export default function Dashboard() {
   const { yearRows, totalRow } = useMemo(() => { const yearRows: MetricsRow[] = years.map(year => {
     // D-09: Excluir borradores (match Excel REGISTRO)
     const cotsY = cotizaciones
-      .filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+      .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
       .filter(c => new Date(c.fecha).getFullYear() === year)
     const cotValor = cotsY.reduce((s, c) => s + c.total, 0)
 
@@ -330,7 +331,7 @@ export default function Dashboard() {
       ? yearRows.reduce((s, r) => s + r.adjValor, 0) / yearRows.reduce((s, r) => s + r.adjQty, 0) : 0,
     // D-09: TOTAL row también usa cotizaciones (no oportunidades) para consistencia con filas anuales
     avgDias: avgDias(calcDiasCotizaciones(
-      cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+      cotizaciones.filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
     )),
   }
   return { yearRows, totalRow }
@@ -345,7 +346,7 @@ export default function Dashboard() {
   function buildPeriodMetrics(year: number, throughMonth: number) {
     // D-09: Excluir borradores (match Excel REGISTRO)
     const periodCots = cotizaciones
-      .filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+      .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
       .filter(c => {
         const d = new Date(c.fecha)
         return d.getFullYear() === year && d.getMonth() <= throughMonth
