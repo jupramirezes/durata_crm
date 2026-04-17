@@ -1,7 +1,7 @@
 // ==============================
 // ETAPAS (8 stages pipeline)
 // ==============================
-export type Etapa = 'nuevo_lead' | 'en_cotizacion' | 'cotizacion_enviada' | 'recotizada' | 'en_seguimiento' | 'en_negociacion' | 'adjudicada' | 'perdida'
+export type Etapa = 'nuevo_lead' | 'en_cotizacion' | 'cotizacion_enviada' | 'en_seguimiento' | 'en_negociacion' | 'adjudicada' | 'recotizada' | 'perdida'
 
 interface EtapaDef { key: Etapa; label: string; color: string }
 
@@ -9,12 +9,13 @@ const ETAPAS_DEFAULTS: EtapaDef[] = [
   { key: 'nuevo_lead', label: 'Nuevo Lead', color: '#3b82f6' },
   { key: 'en_cotizacion', label: 'En Cotización', color: '#a855f7' },
   { key: 'cotizacion_enviada', label: 'Cotización Enviada', color: '#06b6d4' },
-  // D-11: etapa intermedia para oportunidades con cotizaciones descartadas pero aún activas.
-  // NO suma al pipeline de valor cotizado (getActiveCotizacionValor excluye descartadas/rechazadas).
-  { key: 'recotizada', label: 'Recotizada', color: '#9333ea' },
   { key: 'en_seguimiento', label: 'En Seguimiento', color: '#eab308' },
   { key: 'en_negociacion', label: 'En Negociación', color: '#f97316' },
   { key: 'adjudicada', label: 'Adjudicada', color: '#22c55e' },
+  // D-11: estado terminal alternativo — oportunidades con cotizaciones descartadas/consolidadas.
+  // NO suma al pipeline activo (ver Dashboard/Pipeline filters). getActiveCotizacionValor sigue
+  // excluyendo descartadas/rechazadas: el valor refleja cotización nueva en borrador (0 si no hay).
+  { key: 'recotizada', label: 'Recotizada/Consolidada', color: '#9333ea' },
   { key: 'perdida', label: 'Perdida', color: '#ef4444' },
 ]
 

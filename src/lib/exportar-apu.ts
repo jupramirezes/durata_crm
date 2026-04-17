@@ -6,10 +6,6 @@ import * as XLSX from 'xlsx'
 import type { ApuResultado, ConfigMesa } from '../types'
 import { isProductoSnapshot } from '../types'
 
-/** Sanitize filename characters */
-function cleanFilename(s: string): string {
-  return (s || '').replace(/[\/\\:*?"<>|#%&{}$!'@+`=]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').substring(0, 50)
-}
 
 interface ApuExportParams {
   resultado: ApuResultado

@@ -8,8 +8,10 @@ import OportunidadFormModal from '../components/OportunidadFormModal'
 import { supabase } from '../lib/supabase'
 import { CONFIG_DEFAULTS } from '../hooks/useConfiguracion'
 
+// D-11: 'recotizada' es estado terminal alternativo — la columna aparece (por iterar ETAPAS),
+// pero NO se considera activa en el filtro por defecto "solo activas".
 const ETAPAS_ACTIVAS: Set<string> = new Set([
-  'nuevo_lead', 'en_cotizacion', 'cotizacion_enviada', 'recotizada', 'en_seguimiento', 'en_negociacion',
+  'nuevo_lead', 'en_cotizacion', 'cotizacion_enviada', 'en_seguimiento', 'en_negociacion',
 ])
 
 function isActive(op: { etapa: string; fecha_ingreso?: string }): boolean {

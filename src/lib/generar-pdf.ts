@@ -173,12 +173,25 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   y += 8
 
   // Products table
+  // D-07: detect whether ANY product has an image. If so, render a dedicated IMAGEN column.
+  // If none do, layout stays identical to the previous (no-image) version.
+  const anyHasImage = productos.some((p) => !!(p as any).imagen_render || !!(p as any).imagen_url)
+
+  // Thumbnail cell size (mm). Column is a bit wider than the image to leave padding.
+  const IMG_CELL_W = 24 // column width
+  const IMG_W = 20      // rendered image width
+  const IMG_H = 15      // rendered image height
+
   const colCant = mL
   const colUnd = mL + 14
-  const colDesc = mL + 28
+  const colImg = anyHasImage ? mL + 28 : 0 // only used when anyHasImage
+  const colDesc = anyHasImage ? mL + 28 + IMG_CELL_W : mL + 28
   const colVUnit = pageW - mR - 56
   const colVTotal = pageW - mR
-  const descW = colVUnit - colDesc - 18
+  // Preserve the original (pre-image-column) description padding when no image column is shown,
+  // so layouts without images look identical to before. With image column, use a tighter padding
+  // since the image already provides visual separation.
+  const descW = anyHasImage ? colVUnit - colDesc - 4 : colVUnit - colDesc - 18
 
   // Table header
   const thH = 7
@@ -190,6 +203,9 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const thY = y + 5
   doc.text('CANT', colCant + 2, thY)
   doc.text('UND', colUnd + 2, thY)
+  if (anyHasImage) {
+    doc.text('IMAGEN', colImg + 2, thY)
+  }
   doc.text('DESCRIPCION', colDesc + 2, thY)
   doc.text('VR. UNIT', colVUnit, thY, { align: 'right' })
   doc.text('VR. TOTAL', colVTotal - 2, thY, { align: 'right' })
@@ -206,15 +222,15 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
     const descText = p.descripcion_comercial || p.subtipo
-    // D-07: if product has an image (either user-attached imagen_url or 3D render),
-    // reserve space on the LEFT of the description for a thumbnail.
+    // D-07: if the table has an IMAGEN column, the image for this product (if any)
+    // is rendered in that dedicated cell. Description width is independent of the image.
     const hasImage = !!(p as any).imagen_render || !!(p as any).imagen_url
-    const imgW = hasImage ? 22 : 0 // ~22mm wide thumbnail
-    const imgH = hasImage ? 18 : 0
-    const imgGap = hasImage ? 2 : 0
-    const descLines: string[] = doc.splitTextToSize(descText, descW - imgW - imgGap)
+    const descLines: string[] = doc.splitTextToSize(descText, descW)
     const descHeight = descLines.length * 3.5
-    const rowH = Math.max(descHeight + 6, hasImage ? imgH + 4 : 0, 10)
+    // Row must be tall enough to fit the description text AND (if this product has an image
+    // or the table reserves an image column) the thumbnail plus a small padding.
+    const imageRowMin = anyHasImage ? IMG_H + 4 : 0
+    const rowH = Math.max(descHeight + 6, imageRowMin, 10)
 
     checkPage(rowH + 2)
 
@@ -234,23 +250,23 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     doc.text(fmtQty(p.cantidad), colCant + 2, topY)
     doc.text((p as any).unidad || 'UND', colUnd + 2, topY)
 
-    // D-07: render image on the LEFT of the description (same row as product line).
+    // D-07: render image inside the dedicated IMAGEN column (centered within the cell).
     // Supports data URLs (base64 from file picker / canvas capture) and http(s) URLs.
     // jsPDF auto-detects format from data URL prefix when format arg is 'PNG' or 'JPEG'.
-    let descX = colDesc + 2
-    if (hasImage) {
+    if (anyHasImage && hasImage) {
       try {
         const imgSrc = (p as any).imagen_url || (p as any).imagen_render
         const fmt = typeof imgSrc === 'string' && imgSrc.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG'
-        doc.addImage(imgSrc, fmt, colDesc + 2, y + 2, imgW, imgH)
-        descX = colDesc + 2 + imgW + imgGap
+        const imgX = colImg + (IMG_CELL_W - IMG_W) / 2
+        const imgY = y + (rowH - IMG_H) / 2
+        doc.addImage(imgSrc, fmt, imgX, imgY, IMG_W, IMG_H)
       } catch (_) { /* skip if image fails — description still renders */ }
     }
 
-    // Description (shifted right if image present)
+    // Description
     doc.setFontSize(7)
     for (let li = 0; li < descLines.length; li++) {
-      doc.text(descLines[li], descX, topY + li * 3.5)
+      doc.text(descLines[li], colDesc + 2, topY + li * 3.5)
     }
 
     // Prices at top, right-aligned with clear separation from description

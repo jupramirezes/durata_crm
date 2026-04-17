@@ -15,7 +15,7 @@ import {
   ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
   StickyNote, Send, Wrench, X, ChevronDown, Copy, Download, Clock,
   ArrowRightLeft, MessageSquare, Box, Phone, Mail, AlertCircle,
-  Paperclip, FileSpreadsheet, File, RotateCcw,
+  Paperclip, FileSpreadsheet, File as FileIcon, RotateCcw,
 } from 'lucide-react'
 
 const CATEGORIAS_PRODUCTO = [
@@ -546,7 +546,7 @@ export default function OportunidadDetalle() {
     const cot = cotizaciones.find(c => c.id === cotId)
     if (!cot || !contacto) return
     try {
-      const { blob, filename, totalFinal } = generarPdfCotizacion({
+      const { blob, filename } = generarPdfCotizacion({
         numero: cot.numero,
         fecha: cot.fecha,
         nombreProducto: productos[0]?.subtipo || 'Producto',
@@ -1085,7 +1085,7 @@ export default function OportunidadDetalle() {
                                 }}
                                 className="flex items-center gap-1.5 px-2 py-1 hover:bg-red-100 transition-all text-[10px] text-red-700"
                               >
-                                <File size={12} className="text-red-500" />
+                                <FileIcon size={12} className="text-red-500" />
                                 {p.archivo_pdf_nombre}
                                 <Download size={10} />
                               </button>
@@ -1137,7 +1137,7 @@ export default function OportunidadDetalle() {
                               setAttachingProduct(null)
                             }} />
                             <button onClick={() => attachPdfRef.current?.click()} disabled={uploading} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-300 bg-white hover:bg-red-50 text-[10px] text-red-600 transition-all disabled:opacity-50">
-                              <File size={12} /> {p.archivo_pdf_nombre ? 'Reemplazar PDF' : 'Subir PDF (.pdf)'}
+                              <FileIcon size={12} /> {p.archivo_pdf_nombre ? 'Reemplazar PDF' : 'Subir PDF (.pdf)'}
                             </button>
                           </div>
                           {uploading && <p className="text-[10px] text-blue-500 mt-1">Subiendo...</p>}
@@ -1174,7 +1174,7 @@ export default function OportunidadDetalle() {
                   const isExcel = ['xlsx', 'xlsm', 'xls'].includes(ext)
                   const isPdf = ext === 'pdf'
                   const iconColor = isExcel ? 'text-emerald-500' : isPdf ? 'text-red-500' : 'text-slate-400'
-                  const IconFile = isExcel ? FileSpreadsheet : isPdf ? File : Paperclip
+                  const IconFile = isExcel ? FileSpreadsheet : isPdf ? FileIcon : Paperclip
                   const sizeStr = f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : f.size > 0 ? `${Math.round(f.size / 1024)} KB` : ''
                   return (
                     <div key={f.path} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-surface)] group transition-colors">
@@ -1842,13 +1842,13 @@ export default function OportunidadDetalle() {
                     <input ref={pdfInputRef} type="file" accept={acceptString('pdf')} className="hidden" onChange={e => { if (e.target.files?.[0]) setManualPdfFile(e.target.files[0]) }} />
                     {manualPdfFile ? (
                       <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex-1">
-                        <File size={14} className="text-red-500 shrink-0" />
+                        <FileIcon size={14} className="text-red-500 shrink-0" />
                         <span className="text-xs text-red-800 truncate flex-1">{manualPdfFile.name}</span>
                         <button onClick={() => { setManualPdfFile(null); if (pdfInputRef.current) pdfInputRef.current.value = '' }} className="text-red-400 hover:text-red-600"><X size={14} /></button>
                       </div>
                     ) : (
                       <button onClick={() => pdfInputRef.current?.click()} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/30 text-xs text-[var(--color-text-muted)] transition-all flex-1">
-                        <File size={14} className="text-red-400" /> PDF Cotizacion (.pdf)
+                        <FileIcon size={14} className="text-red-400" /> PDF Cotizacion (.pdf)
                       </button>
                     )}
                   </div>
@@ -2091,7 +2091,7 @@ function CotAdjuntos({ cot, oportunidadId }: { cot: Cotizacion; oportunidadId: s
             onClick={() => handleDownload(cot.archivo_pdf_url!, cot.archivo_pdf_nombre!)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-red-100 text-[10px] text-red-700"
           >
-            <File size={12} /> {cot.archivo_pdf_nombre} <Download size={10} />
+            <FileIcon size={12} /> {cot.archivo_pdf_nombre} <Download size={10} />
           </button>
           <button
             onClick={() => handleRemove('pdf')}
@@ -2109,7 +2109,7 @@ function CotAdjuntos({ cot, oportunidadId }: { cot: Cotizacion; oportunidadId: s
             disabled={uploading !== null}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-red-300 bg-white hover:bg-red-50 text-[10px] text-red-600 disabled:opacity-50"
           >
-            <File size={12} /> {uploading === 'pdf' ? 'Subiendo…' : '+ PDF'}
+            <FileIcon size={12} /> {uploading === 'pdf' ? 'Subiendo…' : '+ PDF'}
           </button>
         </>
       )}

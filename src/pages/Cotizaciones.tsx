@@ -4,7 +4,7 @@ import { useStore } from '../lib/store'
 import { findCotizador } from '../types'
 import { formatCOP, formatDate, getAvatarColor } from '../lib/utils'
 import { PageHeader } from '../components/ui'
-import { FileText, Copy, Trash2, Edit3, ChevronUp, ChevronDown, Search, Download } from 'lucide-react'
+import { FileText, Copy, Trash2, ExternalLink, ChevronUp, ChevronDown, Search, Download } from 'lucide-react'
 import { exportCotizacionesExcel } from '../lib/exportar-cotizaciones'
 
 const PAGE_SIZE = 50
@@ -182,14 +182,21 @@ export default function Cotizaciones() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((c, i) => (
-                <tr key={c.id} className={`border-t border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'}`}>
+              {visible.map((c, i) => {
+                const goToOportunidad = () => c.oportunidad && navigate(`/oportunidades/${c.oportunidad.id}`)
+                const rowClickable = !!c.oportunidad
+                return (
+                <tr
+                  key={c.id}
+                  onClick={rowClickable ? goToOportunidad : undefined}
+                  className={`border-t border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors ${i % 2 === 1 ? 'bg-[var(--color-surface)]' : 'bg-white'} ${rowClickable ? 'cursor-pointer' : ''}`}
+                >
                   <td className="px-4 py-2.5 font-medium font-mono text-[var(--color-text)]">{c.numero}</td>
-                  <td className="px-4 py-2.5 cursor-pointer hover:text-[var(--color-primary)] text-[var(--color-text)]" onClick={() => c.oportunidad && navigate(`/oportunidades/${c.oportunidad.id}`)}>{c.empresaNombre}</td>
+                  <td className="px-4 py-2.5 text-[var(--color-text)]">{c.empresaNombre}</td>
                   <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{c.contactoNombre}</td>
                   <td className="px-4 py-2.5 text-[var(--color-text-muted)]">{formatDate(c.fecha)}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-[var(--color-text)] font-mono">{formatCOP(c.total)}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
                     <select value={c.estado} onChange={e => dispatch({ type: 'UPDATE_COTIZACION_ESTADO', payload: { id: c.id, estado: e.target.value as any } })} className="text-[10px] px-2 py-1 rounded bg-[var(--color-surface)] border border-[var(--color-border)] font-medium text-[var(--color-text)]">
                       <option value="borrador">Borrador</option>
                       <option value="enviada">Enviada</option>
@@ -206,14 +213,17 @@ export default function Cotizaciones() {
                       >{c.cotizadorIniciales}</span>
                     ) : '—'}
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2.5 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
-                        className="flex items-center gap-1 text-[10px] px-2 py-1 rounded text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] font-medium transition-all"
-                      >
-                        <Edit3 size={10} /> Editar
-                      </button>
+                      {rowClickable && (
+                        <button
+                          onClick={goToOportunidad}
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded text-[var(--color-primary)] hover:bg-[var(--color-surface)] border border-[var(--color-border)] font-medium transition-all"
+                          title="Ver oportunidad"
+                        >
+                          <ExternalLink size={10} /> Ver
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           const nuevoNumero = prompt('Numero de la nueva cotizacion:') || ''
@@ -241,7 +251,8 @@ export default function Cotizaciones() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
 

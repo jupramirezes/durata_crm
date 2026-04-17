@@ -32,12 +32,31 @@ function calcDiasElaboracion(ops: { fecha_ingreso?: string | null; fecha_envio?:
   return dias
 }
 
+/** Calculates days between fecha (cotización creation) and fecha_envio for cotizaciones.
+ * Used for monthly/yearly metrics — aligns with Excel REGISTRO which measures per-cotización. */
+function calcDiasCotizaciones(cots: { fecha?: string | null; fecha_envio?: string | null }[]): number[] {
+  const dias: number[] = []
+  for (const c of cots) {
+    if (!c.fecha || !c.fecha_envio) continue
+    const ini = new Date(c.fecha).getTime()
+    const env = new Date(c.fecha_envio).getTime()
+    if (!isFinite(ini) || !isFinite(env) || ini <= 0 || env <= 0) continue
+    const diff = Math.floor((env - ini) / 86400000)
+    if (diff >= 0 && diff <= 365) dias.push(diff)
+  }
+  return dias
+}
+
+/** Returns -1 as sentinel for "no data" (empty array). 0 = same-day avg (valid).
+ * fmtDias distinguishes: -1 → "—", 0-0.5 → "<1d", else → "N.Nd". */
 function avgDias(dias: number[]): number {
-  return dias.length > 0 ? dias.reduce((s, d) => s + d, 0) / dias.length : 0
+  return dias.length > 0 ? dias.reduce((s, d) => s + d, 0) / dias.length : -1
 }
 
 function fmtDias(val: number): string {
-  return val > 0 ? `${val.toFixed(1)}d` : '—'
+  if (!isFinite(val) || val < 0) return '—'
+  if (val < 0.5) return '<1d'
+  return `${val.toFixed(1)}d`
 }
 
 /** Percent badge with color coding: green >15%, yellow 8-15%, red <8% */
@@ -62,7 +81,8 @@ function VariationBadge({ value, suffix = '%', invert = false }: { value: number
   )
 }
 
-const PIPELINE_ACTIVO: Etapa[] = ['cotizacion_enviada', 'recotizada', 'en_seguimiento', 'en_negociacion']
+// D-11: 'recotizada' ahora es estado terminal alternativo — NO cuenta como pipeline activo.
+const PIPELINE_ACTIVO: Etapa[] = ['cotizacion_enviada', 'en_seguimiento', 'en_negociacion']
 const MIN_PIPELINE_VALOR = 20_000_000
 
 /* ── types ────────────────────────────────────────────── */
@@ -158,10 +178,11 @@ export default function Dashboard() {
 
   /* ── SECCIÓN 1: Resumen general ───────────────────── */
   const { activas, valorPipeline, cotsMes, totalMes, tasaCierre, tasaCierreValor, etapaCounts, totalOps, adjOportunidades } = useMemo(() => {
-    const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida')
+    // D-11: 'recotizada' es estado terminal — se excluye del pipeline activo para no inflar el KPI.
+    const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida' && o.etapa !== 'recotizada')
     const valorPipeline = activas.reduce((s, o) => s + o.valor_cotizado, 0)
-    // Excluir descartadas/rechazadas de KPIs mensuales (match Excel REGISTRO)
-    const activeCots = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada')
+    // D-09: Excluir borradores/descartadas/rechazadas (match Excel REGISTRO = cotizadas + adjudicadas)
+    const activeCots = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
     const cotsMes = activeCots.filter(c => {
       const d = new Date(c.fecha)
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -203,7 +224,10 @@ export default function Dashboard() {
   }
 
   function buildMonthRow(year: number, month: number): MetricsRow {
-    const cotsM = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada').filter(c => { const d = new Date(c.fecha); return d.getMonth() === month && d.getFullYear() === year })
+    // D-09: Excluir borradores (no son cotizaciones emitidas)
+    const cotsM = cotizaciones
+      .filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+      .filter(c => { const d = new Date(c.fecha); return d.getMonth() === month && d.getFullYear() === year })
     const cotValor = cotsM.reduce((s, c) => s + c.total, 0)
 
     const adjOps = adjOportunidades.filter(o => {
@@ -217,10 +241,9 @@ export default function Dashboard() {
     const avgCot = cotsM.length > 0 ? cotValor / cotsM.length : 0
     const avgAdj = adjOps.length > 0 ? adjValor / adjOps.length : 0
 
-    const opsThisMonth = new Set(cotsM.map(c => c.oportunidad_id))
-    const diasArr = calcDiasElaboracion(
-      [...opsThisMonth].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x != null)
-    )
+    // D-09: Usar fecha de la cotización (creación → envío) para que coincida con el Excel REGISTRO.
+    // Antes se usaba fecha_ingreso/fecha_envio de la oportunidad, que frecuentemente son iguales.
+    const diasArr = calcDiasCotizaciones(cotsM)
 
     return { label: monthLabel(year, month), cotQty: cotsM.length, cotValor, adjQty: adjOps.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
   }
@@ -271,7 +294,10 @@ export default function Dashboard() {
   /* ── SECCIÓN 6: Evolución anual ───────────────────── */
   const years = [2021, 2022, 2023, 2024, 2025, 2026]
   const { yearRows, totalRow } = useMemo(() => { const yearRows: MetricsRow[] = years.map(year => {
-    const cotsY = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada').filter(c => new Date(c.fecha).getFullYear() === year)
+    // D-09: Excluir borradores (match Excel REGISTRO)
+    const cotsY = cotizaciones
+      .filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+      .filter(c => new Date(c.fecha).getFullYear() === year)
     const cotValor = cotsY.reduce((s, c) => s + c.total, 0)
 
     const adjOpsY = adjOportunidades.filter(o => {
@@ -283,10 +309,8 @@ export default function Dashboard() {
     const avgCot = cotsY.length > 0 ? cotValor / cotsY.length : 0
     const avgAdj = adjOpsY.length > 0 ? adjValor / adjOpsY.length : 0
 
-    const opsThisYear = new Set(cotsY.map(c => c.oportunidad_id))
-    const diasArr = calcDiasElaboracion(
-      [...opsThisYear].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x != null)
-    )
+    // D-09: Días elaboración desde fecha cotización → fecha envío (cotización-level, no opp)
+    const diasArr = calcDiasCotizaciones(cotsY)
 
     return { label: String(year), cotQty: cotsY.length, cotValor, adjQty: adjOpsY.length, adjValor, pctAdj, avgCot, avgAdj, avgDias: avgDias(diasArr) }
   })
@@ -304,7 +328,10 @@ export default function Dashboard() {
       ? yearRows.reduce((s, r) => s + r.cotValor, 0) / yearRows.reduce((s, r) => s + r.cotQty, 0) : 0,
     avgAdj: yearRows.reduce((s, r) => s + r.adjQty, 0) > 0
       ? yearRows.reduce((s, r) => s + r.adjValor, 0) / yearRows.reduce((s, r) => s + r.adjQty, 0) : 0,
-    avgDias: avgDias(calcDiasElaboracion(oportunidades)),
+    // D-09: TOTAL row también usa cotizaciones (no oportunidades) para consistencia con filas anuales
+    avgDias: avgDias(calcDiasCotizaciones(
+      cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+    )),
   }
   return { yearRows, totalRow }
   }, [oportunidades, cotizaciones])
@@ -316,10 +343,13 @@ export default function Dashboard() {
   const prevPeriodLabel = `${MONTH_NAMES[0]}-${MONTH_NAMES[currentMonth]} ${currentYear - 1}`
 
   function buildPeriodMetrics(year: number, throughMonth: number) {
-    const periodCots = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada').filter(c => {
-      const d = new Date(c.fecha)
-      return d.getFullYear() === year && d.getMonth() <= throughMonth
-    })
+    // D-09: Excluir borradores (match Excel REGISTRO)
+    const periodCots = cotizaciones
+      .filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada' && c.estado !== 'borrador')
+      .filter(c => {
+        const d = new Date(c.fecha)
+        return d.getFullYear() === year && d.getMonth() <= throughMonth
+      })
     const cotValor = periodCots.reduce((s, c) => s + c.total, 0)
     const cotQty = periodCots.length
 
@@ -332,10 +362,8 @@ export default function Dashboard() {
 
     const pctAdj = cotValor > 0 ? (adjValor / cotValor) * 100 : 0
 
-    const opsIds = new Set(periodCots.map(c => c.oportunidad_id))
-    const diasArr = calcDiasElaboracion(
-      [...opsIds].map(opId => opMap.get(opId)).filter((x): x is typeof oportunidades[0] => x != null)
-    )
+    // D-09: Usar fecha/fecha_envio de la cotización (no de la oportunidad)
+    const diasArr = calcDiasCotizaciones(periodCots)
     const dias = avgDias(diasArr)
 
     return { cotQty, cotValor, adjQty, adjValor, pctAdj, dias }
@@ -355,7 +383,7 @@ export default function Dashboard() {
     { metric: 'Adjudicaciones', prev: String(prevYearMetrics.adjQty), curr: String(thisYearMetrics.adjQty), variation: pctChange(thisYearMetrics.adjQty, prevYearMetrics.adjQty), suffix: '%' },
     { metric: 'Valor adjudicado', prev: formatCOP(prevYearMetrics.adjValor), curr: formatCOP(thisYearMetrics.adjValor), variation: pctChange(thisYearMetrics.adjValor, prevYearMetrics.adjValor), suffix: '%' },
     { metric: '% Adjudicación', prev: `${prevYearMetrics.pctAdj.toFixed(1)}%`, curr: `${thisYearMetrics.pctAdj.toFixed(1)}%`, variation: thisYearMetrics.pctAdj - prevYearMetrics.pctAdj, suffix: 'pp' },
-    { metric: 'Días promedio', prev: prevYearMetrics.dias > 0 ? prevYearMetrics.dias.toFixed(1) : '—', curr: thisYearMetrics.dias > 0 ? thisYearMetrics.dias.toFixed(1) : '—', variation: pctChange(thisYearMetrics.dias, prevYearMetrics.dias), suffix: '%', invert: true },
+    { metric: 'Días promedio', prev: fmtDias(prevYearMetrics.dias), curr: fmtDias(thisYearMetrics.dias), variation: pctChange(Math.max(thisYearMetrics.dias, 0), Math.max(prevYearMetrics.dias, 0)), suffix: '%', invert: true },
   ], [oportunidades, cotizaciones])
 
   /* ── Table styles ────────────────────────────────── */

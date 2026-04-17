@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { findCotizador, Sector } from '../types'
+import { findCotizador } from '../types'
 import { formatCOP, formatDate, getAvatarColor } from '../lib/utils'
 import { EtapaBadge } from '../components/ui'
 import { showToast } from '../components/Toast'
