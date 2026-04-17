@@ -206,13 +206,15 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
     const descText = p.descripcion_comercial || p.subtipo
-    const descLines: string[] = doc.splitTextToSize(descText, descW)
+    // D-07: if product has an image (either user-attached imagen_url or 3D render),
+    // reserve space on the LEFT of the description for a thumbnail.
+    const hasImage = !!(p as any).imagen_render || !!(p as any).imagen_url
+    const imgW = hasImage ? 22 : 0 // ~22mm wide thumbnail
+    const imgH = hasImage ? 18 : 0
+    const imgGap = hasImage ? 2 : 0
+    const descLines: string[] = doc.splitTextToSize(descText, descW - imgW - imgGap)
     const descHeight = descLines.length * 3.5
-    // If product has a 3D render image, add space for it below description
-    const hasImage = !!(p as any).imagen_render
-    const imgH = hasImage ? 28 : 0 // ~28mm for image
-    const imgW = hasImage ? 38 : 0
-    const rowH = Math.max(descHeight + 6 + imgH, 10)
+    const rowH = Math.max(descHeight + 6, hasImage ? imgH + 4 : 0, 10)
 
     checkPage(rowH + 2)
 
@@ -232,18 +234,23 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
     doc.text(fmtQty(p.cantidad), colCant + 2, topY)
     doc.text((p as any).unidad || 'UND', colUnd + 2, topY)
 
-    // Description starting at top
-    doc.setFontSize(7)
-    for (let li = 0; li < descLines.length; li++) {
-      doc.text(descLines[li], colDesc + 2, topY + li * 3.5)
-    }
-
-    // Render image below description (if available)
+    // D-07: render image on the LEFT of the description (same row as product line).
+    // Supports data URLs (base64 from file picker / canvas capture) and http(s) URLs.
+    // jsPDF auto-detects format from data URL prefix when format arg is 'PNG' or 'JPEG'.
+    let descX = colDesc + 2
     if (hasImage) {
       try {
-        const imgY = topY + descHeight + 2
-        doc.addImage((p as any).imagen_render, 'PNG', colDesc + 2, imgY, imgW, imgH)
-      } catch (_) { /* skip if image fails */ }
+        const imgSrc = (p as any).imagen_url || (p as any).imagen_render
+        const fmt = typeof imgSrc === 'string' && imgSrc.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG'
+        doc.addImage(imgSrc, fmt, colDesc + 2, y + 2, imgW, imgH)
+        descX = colDesc + 2 + imgW + imgGap
+      } catch (_) { /* skip if image fails — description still renders */ }
+    }
+
+    // Description (shifted right if image present)
+    doc.setFontSize(7)
+    for (let li = 0; li < descLines.length; li++) {
+      doc.text(descLines[li], descX, topY + li * 3.5)
     }
 
     // Prices at top, right-aligned with clear separation from description

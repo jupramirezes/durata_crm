@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { StoreProvider } from './lib/store'
 import { supabase, isSupabaseReady } from './lib/supabase'
@@ -17,6 +17,8 @@ import CotizacionEditor from './pages/CotizacionEditor'
 import Precios from './pages/Precios'
 import PreciosImportar from './pages/PreciosImportar'
 import Configuracion from './pages/Configuracion'
+// Lazy-load the spreadsheet prototype so Univer (~3MB) is only fetched when used
+const SpreadsheetPrototype = lazy(() => import('./pages/SpreadsheetPrototype'))
 import { ToastProvider } from './components/Toast'
 
 function Layout({ children, user }: { children: React.ReactNode; user: User }) {
@@ -94,6 +96,15 @@ export default function App() {
               <Route path="/precios" element={<Precios />} />
               <Route path="/precios/importar" element={<PreciosImportar />} />
               <Route path="/config" element={<Configuracion />} />
+              {/* Prototipo experimental: cotizador con spreadsheet embebido (lazy-loaded) */}
+              <Route
+                path="/oportunidades/:id/spreadsheet/:productoId"
+                element={
+                  <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando spreadsheet...</div>}>
+                    <SpreadsheetPrototype />
+                  </Suspense>
+                }
+              />
             </Routes>
           </Layout>
         </BrowserRouter>

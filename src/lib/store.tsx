@@ -410,10 +410,24 @@ export function reducer(state: State, action: Action): State {
       }
       const allCots = [...updatedCots, newCot]
       const valor = getActiveCotizacionValor(allCots, original.oportunidad_id)
+      // D-11: move the oportunidad to 'recotizada' so the pipeline refleja visualmente
+      // que tiene cotizaciones descartadas pero sigue activa. No se registra en historial
+      // si la etapa anterior ya era 'recotizada' (re-recotización sobre la misma).
+      const opp = state.oportunidades.find(o => o.id === original.oportunidad_id)
+      const etapaAnterior = opp?.etapa
+      // Only move if not in a final stage (adjudicada/perdida) — no downgrade
+      const finalStates: Etapa[] = ['adjudicada', 'perdida']
+      const shouldMoveEtapa = opp && etapaAnterior !== 'recotizada' && !finalStates.includes(etapaAnterior as Etapa)
+      const newHistorial = shouldMoveEtapa
+        ? [...state.historial, { id: newId(), oportunidad_id: original.oportunidad_id, etapa_anterior: etapaAnterior || '', etapa_nueva: 'recotizada', created_at: new Date().toISOString() }]
+        : state.historial
       return {
         ...state,
         cotizaciones: allCots,
-        oportunidades: state.oportunidades.map(o => o.id === original.oportunidad_id ? { ...o, valor_cotizado: valor } : o),
+        oportunidades: state.oportunidades.map(o => o.id === original.oportunidad_id
+          ? { ...o, valor_cotizado: valor, ...(shouldMoveEtapa ? { etapa: 'recotizada' as const, fecha_ultimo_contacto: todayLocalISO() } : {}) }
+          : o),
+        historial: newHistorial,
       }
     }
     // D-12: Reactivar — swap a descartada cotización back to active, discard the current active one
@@ -434,12 +448,30 @@ export function reducer(state: State, action: Action): State {
         return c
       })
       const valor = getActiveCotizacionValor(updCots, descartada.oportunidad_id)
+      // D-12: si la oportunidad estaba en 'recotizada' y ahora queda una sola cotización
+      // activa tras el swap, moverla a 'cotizacion_enviada' (si la restaurada tiene fecha_envio)
+      // o a 'en_cotizacion' (si quedó como borrador). Registra entrada en historial.
+      const opp = state.oportunidades.find(o => o.id === descartada.oportunidad_id)
+      let newHistorial = state.historial
+      let etapaUpdate: Partial<Oportunidad> = {}
+      if (opp && opp.etapa === 'recotizada') {
+        const nuevaEtapa: Etapa = restoredEstado === 'enviada' ? 'cotizacion_enviada' : 'en_cotizacion'
+        etapaUpdate = { etapa: nuevaEtapa, fecha_ultimo_contacto: todayLocalISO() }
+        newHistorial = [...state.historial, {
+          id: newId(),
+          oportunidad_id: descartada.oportunidad_id,
+          etapa_anterior: 'recotizada',
+          etapa_nueva: nuevaEtapa,
+          created_at: new Date().toISOString(),
+        }]
+      }
       return {
         ...state,
         cotizaciones: updCots,
         oportunidades: state.oportunidades.map(o =>
-          o.id === descartada.oportunidad_id ? { ...o, valor_cotizado: valor } : o
+          o.id === descartada.oportunidad_id ? { ...o, valor_cotizado: valor, ...etapaUpdate } : o
         ),
+        historial: newHistorial,
       }
     }
     // B-01: local rollback when Supabase INSERT fails — never synced back to DB
@@ -721,8 +753,27 @@ function syncToSupabase(action: Action, stateBefore: State, rawDispatch: React.D
           .map(c => c.id === origCot.id ? { ...c, estado: 'descartada' as const } : c)
           .concat([{ ...origCot, id: newCotId, numero: action.payload.nuevoNumero, estado: 'borrador' as const, fecha: todayLocalISO(), total: 0 }])
         const valor = getActiveCotizacionValor(simulatedCots, origCot.oportunidad_id)
-        svcOportunidades.updateOportunidad({ id: origCot.oportunidad_id, valor_cotizado: valor })
-          .then(r => log('RECOTIZAR opp', r))
+        // D-11: mirror reducer — mover la oportunidad a 'recotizada' si no está en etapa final ni ya en recotizada
+        const opp = stateBefore.oportunidades.find(o => o.id === origCot.oportunidad_id)
+        const finalStates: Etapa[] = ['adjudicada', 'perdida']
+        const shouldMoveEtapa = opp && opp.etapa !== 'recotizada' && !finalStates.includes(opp.etapa)
+        if (shouldMoveEtapa && opp) {
+          svcOportunidades.updateOportunidad({
+            id: origCot.oportunidad_id,
+            valor_cotizado: valor,
+            etapa: 'recotizada',
+            fecha_ultimo_contacto: todayLocalISO(),
+          } as Partial<Oportunidad> & { id: string }).then(r => log('RECOTIZAR opp', r))
+          svcOportunidades.createHistorial({
+            oportunidad_id: origCot.oportunidad_id,
+            etapa_anterior: opp.etapa,
+            etapa_nueva: 'recotizada',
+            created_at: new Date().toISOString(),
+          }).then(r => log('RECOTIZAR historial', r))
+        } else {
+          svcOportunidades.updateOportunidad({ id: origCot.oportunidad_id, valor_cotizado: valor })
+            .then(r => log('RECOTIZAR opp', r))
+        }
       }
       break
     }
@@ -749,8 +800,26 @@ function syncToSupabase(action: Action, stateBefore: State, rawDispatch: React.D
         return c
       })
       const valorReact = getActiveCotizacionValor(simulatedCots, descartada.oportunidad_id)
-      svcOportunidades.updateOportunidad({ id: descartada.oportunidad_id, valor_cotizado: valorReact })
-        .then(r => log('REACTIVAR opp', r))
+      // D-12: mirror reducer — si la opp estaba en 'recotizada', regresa a cotizacion_enviada/en_cotizacion
+      const oppReact = stateBefore.oportunidades.find(o => o.id === descartada.oportunidad_id)
+      if (oppReact && oppReact.etapa === 'recotizada') {
+        const nuevaEtapa: Etapa = restoredEstado === 'enviada' ? 'cotizacion_enviada' : 'en_cotizacion'
+        svcOportunidades.updateOportunidad({
+          id: descartada.oportunidad_id,
+          valor_cotizado: valorReact,
+          etapa: nuevaEtapa,
+          fecha_ultimo_contacto: todayLocalISO(),
+        } as Partial<Oportunidad> & { id: string }).then(r => log('REACTIVAR opp', r))
+        svcOportunidades.createHistorial({
+          oportunidad_id: descartada.oportunidad_id,
+          etapa_anterior: 'recotizada',
+          etapa_nueva: nuevaEtapa,
+          created_at: new Date().toISOString(),
+        }).then(r => log('REACTIVAR historial', r))
+      } else {
+        svcOportunidades.updateOportunidad({ id: descartada.oportunidad_id, valor_cotizado: valorReact })
+          .then(r => log('REACTIVAR opp', r))
+      }
       break
     }
     case 'BULK_UPSERT_PRECIOS':

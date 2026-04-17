@@ -136,10 +136,11 @@ describe('types consistency', () => {
     expect(ca!.nombre).toBe('Camilo Araque')
   })
 
-  it('ETAPAS tiene 7 etapas', async () => {
+  it('ETAPAS tiene 8 etapas (incluye recotizada)', async () => {
     const { ETAPAS } = await import('../../types')
-    expect(ETAPAS).toHaveLength(7)
+    expect(ETAPAS).toHaveLength(8)
     expect(ETAPAS.map(e => e.key)).toContain('nuevo_lead')
+    expect(ETAPAS.map(e => e.key)).toContain('recotizada')
     expect(ETAPAS.map(e => e.key)).toContain('adjudicada')
     expect(ETAPAS.map(e => e.key)).toContain('perdida')
   })

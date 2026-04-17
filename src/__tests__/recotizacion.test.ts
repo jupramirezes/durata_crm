@@ -34,6 +34,9 @@ describe('Recotización', () => {
     expect(nueva).toBeDefined()
     expect(nueva?.estado).toBe('borrador')
     expect(nueva?.oportunidad_id).toBe('opp1')
+    // D-11: la oportunidad debe pasar a 'recotizada'
+    const opp = result.oportunidades.find(o => o.id === 'opp1')
+    expect(opp?.etapa).toBe('recotizada')
   })
 
   it('RECOTIZAR actualiza valor_cotizado a la última versión activa', () => {
@@ -50,6 +53,8 @@ describe('Recotización', () => {
     // original was descartada so valor_cotizado = sum of non-descartada/rechazada = new version's total
     const opp = result.oportunidades.find(o => o.id === 'opp1')
     expect(opp?.valor_cotizado).toBe(0)
+    // D-11: la oportunidad debe quedar en 'recotizada' (no cuenta al pipeline de valor)
+    expect(opp?.etapa).toBe('recotizada')
   })
 
   it('Al adjudicar, aprueba la última activa y descarta las demás', () => {

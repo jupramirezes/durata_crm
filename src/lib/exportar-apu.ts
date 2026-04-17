@@ -323,7 +323,7 @@ export function exportApuConsolidado(params: ApuConsolidadoParams) {
     XLSX.utils.book_append_sheet(wb, ws, sheetName)
   }
 
-  const filename = `APU_CONSOLIDADO_${cotNum}.xlsx`
+  const filename = `APU_${cotNum}.xlsx`
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 

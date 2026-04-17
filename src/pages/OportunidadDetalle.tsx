@@ -9,7 +9,7 @@ import { generarPdfCotizacion } from '../lib/generar-pdf'
 import { uploadProductFile, getSignedUrl, acceptString, uploadOppFile, listOppFiles, deleteProductFile, uploadCotizacionFile } from '../hooks/useStorage'
 import * as svcCotizaciones from '../hooks/useCotizaciones'
 import { showToast } from '../components/Toast'
-import { exportApuExcel } from '../lib/exportar-apu'
+import { exportApuExcel, exportApuConsolidado } from '../lib/exportar-apu'
 import * as svcOportunidades from '../hooks/useOportunidades'
 import {
   ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
@@ -590,6 +590,44 @@ export default function OportunidadDetalle() {
           archivo_pdf_nombre: res.nombre,
         } as any)
       })
+
+      // D-03: Auto-generate and upload APU (one workbook, sheet per product)
+      const apuItems = productos
+        .filter(p => !!p.apu_resultado)
+        .map(p => ({
+          resultado: p.apu_resultado!,
+          config: p.configuracion || CONFIG_MESA_DEFAULT,
+          productoNombre: p.descripcion_comercial || p.subtipo,
+        }))
+
+      if (apuItems.length > 0) {
+        const { blob: apuBlob, filename: apuFilename } = exportApuConsolidado({
+          products: apuItems,
+          cotizacionNumero: cot.numero,
+          empresaNombre: emp.nombre,
+          contactoNombre: contacto?.nombre,
+        })
+        const apuFile = new File([apuBlob], apuFilename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        uploadCotizacionFile(opp.id, cot.id, apuFile, 'apu').then(res => {
+          if ('error' in res) {
+            console.warn('[APU auto-upload] Error:', res.error)
+            return
+          }
+          dispatch({
+            type: 'UPDATE_COTIZACION',
+            payload: {
+              id: cot.id,
+              archivo_apu_url: res.url,
+              archivo_apu_nombre: res.nombre,
+            },
+          })
+          svcCotizaciones.updateCotizacion({
+            id: cot.id,
+            archivo_apu_url: res.url,
+            archivo_apu_nombre: res.nombre,
+          } as any)
+        })
+      }
     } catch (err) {
       console.error('Error generando PDF:', err)
     }
@@ -938,6 +976,20 @@ export default function OportunidadDetalle() {
                             >
                               <Paperclip size={13} />
                             </button>
+                            {(() => {
+                              const pid = (p.configuracion?.producto_id || '').toLowerCase()
+                              const spreadsheetEligible = pid === 'mesa' || pid === 'carcamo'
+                              if (!spreadsheetEligible) return null
+                              return (
+                                <button
+                                  onClick={() => navigate(`/oportunidades/${id}/spreadsheet/${pid}`)}
+                                  className="p-1.5 rounded text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition-all border border-dashed border-amber-300"
+                                  title="Probar cotizador tipo Excel (experimental)"
+                                >
+                                  <span className="text-[11px] font-semibold">🧪 Spreadsheet</span>
+                                </button>
+                              )
+                            })()}
                             {p.apu_resultado && (
                               <button
                                 onClick={() => {

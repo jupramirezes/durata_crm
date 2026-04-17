@@ -6,12 +6,27 @@ import { formatCOP, formatDate, downloadBlob } from '../lib/utils'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
 import { exportApuExcel, exportApuConsolidado } from '../lib/exportar-apu'
 import { uploadCotizacionFile } from '../hooks/useStorage'
+import { supabase, isSupabaseReady } from '../hooks/useSupabase'
 import * as svcCotizaciones from '../hooks/useCotizaciones'
 import PdfNameModal from '../components/PdfNameModal'
 import {
   ArrowLeft, FileText, Save, Download, Plus, Trash2, Check,
-  Mail, Phone, MapPin, Hash, Building2, X, FileSpreadsheet
+  Mail, Phone, MapPin, Hash, Building2, X, FileSpreadsheet, Image as ImageIcon
 } from 'lucide-react'
+
+/**
+ * Read a File as base64 data URL. Used for D-07 (imagen por producto):
+ * we store the data URL in the cotización snapshot so the PDF generator
+ * can embed it synchronously via doc.addImage().
+ */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
 
 export default function CotizacionEditor() {
   const { id } = useParams()
@@ -59,6 +74,8 @@ export default function CotizacionEditor() {
   const [condicionesText, setCondicionesText] = useState(cotizacion?.condicionesItems?.join('\n') || '')
   const [noIncluyeText, setNoIncluyeText] = useState(cotizacion?.noIncluyeItems?.join('\n') || '')
   const [imagenModal, setImagenModal] = useState<string | null>(null)
+  // D-07: track which line is currently uploading an image (disables button + spinner)
+  const [imgUploadingIdx, setImgUploadingIdx] = useState<number | null>(null)
 
   // Auto-suggest product name — short COMMERCIAL name, max 40 chars
   const suggestedProductName = useMemo(() => {
@@ -125,6 +142,72 @@ export default function CotizacionEditor() {
 
   function updateProducto(index: number, field: keyof CotizacionProducto, value: any) {
     setProductos(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p))
+  }
+
+  // D-07: upload/replace/remove image attached to a quote line.
+  // - Store base64 data URL in snapshot (for sync PDF embedding)
+  // - Fire-and-forget upload to Supabase Storage (durable copy)
+  // - Mirror into productos_oportunidad.imagen_render when there is a linked producto
+  async function handleImageUpload(index: number, file: File) {
+    if (!file.type.startsWith('image/')) {
+      alert('Solo se permiten archivos de imagen (PNG, JPG, WEBP).')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen excede 5MB.')
+      return
+    }
+    setImgUploadingIdx(index)
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      // Update editor state immediately (preview + PDF source)
+      setProductos(prev => prev.map((p, i) => i === index ? { ...p, imagen_url: dataUrl } : p))
+
+      // Also mirror to linked productos_oportunidad.imagen_render so the thumbnail
+      // in the product card (OportunidadDetalle) reflects the attached image.
+      const line = productos[index]
+      if (line?._productoId && oportunidad) {
+        dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: line._productoId, imagen_render: dataUrl } })
+      }
+    } catch (err) {
+      console.warn('[Imagen producto] readAsDataURL failed:', err)
+      alert('No se pudo leer la imagen.')
+      setImgUploadingIdx(null)
+      return
+    }
+
+    // Fire-and-forget: upload to Supabase Storage for durable persistence.
+    // uploadProductFile in useStorage is scoped to APU/PDF kinds only; for images
+    // we write directly to the bucket under the scoped path so the image survives
+    // page reloads even if the snapshot is cleared.
+    if (oportunidad && cotizacion && isSupabaseReady) {
+      const line = productos[index]
+      const scopeId = line?._productoId || cotizacion.id
+      try {
+        const safe = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '_')
+        const path = `${oportunidad.id}/${scopeId}/img_${Date.now()}_${safe}`
+        const { error } = await supabase.storage.from('archivos-oportunidades').upload(path, file, {
+          upsert: true,
+          contentType: file.type || 'image/jpeg',
+        })
+        if (error) {
+          console.warn('[Imagen producto] upload failed:', error.message)
+        } else {
+          setProductos(prev => prev.map((p, i) => i === index ? { ...p, imagen_storage_path: path } : p))
+        }
+      } catch (err) {
+        console.warn('[Imagen producto] upload threw:', err)
+      }
+    }
+    setImgUploadingIdx(null)
+  }
+
+  function removeImage(index: number) {
+    setProductos(prev => prev.map((p, i) => i === index ? { ...p, imagen_url: null, imagen_storage_path: null } : p))
+    const line = productos[index]
+    if (line?._productoId) {
+      dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: line._productoId, imagen_render: null } })
+    }
   }
 
   function removeProducto(index: number) {
@@ -199,17 +282,25 @@ export default function CotizacionEditor() {
     const condicionesItems = condicionesText.split('\n').filter(l => l.trim())
     const noIncluyeItems = noIncluyeText.split('\n').filter(l => l.trim())
 
-    const productosForPdf = synced.map((p, i) => ({
-      id: String(i),
-      oportunidad_id: oportunidad?.id || '',
-      categoria: 'Mesas',
-      subtipo: p.descripcion,
-      configuracion: {} as any,
-      precio_calculado: p.precio_unitario,
-      descripcion_comercial: p.descripcion,
-      cantidad: p.cantidad,
-      unidad: p.unidad || 'UND',
-    }))
+    const productosForPdf = synced.map((p, i) => {
+      // D-07: prefer user-attached image (imagen_url) over auto-captured 3D render.
+      // Fall back to the linked producto's imagen_render so products created via
+      // configurador still show their 3D render in the PDF even without manual upload.
+      const srcProd = productosOportunidad.find(pp => pp.id === p._productoId)
+      const imagenParaPdf = p.imagen_url || srcProd?.imagen_render || null
+      return {
+        id: String(i),
+        oportunidad_id: oportunidad?.id || '',
+        categoria: 'Mesas',
+        subtipo: p.descripcion,
+        configuracion: {} as any,
+        precio_calculado: p.precio_unitario,
+        descripcion_comercial: p.descripcion,
+        cantidad: p.cantidad,
+        unidad: p.unidad || 'UND',
+        imagen_render: imagenParaPdf,
+      }
+    })
     const { blob, filename, totalFinal } = generarPdfCotizacion({
       numero,
       fecha,
@@ -268,6 +359,53 @@ export default function CotizacionEditor() {
           archivo_pdf_nombre: res.nombre,
         } as any)
       })
+
+      // D-03: Auto-generate and upload APU (one workbook with a sheet per product)
+      // Match each synced line back to its productos_oportunidad row (which holds apu_resultado + configuracion)
+      const apuItems = synced
+        .map(line => {
+          const prod = productosOportunidad.find(pp => pp.id === line._productoId)
+            || productosOportunidad.find(pp =>
+              (pp.descripcion_comercial || pp.subtipo) === line.descripcion &&
+              (pp.precio_calculado || 0) === line.precio_unitario,
+            )
+          if (!prod || !prod.apu_resultado) return null
+          return {
+            resultado: prod.apu_resultado,
+            config: prod.configuracion || CONFIG_MESA_DEFAULT,
+            productoNombre: prod.descripcion_comercial || prod.subtipo,
+          }
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+
+      if (apuItems.length > 0) {
+        const { blob: apuBlob, filename: apuFilename } = exportApuConsolidado({
+          products: apuItems,
+          cotizacionNumero: numero,
+          empresaNombre: empresa?.nombre,
+          contactoNombre: contacto?.nombre,
+        })
+        const apuFile = new File([apuBlob], apuFilename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        uploadCotizacionFile(oportunidad.id, cotizacion.id, apuFile, 'apu').then(res => {
+          if ('error' in res) {
+            console.warn('[APU auto-upload] Error:', res.error)
+            return
+          }
+          dispatch({
+            type: 'UPDATE_COTIZACION',
+            payload: {
+              id: cotizacion.id,
+              archivo_apu_url: res.url,
+              archivo_apu_nombre: res.nombre,
+            },
+          })
+          svcCotizaciones.updateCotizacion({
+            id: cotizacion.id,
+            archivo_apu_url: res.url,
+            archivo_apu_nombre: res.nombre,
+          } as any)
+        })
+      }
     }
 
     setShowPdfModal(false)
@@ -480,24 +618,75 @@ export default function CotizacionEditor() {
                           const srcProd = productosOportunidad.find(pp =>
                             (pp.descripcion_comercial || pp.subtipo) === p.descripcion
                           )
-                          if (srcProd?.imagen_render) {
+                          // D-07: effective image = user-attached on line OR 3D render saved at creation
+                          const effectiveImage = p.imagen_url || srcProd?.imagen_render || null
+                          const hasUserImage = !!p.imagen_url
+                          const uploading = imgUploadingIdx === i
+
+                          if (effectiveImage) {
                             return (
-                              <div className="relative group">
+                              <div className="relative group inline-block">
                                 <img
-                                  src={srcProd.imagen_render}
-                                  alt="Render 3D"
+                                  src={effectiveImage}
+                                  alt={hasUserImage ? 'Imagen producto' : 'Render 3D'}
                                   className="w-[100px] h-[75px] object-contain rounded-lg border border-[var(--color-border)] cursor-pointer hover:shadow-lg transition-shadow"
-                                  onClick={() => setImagenModal(srcProd.imagen_render!)}
+                                  onClick={() => setImagenModal(effectiveImage)}
                                 />
+                                <div className="flex justify-center gap-1 mt-1">
+                                  <label className="text-[9px] text-[var(--color-primary)] hover:underline cursor-pointer font-medium">
+                                    Cambiar
+                                    <input
+                                      type="file"
+                                      accept="image/png,image/jpeg,image/webp"
+                                      className="hidden"
+                                      disabled={uploading}
+                                      onChange={e => {
+                                        const f = e.target.files?.[0]
+                                        if (f) handleImageUpload(i, f)
+                                        e.currentTarget.value = ''
+                                      }}
+                                    />
+                                  </label>
+                                  {hasUserImage && (
+                                    <>
+                                      <span className="text-[9px] text-[var(--color-text-muted)]">|</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeImage(i)}
+                                        className="text-[9px] text-red-500 hover:underline font-medium"
+                                      >Eliminar</button>
+                                    </>
+                                  )}
+                                </div>
+                                {uploading && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-lg">
+                                    <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                                  </div>
+                                )}
                               </div>
                             )
                           }
-                          if (srcProd?.apu_resultado) {
-                            return (
-                              <span className="text-[10px] text-[#94a3b8] italic">Render guardado al crear</span>
-                            )
-                          }
-                          return null
+
+                          // No image yet → show "Adjuntar imagen" button
+                          return (
+                            <label className="inline-flex flex-col items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium cursor-pointer border border-dashed border-[var(--color-border)] rounded-lg px-2 py-3 hover:border-[var(--color-primary)] transition-colors">
+                              {uploading
+                                ? <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                                : <ImageIcon size={16} />}
+                              <span>{uploading ? 'Subiendo...' : 'Adjuntar imagen'}</span>
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                className="hidden"
+                                disabled={uploading}
+                                onChange={e => {
+                                  const f = e.target.files?.[0]
+                                  if (f) handleImageUpload(i, f)
+                                  e.currentTarget.value = ''
+                                }}
+                              />
+                            </label>
+                          )
                         })()}
                       </td>
                       <td className="px-3 py-3 text-right">

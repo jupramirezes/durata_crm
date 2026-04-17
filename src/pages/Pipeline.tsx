@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { CONFIG_DEFAULTS } from '../hooks/useConfiguracion'
 
 const ETAPAS_ACTIVAS: Set<string> = new Set([
-  'nuevo_lead', 'en_cotizacion', 'cotizacion_enviada', 'en_seguimiento', 'en_negociacion',
+  'nuevo_lead', 'en_cotizacion', 'cotizacion_enviada', 'recotizada', 'en_seguimiento', 'en_negociacion',
 ])
 
 function isActive(op: { etapa: string; fecha_ingreso?: string }): boolean {
@@ -83,6 +83,7 @@ const ETAPA_GRADIENT: Record<string, string> = {
   nuevo_lead: 'from-emerald-50 to-white',
   en_cotizacion: 'from-amber-50 to-white',
   cotizacion_enviada: 'from-blue-50 to-white',
+  recotizada: 'from-violet-50 to-white',
   en_seguimiento: 'from-indigo-50 to-white',
   en_negociacion: 'from-purple-50 to-white',
   adjudicada: 'from-green-50 to-white',

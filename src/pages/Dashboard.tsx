@@ -15,14 +15,19 @@ function monthLabel(year: number, month: number) {
   return `${MONTH_NAMES[month]} ${year}`
 }
 
-/** Calculates days between fecha_ingreso and fecha_envio for oportunidades that have both */
-function calcDiasElaboracion(ops: { fecha_ingreso: string; fecha_envio?: string | null }[]): number[] {
+/** Calculates days between fecha_ingreso and fecha_envio for oportunidades that have both.
+ * Guards against null/empty fecha_ingreso which new Date() interprets as epoch 1970 and
+ * produces absurd ~20500 day values. */
+function calcDiasElaboracion(ops: { fecha_ingreso?: string | null; fecha_envio?: string | null }[]): number[] {
   const dias: number[] = []
   for (const o of ops) {
-    if (o.fecha_envio) {
-      const diff = Math.floor((new Date(o.fecha_envio).getTime() - new Date(o.fecha_ingreso).getTime()) / 86400000)
-      if (diff >= 0) dias.push(diff)
-    }
+    if (!o.fecha_envio || !o.fecha_ingreso) continue
+    const ing = new Date(o.fecha_ingreso).getTime()
+    const env = new Date(o.fecha_envio).getTime()
+    if (!isFinite(ing) || !isFinite(env) || ing <= 0 || env <= 0) continue
+    const diff = Math.floor((env - ing) / 86400000)
+    // Cap outliers: if diff > 365 days it's almost certainly bad data (old fecha_ingreso)
+    if (diff >= 0 && diff <= 365) dias.push(diff)
   }
   return dias
 }
@@ -57,7 +62,7 @@ function VariationBadge({ value, suffix = '%', invert = false }: { value: number
   )
 }
 
-const PIPELINE_ACTIVO: Etapa[] = ['cotizacion_enviada', 'en_seguimiento', 'en_negociacion']
+const PIPELINE_ACTIVO: Etapa[] = ['cotizacion_enviada', 'recotizada', 'en_seguimiento', 'en_negociacion']
 const MIN_PIPELINE_VALOR = 20_000_000
 
 /* ── types ────────────────────────────────────────────── */
