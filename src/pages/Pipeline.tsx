@@ -147,6 +147,16 @@ export default function Pipeline() {
     return m
   }, [state.empresas])
 
+  // Build cotización numero lookup by oportunidad_id (for search)
+  const cotNumeroMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of state.cotizaciones) {
+      // Keep the latest (or overwrite — last wins, which is fine for search)
+      if (c.numero) m.set(c.oportunidad_id, c.numero.toLowerCase())
+    }
+    return m
+  }, [state.cotizaciones])
+
   const filtered = useMemo(() => {
     let ops = showHistoricas ? state.oportunidades : state.oportunidades.filter(isActive)
     if (filtroCotizador) ops = ops.filter(o => matchCotizador(o.cotizador_asignado, filtroCotizador))
@@ -171,10 +181,14 @@ export default function Pipeline() {
     }
     if (searchEmpresa.trim()) {
       const q = searchEmpresa.trim().toLowerCase()
-      ops = ops.filter(o => (empresaMap.get(o.empresa_id) || '').includes(q))
+      ops = ops.filter(o =>
+        (empresaMap.get(o.empresa_id) || '').includes(q) ||
+        (cotNumeroMap.get(o.id) || '').includes(q) ||
+        (contactoMap.get(o.contacto_id) || '').toLowerCase().includes(q)
+      )
     }
     return ops
-  }, [state.oportunidades, showHistoricas, filtroCotizador, filtroMisCots, currentUserCotId, filtroYear, filtroMonth, filtroDateRange, filtroValorMin, filtroSector, searchEmpresa, empresaMap, sectorMap])
+  }, [state.oportunidades, showHistoricas, filtroCotizador, filtroMisCots, currentUserCotId, filtroYear, filtroMonth, filtroDateRange, filtroValorMin, filtroSector, searchEmpresa, empresaMap, sectorMap, cotNumeroMap, contactoMap])
 
   const activeCount = useMemo(
     () => state.oportunidades.filter(isActive).length,
@@ -285,7 +299,7 @@ export default function Pipeline() {
           <input
             value={searchEmpresa}
             onChange={e => setSearchEmpresa(e.target.value)}
-            placeholder="Buscar empresa..."
+            placeholder="Buscar empresa, contacto, cotización..."
             className="pl-10 pr-4 h-[42px] rounded-[10px] text-sm border border-[#e2e8f0] bg-white w-80 focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)]"
           />
         </div>

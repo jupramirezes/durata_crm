@@ -155,7 +155,9 @@ export default function Dashboard() {
   const { activas, valorPipeline, cotsMes, totalMes, tasaCierre, tasaCierreValor, etapaCounts, totalOps, adjOportunidades } = useMemo(() => {
     const activas = oportunidades.filter(o => o.etapa !== 'adjudicada' && o.etapa !== 'perdida')
     const valorPipeline = activas.reduce((s, o) => s + o.valor_cotizado, 0)
-    const cotsMes = cotizaciones.filter(c => {
+    // Excluir descartadas/rechazadas de KPIs mensuales (match Excel REGISTRO)
+    const activeCots = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada')
+    const cotsMes = activeCots.filter(c => {
       const d = new Date(c.fecha)
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     })
@@ -196,7 +198,7 @@ export default function Dashboard() {
   }
 
   function buildMonthRow(year: number, month: number): MetricsRow {
-    const cotsM = cotizaciones.filter(c => { const d = new Date(c.fecha); return d.getMonth() === month && d.getFullYear() === year })
+    const cotsM = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada').filter(c => { const d = new Date(c.fecha); return d.getMonth() === month && d.getFullYear() === year })
     const cotValor = cotsM.reduce((s, c) => s + c.total, 0)
 
     const adjOps = adjOportunidades.filter(o => {
@@ -264,7 +266,7 @@ export default function Dashboard() {
   /* ── SECCIÓN 6: Evolución anual ───────────────────── */
   const years = [2021, 2022, 2023, 2024, 2025, 2026]
   const { yearRows, totalRow } = useMemo(() => { const yearRows: MetricsRow[] = years.map(year => {
-    const cotsY = cotizaciones.filter(c => new Date(c.fecha).getFullYear() === year)
+    const cotsY = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada').filter(c => new Date(c.fecha).getFullYear() === year)
     const cotValor = cotsY.reduce((s, c) => s + c.total, 0)
 
     const adjOpsY = adjOportunidades.filter(o => {
@@ -309,7 +311,7 @@ export default function Dashboard() {
   const prevPeriodLabel = `${MONTH_NAMES[0]}-${MONTH_NAMES[currentMonth]} ${currentYear - 1}`
 
   function buildPeriodMetrics(year: number, throughMonth: number) {
-    const periodCots = cotizaciones.filter(c => {
+    const periodCots = cotizaciones.filter(c => c.estado !== 'descartada' && c.estado !== 'rechazada').filter(c => {
       const d = new Date(c.fecha)
       return d.getFullYear() === year && d.getMonth() <= throughMonth
     })

@@ -1,50 +1,46 @@
-# Skills / MCPs recomendados para mejorar UI/UX de DURATA CRM
+# Skills y herramientas — DURATA CRM
 
-## Ya instalados
-- Supabase MCP
-- Vercel MCP
-- Claude_in_Chrome (browser testing)
-- Claude_Preview (dev server)
-- Notion MCP
-- n8n-workflows (skill)
-- vercel-react-best-practices (skill)
-- Sentry (SDK, falta DSN en Vercel)
+**Actualizado:** 16 abril 2026
 
-## Para UI/UX — instalar en orden de impacto
+## Ya instalados y en uso
 
-### 1. shadcn/ui (componentes profesionales, no es MCP sino un generator)
-**Qué hace**: genera componentes React/Tailwind con Radix UI debajo — los mismos que usan Vercel, Linear, Hapi.
-**Instalación**:
+| Herramienta | Para qué se usa |
+|---|---|
+| **Supabase MCP** | Queries SQL directos, migrations, verificar invariantes |
+| **Vercel MCP** | Deploys, env vars, logs de producción |
+| **Claude_in_Chrome** | Testing visual en browser real |
+| **Claude_Preview** | Dev server con hot reload |
+| **Sentry SDK** | Captura errores runtime en producción |
+| **n8n MCP** | Automatizaciones futuras (PDF a carpeta de red, alertas email) |
+
+## Skills propias del proyecto
+
+| Skill | Comando | Qué hace |
+|---|---|---|
+| `durata-qa-invariants` | Usar en cualquier sesión | 8 checks SQL de integridad de BD (0 = OK) |
+| `durata-migrate` | Cuando hay Excel nuevo | Pipeline: diagnóstico → migrar → verificar → idempotencia |
+| `durata-dump-catalogo` | Después de cambiar productos | Regenera `supabase/productos/_auto/*.sql` desde BD |
+
+## Por instalar — prioridad para el proyecto
+
+### 1. shadcn/ui (UI overhaul)
 ```bash
 npx shadcn@latest init
-npx shadcn@latest add button dialog dropdown-menu select toast card
+npx shadcn@latest add button dialog dropdown-menu select toast card table tabs input
 ```
-**Valor**: reemplaza ~15 componentes custom mal estilizados (Button, Modal, Select, etc.) con versiones accesibles + hermosas por default. Tu CSS queda más limpio.
+Reemplaza los ~15 componentes custom (Button, Modal, Select, etc.) con versiones accesibles y profesionales. **Prioridad #1 para mejorar percepción de calidad.**
 
-### 2. Figma MCP
-**Qué hace**: Claude lee tus mockups de Figma y genera código exacto.
-**Instalación**: claude.ai/code → Connectors → Figma
-**Valor**: si diseñas cómo querés que se vea (incluso en 30 min en Figma), Claude implementa en el doble de velocidad vs. describírselo.
-
-### 3. Tailwind Docs MCP (opcional)
-**Qué hace**: Claude consulta la doc de Tailwind actualizada.
-**Valor**: menor, pero útil para patterns modernos.
-
-### 4. Playwright MCP (para testing visual)
-**Qué hace**: permite a Claude tomar screenshots y comparar antes/después de cambios UI.
-**Instalación**:
+### 2. Playwright (testing E2E visual)
 ```bash
 npm install -D @playwright/test
 npx playwright install
 ```
-**Valor**: evita que un refactor visual rompa algo en otra página sin que te enteres.
+Permite tomar screenshots antes/después de cambios UI. Evita que un refactor rompa otra página sin enterarte. Útil con el prompt QA (`docs/QA_DISPATCH_PROMPT.md`).
 
-## Skills propias que ya creé
-- `durata-migrate`: pipeline completo de migración
-- `durata-qa-invariants`: 8 checks de integridad de BD
-- `durata-dump-catalogo`: regenerar SQL de productos
+## Skills por crear para el proyecto
 
-## Skills que podés crear en el futuro
-- `durata-ux-audit`: auditoría visual de las 12 páginas contra un checklist
-- `durata-create-release`: bump version, changelog, tag, push, Vercel deploy en 1 comando
-- `durata-new-producto`: wizard para agregar un producto nuevo al catálogo con sus variables
+| Skill | Para qué | Prioridad |
+|---|---|---|
+| `durata-new-producto` | Wizard para agregar producto nuevo al catálogo (variables, materiales, líneas APU, tarifas) | Alta — hoy requiere SQL manual |
+| `durata-ux-audit` | Auditoría visual de las 12 páginas contra checklist de calidad | Media — post shadcn/ui |
+| `durata-price-update` | Pipeline para actualizar precios_maestro desde Excel de proveedor | Media — E4 del backlog |

@@ -47,6 +47,7 @@ export type Action =
   | { type: 'DUPLICATE_COTIZACION'; payload: { originalId: string; nuevoNumero: string; newId?: string } }
   | { type: 'UPDATE_COTIZACION'; payload: Partial<Cotizacion> & { id: string } }
   | { type: 'RECOTIZAR'; payload: { cotizacionId: string; nuevoNumero: string; newCotId?: string } }
+  | { type: 'REACTIVAR_COTIZACION'; payload: { cotizacionDescartadaId: string } }
   | { type: 'BULK_UPSERT_PRECIOS'; payload: PrecioMaestro[] }
   | { type: '_HYDRATE'; payload: Partial<State> }
   /** B-01: internal rollback when an ADD sync to Supabase fails — does NOT re-sync to DB. */
@@ -415,6 +416,32 @@ export function reducer(state: State, action: Action): State {
         oportunidades: state.oportunidades.map(o => o.id === original.oportunidad_id ? { ...o, valor_cotizado: valor } : o),
       }
     }
+    // D-12: Reactivar — swap a descartada cotización back to active, discard the current active one
+    case 'REACTIVAR_COTIZACION': {
+      const { cotizacionDescartadaId } = action.payload
+      const descartada = state.cotizaciones.find(c => c.id === cotizacionDescartadaId)
+      if (!descartada || descartada.estado !== 'descartada') return state
+      // Find the currently active cotización for this oportunidad (borrador or enviada, latest)
+      const currentActive = state.cotizaciones
+        .filter(c => c.oportunidad_id === descartada.oportunidad_id && (c.estado === 'borrador' || c.estado === 'enviada'))
+        .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+      // Reactivate the descartada: restore to 'enviada' (it was sent before being superseded)
+      // If it never had fecha_envio, restore as 'borrador'
+      const restoredEstado: Cotizacion['estado'] = descartada.fecha_envio ? 'enviada' : 'borrador'
+      const updCots = state.cotizaciones.map(c => {
+        if (c.id === cotizacionDescartadaId) return { ...c, estado: restoredEstado }
+        if (currentActive && c.id === currentActive.id) return { ...c, estado: 'descartada' as const }
+        return c
+      })
+      const valor = getActiveCotizacionValor(updCots, descartada.oportunidad_id)
+      return {
+        ...state,
+        cotizaciones: updCots,
+        oportunidades: state.oportunidades.map(o =>
+          o.id === descartada.oportunidad_id ? { ...o, valor_cotizado: valor } : o
+        ),
+      }
+    }
     // B-01: local rollback when Supabase INSERT fails — never synced back to DB
     case '_ROLLBACK_ADD': {
       const { entity, id } = action.payload
@@ -697,6 +724,33 @@ function syncToSupabase(action: Action, stateBefore: State, rawDispatch: React.D
         svcOportunidades.updateOportunidad({ id: origCot.oportunidad_id, valor_cotizado: valor })
           .then(r => log('RECOTIZAR opp', r))
       }
+      break
+    }
+    // D-12: Reactivar — swap descartada ↔ active in Supabase
+    case 'REACTIVAR_COTIZACION': {
+      const descartada = stateBefore.cotizaciones.find(c => c.id === action.payload.cotizacionDescartadaId)
+      if (!descartada || descartada.estado !== 'descartada') break
+      const currentActive = stateBefore.cotizaciones
+        .filter(c => c.oportunidad_id === descartada.oportunidad_id && (c.estado === 'borrador' || c.estado === 'enviada'))
+        .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+      const restoredEstado: Cotizacion['estado'] = descartada.fecha_envio ? 'enviada' : 'borrador'
+      // Update the descartada → restored
+      svcCotizaciones.updateCotizacion({ id: descartada.id, estado: restoredEstado })
+        .then(r => log('REACTIVAR restore', r))
+      // Discard the currently active one
+      if (currentActive) {
+        svcCotizaciones.updateCotizacion({ id: currentActive.id, estado: 'descartada' })
+          .then(r => log('REACTIVAR discard-active', r))
+      }
+      // Persist oportunidad.valor_cotizado
+      const simulatedCots = stateBefore.cotizaciones.map(c => {
+        if (c.id === descartada.id) return { ...c, estado: restoredEstado }
+        if (currentActive && c.id === currentActive.id) return { ...c, estado: 'descartada' as const }
+        return c
+      })
+      const valorReact = getActiveCotizacionValor(simulatedCots, descartada.oportunidad_id)
+      svcOportunidades.updateOportunidad({ id: descartada.oportunidad_id, valor_cotizado: valorReact })
+        .then(r => log('REACTIVAR opp', r))
       break
     }
     case 'BULK_UPSERT_PRECIOS':

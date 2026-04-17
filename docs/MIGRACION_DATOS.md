@@ -1,103 +1,111 @@
-# Migracion de datos — REGISTRO MAESTRO y COTIZACIONES 2026
+# Migración de datos — REGISTRO MAESTRO y COTIZACIONES 2026
 
-## Cuando hacerlo
+**Actualizado:** 16 abril 2026
+
+## Cuándo hacerlo
 
 - Cada semana o cuando se tenga un REGISTRO actualizado de DURATA
-- Despues de recibir archivos Excel actualizados del equipo comercial
+- Después de recibir archivos Excel actualizados del equipo comercial
+- El script es **idempotente**: correrlo 2 veces no duplica datos
 
 ## Archivos necesarios
 
-- `REGISTRO_MAESTRO.xlsx` — historico completo de oportunidades
-- `REGISTRO_COTIZACIONES_DURATA_2026.xlsx` — cotizaciones del ano en curso
+Copiar los Excel a `scripts/data/`:
 
-## Pasos
-
-### 1. Preparar archivos
-
-Copiar los Excel actualizados a la carpeta `scripts/data/`:
-
-```bash
-# Verificar que existen
-ls scripts/data/REGISTRO_MAESTRO.xlsx
-ls scripts/data/REGISTRO_COTIZACIONES_DURATA_2026.xlsx
+```
+scripts/data/REGISTRO_MAESTRO.xlsx              — histórico completo (hoja TOTAL)
+scripts/data/REGISTRO COTIZACIONES DURATA 2026.xlsx  — cotizaciones del año (hoja "REGISTRO 2026")
 ```
 
-Los nombres deben ser exactos. Si vienen con otro nombre, renombrarlos.
+Los nombres deben ser exactos. Los archivos NO se suben al repo (están en `.gitignore`).
 
-### 2. Verificar estado actual
+## Flujo completo
+
+### 1. Diagnóstico previo (sin tocar BD)
+
+```bash
+node scripts/_diag-migracion.mjs
+```
+
+Reporta: filas sin empresa, duplicados en Excel, cuántas se insertarían, COTs que colisionan. **No modifica nada.**
+
+```bash
+node scripts/_diag-estancadas.mjs
+```
+
+Detecta oportunidades en BD en `nuevo_lead`/`en_cotizacion` que el Excel marca como COTIZADA/ADJUDICADA/PERDIDA. Genera `scripts/data/_estancadas-updates.json` como referencia.
+
+### 2. Correr migración
+
+```bash
+npm run migrate
+```
+
+Internamente ejecuta `npx tsx scripts/migrar-historico.ts`, que:
+
+1. Se autentica contra Supabase (usa credenciales de `.env`)
+2. Lee estado actual de BD (empresas, contactos, oportunidades, cotizaciones)
+3. Lee los 2 Excels fila por fila
+4. **PASO 1-4**: Inserta empresas, contactos, oportunidades y cotizaciones NUEVAS (dedup case-insensitive por nombre/COT normalizado)
+5. **PASO 5.5**: Avanza automáticamente oportunidades estancadas cuando MAESTRO tiene COTIZADA/ADJUDICADA/PERDIDA y la BD tiene `nuevo_lead`/`en_cotizacion`. **Nunca retrocede etapa.**
+6. **PASO 6**: Enriquece con data del 2026 (fecha_envio, ubicacion, notas, proyecto) — solo avanza etapa si es strictly greater
+7. **PASO 7**: Inserta cotizaciones nuevas
+8. Sincroniza estado de cotización al avanzar (aprobada/rechazada/enviada)
+
+Reglas estrictas:
+- **NUNCA borra** datos existentes
+- **NUNCA actualiza** oportunidades que ya existían (solo las que ESTA corrida creó, en PASO 6)
+- Usa `MIGRATION_MARKER = 'Histórico Excel'` como fuente_lead para ops migradas
+
+### 3. Verificar resultado
 
 ```bash
 npx tsx scripts/check-counts.ts
 ```
 
-Esto muestra el conteo actual de cada tabla. Anotar los numeros para comparar despues.
+Comparar antes vs después. Los nuevos registros deben aparecer, los existentes no se duplican.
 
-### 3. Correr migracion
-
-```bash
-npx tsx scripts/migrar-historico.ts
-```
-
-El script procesa cada fila del Excel y:
-
-- Si la empresa NO existe en Supabase → la crea
-- Si el contacto NO existe → lo crea vinculado a la empresa
-- Si la oportunidad NO existe (por numero de cotizacion) → la crea
-- Si YA existe → actualiza el estado si cambio (ej: COTIZADA → ADJUDICADA)
-- NUNCA borra datos existentes
-
-### 4. Correr correccion de fechas
+### 4. Migrar adjuntos APU/PDF del 2026
 
 ```bash
-npx tsx scripts/corregir-fechas.ts
+# Preview (sin subir nada)
+node scripts/_migrate-adjuntos-2026.mjs --dry-run --fuzzy
+
+# Ejecutar (sube a Supabase Storage)
+node scripts/_migrate-adjuntos-2026.mjs --fuzzy
 ```
 
-Este script recalcula y corrige fechas faltantes o inconsistentes usando los datos del REGISTRO.
+El script busca archivos APU Excel y PDF en la carpeta de red, los matchea con cotizaciones en BD por número, y los sube al bucket `archivos-oportunidades`. El flag `--fuzzy` permite matchear sufijos (2026-128A → 2026-128 si no existe la A en BD).
 
-### 5. Verificar resultado
+### 5. Re-dump catálogo de productos
 
 ```bash
-npx tsx scripts/check-counts.ts
+node scripts/_dump-productos.mjs
 ```
 
-Comparar antes vs despues:
+Regenera `supabase/productos/_auto/*.sql` desde la BD en vivo. Útil para versionar el catálogo después de agregar/modificar productos.
 
-- Los nuevos registros deben aparecer
-- Los existentes no se duplican
-- El total debe ser >= al anterior
+## Scripts de referencia
 
-## Que hace el script internamente
+| Script | Qué hace | Modifica BD? |
+|---|---|---|
+| `npm run migrate` | Migración completa Excel → Supabase | Sí (INSERT only) |
+| `_diag-migracion.mjs` | Preview sin tocar BD | No |
+| `_diag-estancadas.mjs` | Detecta ops que deberían avanzar | No |
+| `_migrate-adjuntos-2026.mjs` | Sube APU/PDF a Storage | Sí (Storage + UPDATE cot) |
+| `_dump-productos.mjs` | Re-dump catálogo a SQL files | No |
+| `check-counts.ts` | Conteos de tablas | No |
 
-1. Lee los Excel fila por fila usando la libreria `xlsx`
-2. Para cada fila, busca si ya existe en Supabase por numero de cotizacion
-3. Si NO existe: crea empresa (si es nueva), contacto, oportunidad, cotizacion
-4. Si YA existe: actualiza estado si cambio (ej: de COTIZADA a ADJUDICADA)
-5. Usa UPSERT para evitar duplicados
-6. NUNCA borra datos existentes
+## Solución de problemas
 
-## Solucion de problemas
+### Error de conexión
+Verificar `.env` con credenciales correctas (no las de `.env.example`).
 
-### Error de conexion
+### Script no encuentra archivos
+Los Excel deben estar en `scripts/data/` con nombres exactos.
 
-Verificar que el archivo `.env` tiene las credenciales correctas:
+### El migrate reporta "0 nuevas"
+Es correcto si ya se corrió antes — el script es idempotente.
 
-```
-VITE_SUPABASE_URL=https://xxxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...
-```
-
-### Duplicados
-
-El script usa UPSERT basado en el numero de cotizacion. Si aparecen duplicados, verificar que el campo `numero` en el Excel no tiene variaciones (espacios, mayusculas, etc).
-
-### Faltan fechas
-
-Correr `corregir-fechas.ts` despues de la migracion. Este script calcula las fechas faltantes a partir de los datos del REGISTRO.
-
-### El script no encuentra los archivos
-
-Verificar que estan en `scripts/data/` con los nombres exactos. Los archivos NO se suben al repo (estan en `.gitignore`).
-
-### Timeout o error de rate limit
-
-Si el Excel tiene muchas filas, el script puede tardar. Esperar y reintentar. El script es idempotente: correrlo de nuevo no duplica datos.
+### Adjuntos sin match
+Correr con `--report` para generar `scripts/data/_adjuntos-sin-match.csv` con detalles de cada archivo sin match y sugerencias.

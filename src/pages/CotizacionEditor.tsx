@@ -4,7 +4,7 @@ import { useStore } from '../lib/store'
 import { CotizacionProducto, CONFIG_MESA_DEFAULT } from '../types'
 import { formatCOP, formatDate, downloadBlob } from '../lib/utils'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
-import { exportApuExcel } from '../lib/exportar-apu'
+import { exportApuExcel, exportApuConsolidado } from '../lib/exportar-apu'
 import { uploadCotizacionFile } from '../hooks/useStorage'
 import * as svcCotizaciones from '../hooks/useCotizaciones'
 import PdfNameModal from '../components/PdfNameModal'
@@ -338,6 +338,56 @@ export default function CotizacionEditor() {
           <button onClick={saveDraft} className="flex items-center gap-1.5 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] h-11 px-6 rounded-[10px] text-sm font-semibold transition-all">
             <Save size={14} /> Guardar borrador
           </button>
+          {(() => {
+            const prodsConApu = productosOportunidad.filter(pp => pp.apu_resultado)
+            if (prodsConApu.length < 2) return null
+            return (
+              <button
+                onClick={() => {
+                  const items = prodsConApu.map(pp => ({
+                    resultado: pp.apu_resultado!,
+                    config: pp.configuracion || CONFIG_MESA_DEFAULT,
+                    productoNombre: pp.descripcion_comercial || pp.subtipo,
+                  }))
+                  const { blob, filename } = exportApuConsolidado({
+                    products: items,
+                    cotizacionNumero: cotizacion?.numero || 'SIN_NUMERO',
+                    empresaNombre: empresa?.nombre,
+                    contactoNombre: contacto?.nombre,
+                  })
+                  downloadBlob(blob, filename)
+
+                  // Fire-and-forget: upload consolidated APU to Supabase Storage
+                  if (oportunidad && cotizacion) {
+                    const apuFile = new File([blob], filename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+                    uploadCotizacionFile(oportunidad.id, cotizacion.id, apuFile, 'apu').then(res => {
+                      if ('error' in res) {
+                        console.warn('[APU Consolidado upload] Error:', res.error)
+                        return
+                      }
+                      dispatch({
+                        type: 'UPDATE_COTIZACION',
+                        payload: {
+                          id: cotizacion.id,
+                          archivo_apu_url: res.url,
+                          archivo_apu_nombre: res.nombre,
+                        },
+                      })
+                      svcCotizaciones.updateCotizacion({
+                        id: cotizacion.id,
+                        archivo_apu_url: res.url,
+                        archivo_apu_nombre: res.nombre,
+                      } as any)
+                    })
+                  }
+                }}
+                className="flex items-center gap-1.5 bg-white border border-green-300 hover:border-green-400 text-green-700 h-11 px-6 rounded-[10px] text-sm font-semibold transition-all"
+                title="Genera un solo Excel con una hoja por producto"
+              >
+                <FileSpreadsheet size={14} /> Descargar APU Consolidado
+              </button>
+            )
+          })()}
           <button onClick={() => { if (subtotal <= 0) { alert('No se puede generar PDF con total $0'); return } setShowPdfModal(true) }} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white h-11 px-6 rounded-[10px] text-sm font-bold transition-all disabled:opacity-40" disabled={subtotal <= 0}>
             <Download size={14} /> Descargar PDF
           </button>

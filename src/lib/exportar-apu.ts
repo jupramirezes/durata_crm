@@ -45,12 +45,16 @@ function extractConfigInfo(config: Record<string, any>): { materialLabel: string
   }
 }
 
-export function exportApuExcel(params: ApuExportParams) {
-  const { resultado: r, config, cotizacionNumero, empresaNombre, contactoNombre, fecha, preview } = params
-
+/** Build a single APU worksheet (reusable for both single and consolidated exports) */
+function buildApuSheet(
+  r: ApuResultado,
+  config: Record<string, any>,
+  cotNum: string,
+  empresaNombre: string,
+  contactoNombre: string,
+  fechaStr: string,
+): XLSX.WorkSheet {
   const { materialLabel, dims } = extractConfigInfo(config)
-  const fechaStr = fecha || new Date().toLocaleDateString('es-CO')
-  const cotNum = cotizacionNumero || 'SIN_NUMERO'
 
   // ── Build rows ──
   const rows: (string | number | null)[][] = []
@@ -184,7 +188,7 @@ export function exportApuExcel(params: ApuExportParams) {
   rows.push([r.descripcion_comercial, null, null, null, null, null, null])
   r_idx++
 
-  // ── Create workbook ──
+  // ── Create worksheet ──
   const ws = XLSX.utils.aoa_to_sheet(rows)
 
   // Column widths
@@ -232,6 +236,18 @@ export function exportApuExcel(params: ApuExportParams) {
   // Print settings
   ws['!printHeader'] = [headerRow + 1, headerRow + 1]
 
+  return ws
+}
+
+export function exportApuExcel(params: ApuExportParams) {
+  const { resultado: r, config, cotizacionNumero, empresaNombre, contactoNombre, fecha, preview } = params
+
+  const { dims } = extractConfigInfo(config)
+  const fechaStr = fecha || new Date().toLocaleDateString('es-CO')
+  const cotNum = cotizacionNumero || 'SIN_NUMERO'
+
+  const ws = buildApuSheet(r, config, cotNum, empresaNombre || '', contactoNombre || '', fechaStr)
+
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'APU')
 
@@ -245,6 +261,69 @@ export function exportApuExcel(params: ApuExportParams) {
     filename = `APU_${cotNum}.xlsx`
   }
 
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+
+  return { blob, filename }
+}
+
+// ── Consolidated multi-product APU export ──
+
+interface ApuConsolidadoProduct {
+  resultado: ApuResultado
+  config: Record<string, any>
+  productoNombre: string
+}
+
+interface ApuConsolidadoParams {
+  products: ApuConsolidadoProduct[]
+  cotizacionNumero: string
+  empresaNombre?: string
+  contactoNombre?: string
+  fecha?: string
+}
+
+/** Sanitize and truncate sheet name (Excel max 31 chars, no special chars) */
+function cleanSheetName(name: string): string {
+  return (name || 'Producto')
+    .replace(/[\/\\*?\[\]:]/g, '')
+    .trim()
+    .substring(0, 31) || 'Producto'
+}
+
+export function exportApuConsolidado(params: ApuConsolidadoParams) {
+  const { products, cotizacionNumero, empresaNombre, contactoNombre, fecha } = params
+  const fechaStr = fecha || new Date().toLocaleDateString('es-CO')
+  const cotNum = cotizacionNumero || 'SIN_NUMERO'
+
+  const wb = XLSX.utils.book_new()
+
+  // Track used sheet names to avoid duplicates
+  const usedNames = new Set<string>()
+
+  for (const p of products) {
+    let sheetName = cleanSheetName(p.productoNombre)
+
+    // Deduplicate sheet names (e.g. two "Mesa" products)
+    if (usedNames.has(sheetName)) {
+      let suffix = 2
+      while (usedNames.has(`${sheetName.substring(0, 28)}_${suffix}`)) suffix++
+      sheetName = `${sheetName.substring(0, 28)}_${suffix}`
+    }
+    usedNames.add(sheetName)
+
+    const ws = buildApuSheet(
+      p.resultado,
+      p.config,
+      cotNum,
+      empresaNombre || '',
+      contactoNombre || '',
+      fechaStr,
+    )
+    XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  }
+
+  const filename = `APU_CONSOLIDADO_${cotNum}.xlsx`
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 

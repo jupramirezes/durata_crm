@@ -15,7 +15,7 @@ import {
   ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
   StickyNote, Send, Wrench, X, ChevronDown, Copy, Download, Clock,
   ArrowRightLeft, MessageSquare, Box, Phone, Mail, AlertCircle,
-  Paperclip, FileSpreadsheet, File,
+  Paperclip, FileSpreadsheet, File, RotateCcw,
 } from 'lucide-react'
 
 const CATEGORIAS_PRODUCTO = [
@@ -65,6 +65,8 @@ export default function OportunidadDetalle() {
   const [editingNotaText, setEditingNotaText] = useState('')
   // Assign contact state
   const [showAssignContacto, setShowAssignContacto] = useState(false)
+  const [creatingContacto, setCreatingContacto] = useState(false)
+  const [newContactoForm, setNewContactoForm] = useState({ nombre: '', cargo: '', correo: '', whatsapp: '' })
   // Archivos state
   const [archivos, setArchivos] = useState<{ name: string; path: string; size: number; created: string }[]>([])
   const [uploadingFile, setUploadingFile] = useState(false)
@@ -364,7 +366,30 @@ export default function OportunidadDetalle() {
   function handleAssignContacto(contactoId: string) {
     dispatch({ type: 'UPDATE_OPORTUNIDAD', payload: { id: opp.id, contacto_id: contactoId } })
     setShowAssignContacto(false)
+    setCreatingContacto(false)
     showToast('success', 'Contacto asignado')
+  }
+
+  function handleCreateContacto() {
+    if (!newContactoForm.nombre.trim()) return
+    const contactoId = crypto.randomUUID()
+    dispatch({
+      type: 'ADD_CONTACTO',
+      payload: {
+        id: contactoId,
+        empresa_id: opp.empresa_id,
+        nombre: newContactoForm.nombre.trim(),
+        cargo: newContactoForm.cargo.trim(),
+        correo: newContactoForm.correo.trim(),
+        whatsapp: newContactoForm.whatsapp.trim(),
+        notas: '',
+      },
+    })
+    dispatch({ type: 'UPDATE_OPORTUNIDAD', payload: { id: opp.id, contacto_id: contactoId } })
+    setCreatingContacto(false)
+    setNewContactoForm({ nombre: '', cargo: '', correo: '', whatsapp: '' })
+    setShowAssignContacto(false)
+    showToast('success', 'Contacto creado y asignado')
   }
 
   function handleMoveEtapa(nuevaEtapa: Etapa) {
@@ -611,7 +636,10 @@ export default function OportunidadDetalle() {
                   {contacto.nombre}{contacto.cargo && ` — ${contacto.cargo}`}
                 </p>
               ) : (
-                <button className="text-[13px] text-[var(--color-primary)] hover:underline mt-1">Agregar contacto</button>
+                <button
+                  onClick={() => { setShowAssignContacto(true); document.getElementById('contacto-card')?.scrollIntoView({ behavior: 'smooth' }) }}
+                  className="text-[13px] text-[var(--color-primary)] hover:underline mt-1"
+                >Agregar contacto</button>
               )}
               <p className="text-[13px] text-[#94a3b8] mt-1">
                 Fuente: {opp.fuente_lead} &bull; Ingreso: {formatDate(opp.fecha_ingreso)} &bull; Cotizador: {cotizador?.nombre || opp.cotizador_asignado}
@@ -1214,6 +1242,23 @@ export default function OportunidadDetalle() {
                           >
                             <Download size={13} />
                           </button>
+                          {isDiscarded && opp.etapa !== 'adjudicada' && opp.etapa !== 'perdida' && (
+                            <button
+                              onClick={() => {
+                                const activeCount = cotizaciones.filter(ct => ct.estado === 'borrador' || ct.estado === 'enviada').length
+                                const msg = activeCount > 0
+                                  ? `¿Reactivar ${c.numero}?\n\nLa cotización activa actual pasará a "descartada" y ${c.numero} volverá a estar activa.`
+                                  : `¿Reactivar ${c.numero}?\n\nSe restaurará como cotización activa.`
+                                if (!window.confirm(msg)) return
+                                dispatch({ type: 'REACTIVAR_COTIZACION', payload: { cotizacionDescartadaId: c.id } })
+                                showToast('success', `${c.numero} reactivada`)
+                              }}
+                              className="p-1.5 rounded text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-all"
+                              title="Reactivar esta versión (la versión activa actual pasará a descartada)"
+                            >
+                              <RotateCcw size={13} />
+                            </button>
+                          )}
                           {!isDiscarded && (
                             <>
                               <button
@@ -1377,7 +1422,7 @@ export default function OportunidadDetalle() {
           </div>
 
           {/* ═══ CAMBIO 6: CONTACTO CARD (editable) ═══ */}
-          <div className="card p-5 mt-5">
+          <div id="contacto-card" className="card p-5 mt-5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
                 <User size={14} className="text-[var(--color-primary)]" />
@@ -1445,11 +1490,34 @@ export default function OportunidadDetalle() {
                 <div className="flex items-center justify-center gap-1 text-[10px] text-amber-600 mb-2">
                   <AlertCircle size={12} /> Sin contacto asignado
                 </div>
-                {!showAssignContacto ? (
-                  <button
-                    onClick={() => setShowAssignContacto(true)}
-                    className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
-                  >Asignar contacto</button>
+                {!showAssignContacto && !creatingContacto ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => setShowAssignContacto(true)}
+                      className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
+                    >Asignar existente</button>
+                    <span className="text-[10px] text-[var(--color-text-muted)]">o</span>
+                    <button
+                      onClick={() => { setCreatingContacto(true); setNewContactoForm({ nombre: '', cargo: '', correo: '', whatsapp: '' }) }}
+                      className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
+                    >Crear nuevo</button>
+                  </div>
+                ) : creatingContacto ? (
+                  <div className="space-y-2 text-left">
+                    <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Nuevo contacto para {emp.nombre}</p>
+                    <input value={newContactoForm.nombre} onChange={e => setNewContactoForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre *" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" autoFocus />
+                    <input value={newContactoForm.cargo} onChange={e => setNewContactoForm(p => ({ ...p, cargo: e.target.value }))} placeholder="Cargo" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" />
+                    <input value={newContactoForm.correo} onChange={e => setNewContactoForm(p => ({ ...p, correo: e.target.value }))} placeholder="Email" type="email" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" />
+                    <input value={newContactoForm.whatsapp} onChange={e => setNewContactoForm(p => ({ ...p, whatsapp: e.target.value }))} placeholder="Telefono/WhatsApp" className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--color-border)]" />
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={handleCreateContacto}
+                        disabled={!newContactoForm.nombre.trim()}
+                        className="flex-1 text-xs font-semibold py-2 rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 transition-all disabled:opacity-40"
+                      >Crear y asignar</button>
+                      <button onClick={() => setCreatingContacto(false)} className="text-xs py-2 px-3 rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]">Cancelar</button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="space-y-1.5 text-left">
                     {empContactos.length === 0 ? (
@@ -1460,7 +1528,14 @@ export default function OportunidadDetalle() {
                         {c.cargo && <div className="text-[10px] text-[var(--color-text-muted)]">{c.cargo}</div>}
                       </button>
                     ))}
-                    <button onClick={() => setShowAssignContacto(false)} className="text-[10px] text-[var(--color-text-muted)] hover:underline mt-1">Cancelar</button>
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--color-border)]">
+                      <button
+                        onClick={() => { setCreatingContacto(true); setShowAssignContacto(false); setNewContactoForm({ nombre: '', cargo: '', correo: '', whatsapp: '' }) }}
+                        className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
+                      >+ Crear nuevo contacto</button>
+                      <span className="text-[10px] text-[var(--color-text-muted)]">|</span>
+                      <button onClick={() => setShowAssignContacto(false)} className="text-[10px] text-[var(--color-text-muted)] hover:underline">Cancelar</button>
+                    </div>
                   </div>
                 )}
               </div>
