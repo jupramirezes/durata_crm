@@ -229,7 +229,6 @@ Podés combinar: agregás Mesa (del catálogo), Cárcamo (del catálogo) y un Pa
 1. Tomá un **screenshot** completo (incluyendo URL)
 2. Anotá: qué estabas haciendo, qué esperabas, qué pasó
 3. Mandá por WhatsApp a JP
-4. Sentry captura errores automáticamente — JP los ve en su panel
 
 Si el error es **bloqueante** (no podés trabajar), volvé al Excel como respaldo y avisá inmediatamente.
 
@@ -262,7 +261,7 @@ Estas funciones están en el roadmap pero aún no están disponibles:
 ## 10. Soporte y contacto
 
 - **Bugs o dudas técnicas**: WhatsApp JP
-- **Nuevas features**: email JP
+- **Nuevas features**: Whatsapp/email JP
 - **Capacitación**: solicitar sesión con JP (45 min, individual o grupal)
 
 ### URLs de referencia
