@@ -55,6 +55,12 @@ function toNum(v: unknown): number {
   return isNaN(n) ? 0 : n
 }
 
+function subtractDays(isoDate: string, days: number): string {
+  const d = new Date(isoDate + 'T12:00:00')
+  d.setDate(d.getDate() - days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function excelDateToISO(v: unknown): string | null {
   if (v == null || v === '' || v === 0) return null
   if (typeof v === 'number') {
@@ -324,6 +330,7 @@ async function main() {
     numCot: string
     valorCot: number
     fechaIngreso: string | null
+    fechaEnvio: string | null
   }
 
   const opQueue: OpEntry[] = []
@@ -408,7 +415,11 @@ async function main() {
 
     const valorCotizado = toNum(r[7])
     const valorAdjudicado = toNum(r[9])
-    const fechaIngreso = excelDateToISO(r[1])
+    const fechaFin = excelDateToISO(r[1])      // FECHA FINALIZACION = fecha_envio
+    const diasExcel = toNum(r[4])              // DIAS (columna Excel)
+    // fecha_ingreso = fecha_fin - dias (fecha cuando empezó a cotizar)
+    const fechaIngreso = fechaFin && diasExcel >= 0 ? subtractDays(fechaFin, diasExcel) : fechaFin
+    const fechaEnvio = fechaFin
     const anio = toNum(r[2])
     const estadoI = toStr(r[8]).toUpperCase()
     const fechaAdj = excelDateToISO(r[11])
@@ -448,13 +459,14 @@ async function main() {
       numCot,
       valorCot: valorCotizado,
       fechaIngreso,
+      fechaEnvio,
     })
 
     logProgress('Oportunidades (prep)', i + 1, maestroData.length)
   }
 
   // Map of COTs created in THIS run (for PASO 6 + 7 — never touches anything else)
-  const justCreated = new Map<string, { id: string; etapa: string; fechaIngreso: string | null; valorCot: number }>()
+  const justCreated = new Map<string, { id: string; etapa: string; fechaIngreso: string | null; fechaEnvio: string | null; valorCot: number }>()
 
   for (let i = 0; i < opQueue.length; i += BATCH) {
     const chunk = opQueue.slice(i, i + BATCH)
@@ -470,6 +482,7 @@ async function main() {
           id: data[j].id,
           etapa: data[j].etapa,
           fechaIngreso: chunk[j].fechaIngreso,
+          fechaEnvio: chunk[j].fechaEnvio,
           valorCot: chunk[j].valorCot,
         })
       }
@@ -599,7 +612,8 @@ async function main() {
   interface CotRow {
     oportunidad_id: string
     numero: string
-    fecha: string | null
+    fecha: string | null           // fecha_inicio (= fecha_envio - dias)
+    fecha_envio: string | null     // FECHA FINALIZACION del Excel
     estado: string
     total: number
   }
@@ -623,6 +637,7 @@ async function main() {
       oportunidad_id: op.id,
       numero: numCot,
       fecha: op.fechaIngreso,
+      fecha_envio: op.fechaEnvio,
       estado,
       total: op.valorCot,
     })
@@ -645,7 +660,9 @@ async function main() {
     if (!existing) continue
     const estadoI = toStr(r[8]).toUpperCase()
     const anio = toNum(r[2])
-    const fechaIngreso = excelDateToISO(r[1])
+    const fechaFin = excelDateToISO(r[1])  // FECHA FINALIZACION = fecha_envio
+    const diasExcel = toNum(r[4])          // DIAS columna Excel
+    const fechaIngreso = fechaFin && diasExcel >= 0 ? subtractDays(fechaFin, diasExcel) : fechaFin
     const derivedEtapa = deriveEtapaFromMaestro(estadoI, anio, fechaIngreso)
     let estado: string
     switch (derivedEtapa) {
@@ -658,6 +675,7 @@ async function main() {
       oportunidad_id: existing.id,
       numero: numCot,
       fecha: fechaIngreso,
+      fecha_envio: fechaFin,
       estado,
       total: toNum(r[7]),
     })

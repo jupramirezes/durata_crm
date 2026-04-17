@@ -209,7 +209,7 @@ export default function Dashboard() {
     // Solo se excluyen las 'descartada' (versiones viejas de recotizaciones) y borradores vacíos (total=0).
     const activeCots = cotizaciones.filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
     const cotsMes = activeCots.filter(c => {
-      return getMonthLocal(c.fecha) === now.getMonth() && getYearLocal(c.fecha) === now.getFullYear()
+      return getMonthLocal(c.fecha_envio || c.fecha) === now.getMonth() && getYearLocal(c.fecha_envio || c.fecha) === now.getFullYear()
     })
     const totalMes = cotsMes.reduce((s, c) => s + c.total, 0)
     const adjOps = oportunidades.filter(o => o.etapa === 'adjudicada')
@@ -251,7 +251,7 @@ export default function Dashboard() {
     // D-09: Excluir borradores (no son cotizaciones emitidas)
     const cotsM = cotizaciones
       .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
-      .filter(c => getMonthLocal(c.fecha) === month && getYearLocal(c.fecha) === year)
+      .filter(c => getMonthLocal(c.fecha_envio || c.fecha) === month && getYearLocal(c.fecha_envio || c.fecha) === year)
     const cotValor = cotsM.reduce((s, c) => s + c.total, 0)
 
     const adjOps = adjOportunidades.filter(o => {
@@ -321,7 +321,7 @@ export default function Dashboard() {
     // D-09: Excluir borradores (match Excel REGISTRO)
     const cotsY = cotizaciones
       .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
-      .filter(c => getYearLocal(c.fecha) === year)
+      .filter(c => getYearLocal(c.fecha_envio || c.fecha) === year)
     const cotValor = cotsY.reduce((s, c) => s + c.total, 0)
 
     const adjOpsY = adjOportunidades.filter(o => {
@@ -371,7 +371,7 @@ export default function Dashboard() {
     const periodCots = cotizaciones
       .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
       .filter(c => {
-        const m = getMonthLocal(c.fecha), y = getYearLocal(c.fecha)
+        const m = getMonthLocal(c.fecha_envio || c.fecha), y = getYearLocal(c.fecha_envio || c.fecha)
         return y === year && m >= 0 && m <= throughMonth
       })
     const cotValor = periodCots.reduce((s, c) => s + c.total, 0)
