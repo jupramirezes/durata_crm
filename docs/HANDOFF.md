@@ -1,63 +1,85 @@
-# Handoff — para la próxima sesión de Claude Code
+# Handoff — próxima sesión de Claude Code
 
-Actualizado: 2026-04-16 (post-demo, sprint estabilización)
+**Actualizado**: 2026-05-XX (post-entrega v1, pre-sprint cierre)
+**Último commit**: `705d94b` (Dashboard 100% match Excel MAESTRO)
 
-## Cómo arrancar una sesión nueva
+---
 
-### Paso 1: leer estos docs en orden
-1. **docs/FLUJO_CRM.md** — arquitectura, rutas, pipeline de 7 etapas
-2. **docs/HANDOFF.md** (este archivo) — estado actual
-3. **docs/QA_PROPIO.md** — bugs activos post-demo
-4. **docs/BUGS_CONSOLIDADO.md** — todos los bugs con SHAs
-5. **docs/BACKLOG.md** — roadmap funcional
-6. **Memory** — auto-cargada por Claude Code
+## Prompt de inicio recomendado
 
-### Paso 2: prompt de inicio
+Pegar al empezar una nueva sesión de Claude Code en el repo:
+
 ```
-Contexto: proyecto DURATA CRM+CPQ, post-demo 16-abr-2026. Hay 10 bugs
-activos de la demo (docs/QA_PROPIO.md). Leé docs/HANDOFF.md y
-docs/FLUJO_CRM.md antes de responder. Estoy en [describe qué necesitás].
+Contexto: Proyecto DURATA CRM+CPQ. Acabo de cerrar la entrega v1 al equipo
+comercial (feb-may 2026). Ahora estoy en [describe qué necesitás].
+
+Antes de responder, leé:
+- docs/HANDOFF.md — estado actual
+- docs/ROADMAP.md — visión + pendientes
+- docs/QA_PROPIO.md — bugs abiertos
+- docs/OPERACION.md — arquitectura + migración + QA
+
+Memoria del proyecto: auto-cargada por Claude Code.
 ```
 
 ---
 
-## Estado al 16-abril-2026
+## Estado al cerrar entrega v1
 
-### Último commit
-```
-6786c0d fix(config,apu,docs): nombre APU simplificado + config feedback + docs consolidados
-463d9cd fix(D-01,D-02,D-03,D-04,D-10,D-13): 6 bugs demo resueltos + UI/UX roadmap
-4630bc2 docs: bugs consolidado + QA propio + roadmap actualizado post-demo 16-abr
-```
+### Stats verificadas
 
-### Stats
-- **Tests:** 473/473 pass (46 archivos)
-- **Invariantes BD:** 8/8 PASS
-- **Productos:** 33/33 operables
-- **BD:** 5,188 ops | 5,176 cots | 2,304 empresas | 1,150 contactos
-- **Auth:** 3 usuarios activos (saguirre, presupuestos2, rjuanpablohb) — faltan araque, dgalindo
+- **Tests**: 473/473 pass en 46 archivos
+- **Build**: OK (warning bundle size >500KB esperado por Three.js)
+- **Invariantes BD**: 8/8 PASS
+- **Productos**: 33/33 operables (12 pendientes Ola 4 + especiales)
+- **BD prod**: 5,187 ops · 5,190 cots · 2,303 empresas · 1,149 contactos · 1,408 precios
+- **Usuarios auth**: 4 activos
+- **Adjuntos**: 354 APUs + 379 PDFs (2026)
 
-### Deployment
-- **Vercel:** https://durata-crm.vercel.app (auto-deploy on push)
-- **Env vars:** VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_SENTRY_DSN
-- **Sentry:** activo en producción
+### Dashboard conciliado con Excel MAESTRO
 
-### Bugs resueltos esta sesión
-D-01 (routing productos), D-02 (recotización snapshot), D-03 (PDF/APU auto-save),
-D-04 (config persist), D-08 (pipeline search), D-10 (fuente Residente),
-D-13 (botón guardar precios), D-15 (crear contacto desde oportunidad)
+Ene-Abr 2026 exacto:
+- Ene: 97 / $1,620,173,712
+- Feb: 132 / $2,780,599,549
+- Mar: 126 / $4,553,893,496
+- Abr: 39 / $781,177,397
+- **Total**: 394 / $9,735,844,154 ✓
 
-### Bugs abiertos (ver QA_PROPIO.md para detalle)
-D-06, D-07, D-09, D-11, D-12, D-16
+---
+
+## Bugs resueltos en la última iteración
+
+Ver `QA_PROPIO.md` para lista completa con SHAs.
+
+Highlights últimas 2 semanas:
+- D-01 a D-15 resueltos (editor producto, recotización, config persiste, etc.)
+- Timezone bug Dashboard (new Date('2026-04-01') → marzo en Colombia)
+- Bug script migrate (ops existentes sin cotización no se creaban)
+- Backfill BD 5,157 cotizaciones desde Excel MAESTRO (fechas + DIAS correctos)
+- Dashboard usa `fecha_envio` (alinea con Excel MES COTIZACIÓN)
+
+---
+
+## Sprint de cierre pendiente (mayo 2026)
+
+Ver `ROADMAP.md` sección 2. Pendientes para entrega final:
+
+1. [ ] D-07 imagen por producto con header "Imagen alusiva"
+2. [ ] D-16 cotizador genérico igualar flexibilidad Excel
+3. [ ] UI/UX overhaul con shadcn/ui
+4. [ ] Feature "Guardar como plantilla"
+5. [ ] 12 productos faltantes (Ola 4 + especiales)
+6. [ ] Videotutorial
+7. [ ] Export completo desde /config
 
 ---
 
 ## Comandos útiles
 
 ```bash
-npm run dev          # Vite en :5173
-npm test             # 473 tests
-npm run build        # TypeScript + Vite bundle
+npm run dev          # Vite :5173
+npm test -- --run    # 473 tests
+npm run build        # TS + Vite bundle
 npm run migrate      # Excel → Supabase (idempotente)
 
 # Diagnóstico
@@ -66,29 +88,57 @@ node scripts/_diag-estancadas.mjs
 node scripts/_dump-productos.mjs
 ```
 
-### Skills
-- `durata-qa-invariants` — 8 checks SQL
-- `durata-migrate` — pipeline migración
-- `durata-dump-catalogo` — dump productos
-
 ---
 
 ## Personas
-- **JP Ramírez**: owner técnico + cotizador
-- **Sebastián Aguirre**: gerente comercial, aprobador
-- **Omar Cossio**: cotizador mayor volumen
-- **Camilo Araque**: gerente general
+
+- **JP Ramírez** (rjuanpablohb@gmail.com): owner técnico + cotizador
+- **Sebastián Aguirre** (saguirre@durata.co): gerente comercial, aprobador
+- **Omar Cossio** (presupuestos2@durata.co): cotizador mayor volumen
+- **Camilo Araque** (araque@durata.co): gerente general
 - **Daniela Galindo**: cotizadora
 
-### Preferencias
-- BD: híbrida (auto-limpiar seguro, marcar dudoso)
-- Commits: conventional (feat/fix/chore)
+### Preferencias del proyecto
+
+- BD: híbrida (auto-limpiar seguro, marcar dudoso con sufijo -REV)
+- Commits: conventional (feat/fix/chore) con referencias a bug IDs
 - Tests antes de push siempre
+- Trust but verify: nunca decir "está arreglado" sin verificar BD/UI
 
 ---
 
 ## URLs
+
 - App: https://durata-crm.vercel.app
+- Repo: https://github.com/jupramirezes/durata_crm
 - Supabase: https://supabase.com/dashboard/project/qzgvhpxnlvesskibgqcg
+- Vercel: https://vercel.com/juan-pablos-projects-16ae5c40/durata-crm
 - Sentry: https://sentry.io/organizations/durata/issues/
-- GitHub: https://github.com/jupramirezes/durata_crm
+
+---
+
+## Docs del proyecto (estructura consolidada)
+
+| Doc | Propósito |
+|---|---|
+| `README.md` | Índice del repo |
+| `docs/GUIA_USUARIO.md` | Manual para los 5 cotizadores |
+| `docs/ROADMAP.md` | Estado + visión 2026-2028 |
+| `docs/ENTREGA_V1.md` | Cumplimiento vs Documento Base (para gerencia) |
+| `docs/OPERACION.md` | Arquitectura + migración + backup + QA |
+| `docs/QA_PROPIO.md` | Bugs abiertos + resueltos |
+| `docs/HANDOFF.md` | Este archivo |
+| `docs/SKILLS_RECOMENDADAS.md` | Herramientas y skills |
+| `docs/_privado/` | No versionado (propuesta económica, etc.) |
+
+---
+
+## Skills custom disponibles
+
+En `.claude/skills/`:
+
+- `durata-qa-invariants` — 8 checks SQL de integridad
+- `durata-migrate` — pipeline diagnóstico → migrar → verificar
+- `durata-dump-catalogo` — regenerar SQL de productos
+
+Invocar en Claude Code: *"usa el skill `durata-qa-invariants`"*

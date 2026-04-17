@@ -41,3 +41,4 @@ scripts/data/_*.md
 
 # Plantillas Excel (son 45 archivos históricos — no son código)
 docs/plantillas-excel/
+docs/_privado/
