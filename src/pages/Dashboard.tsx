@@ -128,7 +128,12 @@ function Section({ title, subtitle, icon: Icon, summary, children, defaultOpen =
 /* ── component ─────────────────────────────────────────── */
 
 export default function Dashboard() {
-  const { state } = useStore()
+  const { state, refresh } = useStore()
+  const [refreshing, setRefreshing] = useState(false)
+  async function handleRefresh() {
+    setRefreshing(true)
+    try { await refresh() } finally { setRefreshing(false) }
+  }
   const { oportunidades, cotizaciones, empresas } = state
   const navigate = useNavigate()
 
@@ -430,10 +435,21 @@ export default function Dashboard() {
 
   return (
     <div className="px-8 py-8 space-y-5 animate-fade-in max-w-[1400px] mx-auto">
-      <PageHeader
-        title="Dashboard"
-        subtitle={dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
-      />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader
+          title="Dashboard"
+          subtitle={dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
+        />
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="mt-1 flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[var(--color-border)] bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          title="Recargar datos desde Supabase"
+        >
+          <svg className={refreshing ? 'animate-spin' : ''} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+          {refreshing ? 'Actualizando…' : 'Actualizar datos'}
+        </button>
+      </div>
 
       {/* ─── ALERTA BANNER ───────────────────────────── */}
       {alertas.over7 > 0 && (

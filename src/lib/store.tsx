@@ -833,7 +833,7 @@ function syncToSupabase(action: Action, stateBefore: State, rawDispatch: React.D
    CONTEXT & PROVIDER
    ══════════════════════════════════════════════════════════ */
 
-const StoreContext = createContext<{ state: State; dispatch: React.Dispatch<Action>; resetState: () => void; loading: boolean } | null>(null)
+const StoreContext = createContext<{ state: State; dispatch: React.Dispatch<Action>; resetState: () => void; loading: boolean; refresh: () => Promise<void> } | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, rawDispatch] = useReducer(reducer, undefined, loadState)
@@ -856,15 +856,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saveState(state)
   }, [state])
 
-  // Hydrate from Supabase on mount
-  useEffect(() => {
+  // Hydrate from Supabase — exposed as `refresh()` so Dashboard can trigger reload
+  const hydrate = useCallback(async () => {
     if (!isSupabaseReady) {
-      // A-05: no Supabase — localStorage is the source of truth, mark hydrated immediately
       rawDispatch({ type: '_HYDRATE', payload: { isHydrated: true } })
       return
     }
-
-    async function hydrate() {
       try {
         const [emp, con, opp, hist, prod, cot, prec] = await Promise.all([
           svcEmpresas.fetchEmpresas(),
@@ -939,10 +936,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } finally {
         setLoading(false)
       }
-    }
-
-    hydrate()
   }, [])
+
+  // Run hydrate once on mount
+  useEffect(() => { hydrate() }, [hydrate])
 
   function resetState() {
     localStorage.removeItem(STORAGE_KEY)
@@ -960,7 +957,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  return <StoreContext.Provider value={{ state, dispatch, resetState, loading }}>{children}</StoreContext.Provider>
+  return <StoreContext.Provider value={{ state, dispatch, resetState, loading, refresh: hydrate }}>{children}</StoreContext.Provider>
 }
 
 export function useStore() {
