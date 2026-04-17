@@ -15,6 +15,19 @@ function monthLabel(year: number, month: number) {
   return `${MONTH_NAMES[month]} ${year}`
 }
 
+/** Parse "YYYY-MM-DD" as LOCAL date (not UTC).
+ * Critical: new Date('2026-04-01') treats it as UTC midnight, which in Colombia (UTC-5)
+ * becomes 2026-03-31 19:00 local — silently shifting the month. This function avoids that. */
+function parseLocalDate(s?: string | null): Date | null {
+  if (!s) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
+  if (!match) return null
+  const [, y, m, d] = match
+  return new Date(Number(y), Number(m) - 1, Number(d))
+}
+function getMonthLocal(s?: string | null): number { return parseLocalDate(s)?.getMonth() ?? -1 }
+function getYearLocal(s?: string | null): number { return parseLocalDate(s)?.getFullYear() ?? -1 }
+
 /** Calculates days between fecha_ingreso and fecha_envio for oportunidades that have both.
  * Guards against null/empty fecha_ingreso which new Date() interprets as epoch 1970 and
  * produces absurd ~20500 day values. */
@@ -22,8 +35,11 @@ function calcDiasElaboracion(ops: { fecha_ingreso?: string | null; fecha_envio?:
   const dias: number[] = []
   for (const o of ops) {
     if (!o.fecha_envio || !o.fecha_ingreso) continue
-    const ing = new Date(o.fecha_ingreso).getTime()
-    const env = new Date(o.fecha_envio).getTime()
+    const ingDate = parseLocalDate(o.fecha_ingreso)
+    const envDate = parseLocalDate(o.fecha_envio)
+    if (!ingDate || !envDate) continue
+    const ing = ingDate.getTime()
+    const env = envDate.getTime()
     if (!isFinite(ing) || !isFinite(env) || ing <= 0 || env <= 0) continue
     const diff = Math.floor((env - ing) / 86400000)
     // Cap outliers: if diff > 365 days it's almost certainly bad data (old fecha_ingreso)
@@ -38,8 +54,11 @@ function calcDiasCotizaciones(cots: { fecha?: string | null; fecha_envio?: strin
   const dias: number[] = []
   for (const c of cots) {
     if (!c.fecha || !c.fecha_envio) continue
-    const ini = new Date(c.fecha).getTime()
-    const env = new Date(c.fecha_envio).getTime()
+    const iniDate = parseLocalDate(c.fecha)
+    const envDate = parseLocalDate(c.fecha_envio)
+    if (!iniDate || !envDate) continue
+    const ini = iniDate.getTime()
+    const env = envDate.getTime()
     if (!isFinite(ini) || !isFinite(env) || ini <= 0 || env <= 0) continue
     const diff = Math.floor((env - ini) / 86400000)
     if (diff >= 0 && diff <= 365) dias.push(diff)
@@ -190,8 +209,7 @@ export default function Dashboard() {
     // Solo se excluyen las 'descartada' (versiones viejas de recotizaciones) y borradores vacíos (total=0).
     const activeCots = cotizaciones.filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
     const cotsMes = activeCots.filter(c => {
-      const d = new Date(c.fecha)
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+      return getMonthLocal(c.fecha) === now.getMonth() && getYearLocal(c.fecha) === now.getFullYear()
     })
     const totalMes = cotsMes.reduce((s, c) => s + c.total, 0)
     const adjOps = oportunidades.filter(o => o.etapa === 'adjudicada')
@@ -212,12 +230,12 @@ export default function Dashboard() {
   function getAdjMonth(o: typeof oportunidades[0]): { year: number; month: number } | null {
     const fa = o.fecha_adjudicacion
     if (fa) {
-      const d = new Date(fa)
-      if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() }
+      const d = parseLocalDate(fa)
+      if (d) return { year: d.getFullYear(), month: d.getMonth() }
     }
     if (o.fecha_ultimo_contacto) {
-      const d = new Date(o.fecha_ultimo_contacto)
-      if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() }
+      const d = parseLocalDate(o.fecha_ultimo_contacto)
+      if (d) return { year: d.getFullYear(), month: d.getMonth() }
     }
     return null
   }
@@ -233,7 +251,7 @@ export default function Dashboard() {
     // D-09: Excluir borradores (no son cotizaciones emitidas)
     const cotsM = cotizaciones
       .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
-      .filter(c => { const d = new Date(c.fecha); return d.getMonth() === month && d.getFullYear() === year })
+      .filter(c => getMonthLocal(c.fecha) === month && getYearLocal(c.fecha) === year)
     const cotValor = cotsM.reduce((s, c) => s + c.total, 0)
 
     const adjOps = adjOportunidades.filter(o => {
@@ -303,7 +321,7 @@ export default function Dashboard() {
     // D-09: Excluir borradores (match Excel REGISTRO)
     const cotsY = cotizaciones
       .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
-      .filter(c => new Date(c.fecha).getFullYear() === year)
+      .filter(c => getYearLocal(c.fecha) === year)
     const cotValor = cotsY.reduce((s, c) => s + c.total, 0)
 
     const adjOpsY = adjOportunidades.filter(o => {
@@ -353,8 +371,8 @@ export default function Dashboard() {
     const periodCots = cotizaciones
       .filter(c => c.estado !== 'descartada' && !(c.estado === 'borrador' && c.total === 0))
       .filter(c => {
-        const d = new Date(c.fecha)
-        return d.getFullYear() === year && d.getMonth() <= throughMonth
+        const m = getMonthLocal(c.fecha), y = getYearLocal(c.fecha)
+        return y === year && m >= 0 && m <= throughMonth
       })
     const cotValor = periodCots.reduce((s, c) => s + c.total, 0)
     const cotQty = periodCots.length
