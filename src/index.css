@@ -233,3 +233,215 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .animate-check { animation: checkPop 0.3s ease-out; }
 .animate-check-pop { animation: checkPop 0.4s ease-out; }
 .animate-tooltip { animation: tooltipIn 0.2s ease-out; }
+
+/* ── SHELL ─────────────────────────────────────── */
+.app-shell {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  min-height: 100vh;
+}
+.app-main { display: flex; flex-direction: column; min-width: 0; }
+
+.sb {
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.sb-brand {
+  padding: 18px 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+.sb-mark {
+  width: 26px;
+  height: 26px;
+  background: var(--color-text);
+  color: var(--color-surface);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: -0.02em;
+  border-radius: 4px;
+  position: relative;
+  min-height: 0;
+}
+.sb-mark::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.sb-brand-text { line-height: 1.1; }
+.sb-brand-text .n { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; color: var(--color-text); }
+.sb-brand-text .s {
+  font-size: 10.5px;
+  color: var(--color-text-label);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.sb-nav { padding: 14px 10px; flex: 1; overflow-y: auto; }
+.sb-group { margin-bottom: 18px; }
+.sb-group-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 12px 8px;
+}
+.sb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
+  min-height: 0;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+.sb-item:hover { background: var(--color-surface-2); color: var(--color-text); }
+.sb-item.active { background: var(--color-surface-2); color: var(--color-text); }
+.sb-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--color-primary);
+  border-radius: 2px;
+}
+.sb-item svg { width: 15px; height: 15px; stroke-width: 1.75; color: var(--color-text-label); flex-shrink: 0; }
+.sb-item.active svg { color: var(--color-text); }
+.sb-item .count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+.sb-item.active .count { color: var(--color-text-label); }
+
+.sb-foot {
+  border-top: 1px solid var(--color-border);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-surface-3);
+  color: var(--color-text);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  min-height: 0;
+}
+.avatar.sm { width: 20px; height: 20px; font-size: 9px; }
+.avatar.xs { width: 16px; height: 16px; font-size: 8px; }
+.sb-foot .who { flex: 1; min-width: 0; }
+.sb-foot .who .n {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sb-foot .who .r { font-size: 11px; color: var(--color-text-label); }
+
+/* ── TOPBAR ────────────────────────────────────── */
+.topbar {
+  height: 48px;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--color-surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-label); }
+.crumb .sep { color: var(--color-text-faint); }
+.crumb .cur { color: var(--color-text); font-weight: 500; }
+
+.tb-search {
+  flex: 1;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 28px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  color: var(--color-text-label);
+  cursor: pointer;
+  min-height: 0;
+}
+.tb-search:hover { border-color: var(--color-border-strong); }
+.tb-search svg { width: 13px; height: 13px; flex-shrink: 0; }
+.tb-search .kbd {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-faint);
+  padding: 1px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+
+.tb-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ── BUTTONS (design variants) ─────────────────── */
+.btn-d {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  min-height: 0;
+  transition: background-color 120ms, border-color 120ms;
+}
+.btn-d:hover { background: var(--color-surface-2); }
+.btn-d svg { width: 13px; height: 13px; }
+.btn-d.primary { background: var(--color-text); color: var(--color-surface); border-color: var(--color-text); }
+.btn-d.primary:hover { background: #262626; }
+.btn-d.accent { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+.btn-d.accent:hover { background: var(--color-primary-hover); }
+.btn-d.ghost { border-color: transparent; background: transparent; }
+.btn-d.ghost:hover { background: var(--color-surface-2); }
+.btn-d.icon { padding: 0; width: 28px; justify-content: center; }

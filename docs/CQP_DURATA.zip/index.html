@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>DURATA — CPQ + Compras</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="styles/tokens.css">
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="components/Data.jsx"></script>
+  <script type="text/babel" src="components/Shell.jsx"></script>
+  <script type="text/babel" src="components/MaterialMaster.jsx"></script>
+  <script type="text/babel" src="components/Comparador.jsx"></script>
+  <script type="text/babel" src="components/OrdenCompra.jsx"></script>
+  <script type="text/babel" src="components/Bandeja.jsx"></script>
+  <script type="text/babel" src="components/APUPane.jsx"></script>
+  <script type="text/babel" src="components/CotizacionEditor.jsx"></script>
+  <script type="text/babel" src="components/AdjudicarModal.jsx"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Shared Sparkline — used across several screens
+    function Sparkline({ values, width = 90, height = 26 }) {
+      if (!values || values.length === 0) return null;
+      const min = Math.min(...values), max = Math.max(...values), range = Math.max(1, max - min);
+      const step = width / (values.length - 1);
+      const pts = values.map((v,i) => [i*step, height - ((v-min)/range)*(height-4) - 2]);
+      const d = pts.map((p,i) => (i?'L':'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+      const area = d + ` L ${width},${height} L 0,${height} Z`;
+      const last = pts[pts.length-1];
+      return (
+        <svg width={width} height={height} style={{display:'block'}}>
+          <path d={area} className="spark-area" />
+          <path d={d} className="spark-line" />
+          <circle cx={last[0]} cy={last[1]} r="2" className="spark-dot" />
+        </svg>
+      );
+    }
+    window.Sparkline = Sparkline;
+
+    // Flow toast for the end-to-end demo narrative
+    function FlowToast({ msg, onDismiss }) {
+      useEffect(() => { if (!msg) return; const t = setTimeout(onDismiss, 2800); return () => clearTimeout(t); }, [msg]);
+      if (!msg) return null;
+      return (
+        <div className="toast" style={{left:'50%',right:'auto',transform:'translateX(-50%)',bottom:24,border:'1px solid var(--accent-line)',background:'var(--accent-weak)',color:'var(--accent)'}}>
+          <Icon d={ICONS.sparkles}/> {msg}
+        </div>
+      );
+    }
+
+    // Flow banner — compact stepper at top of the app, always visible
+    function FlowBanner({ step, onStep }) {
+      const steps = [
+        { k: 'bandeja',       n: '1. Residente pide', sub: 'Bandeja' },
+        { k: 'comparador',    n: '2. Oscar cotiza',   sub: 'Comparador' },
+        { k: 'ordenes',       n: '3. OC emitida',     sub: 'OC-2026-0341' },
+        { k: 'materiales',    n: '4. Maestro actualizado', sub: 'Material master' },
+        { k: 'apu',           n: '5. APU fresco',     sub: 'Configurador' },
+        { k: 'cotizaciones',  n: '6. Cotización',     sub: 'Editor' },
+        { k: 'adj',           n: '7. Adjudicación',   sub: 'Modal → OC' },
+      ];
+      return (
+        <div style={{display:'flex',gap:0,alignItems:'stretch',padding:'6px 24px',borderBottom:'1px solid var(--line)',background:'var(--surface)',overflowX:'auto'}}>
+          <div style={{fontFamily:'var(--f-mono)',fontSize:10,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',paddingRight:14,display:'flex',alignItems:'center',borderRight:'1px solid var(--line-2)',flexShrink:0}}>Flujo end-to-end</div>
+          {steps.map((s,i) => {
+            const active = step === s.k || (s.k==='cotizaciones' && step==='cotizaciones') || (s.k==='ordenes' && step==='ordenes');
+            return (
+              <button key={s.k} onClick={() => onStep(s.k)} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 14px',background:'transparent',flexShrink:0,borderRight:i<steps.length-1?'1px solid var(--line-2)':'none'}}>
+                <span style={{fontFamily:'var(--f-mono)',fontSize:10.5,color: active?'var(--text)':'var(--text-3)',fontWeight: active?600:400,whiteSpace:'nowrap'}}>{s.n}</span>
+                <span style={{fontSize:10,color:'var(--text-4)',whiteSpace:'nowrap'}}>{s.sub}</span>
+                {i < steps.length-1 && <span style={{color:'var(--text-4)',marginLeft:6}}>→</span>}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function App() {
+      const stored = localStorage.getItem('durata-route') || 'materiales';
+      const [route, setRoute] = useState(stored);
+      const [showAdj, setShowAdj] = useState(false);
+      const [toast, setToast] = useState(null);
+
+      useEffect(() => { localStorage.setItem('durata-route', route); }, [route]);
+
+      const flowStep = route.startsWith('ordenes') ? 'ordenes'
+                     : route === 'apu' ? 'apu'
+                     : route.startsWith('cotizaciones') ? 'cotizaciones'
+                     : route;
+
+      const onFlowStep = (k) => {
+        if (k === 'adj') { setRoute('cotizaciones/482'); setShowAdj(true); }
+        else if (k === 'ordenes') setRoute('ordenes/OC-2026-0341');
+        else if (k === 'cotizaciones') setRoute('cotizaciones/482');
+        else setRoute(k);
+      };
+
+      let view;
+      if (route === 'materiales') view = <MaterialMaster setRoute={setRoute} />;
+      else if (route === 'comparador') view = <Comparador setRoute={setRoute} onEmitOC={(ocId) => { setRoute('ordenes/' + ocId); setToast('OC emitida · Stock actualizado · Maestro sincronizado'); }} />;
+      else if (route.startsWith('ordenes')) view = <OrdenCompra setRoute={setRoute} />;
+      else if (route === 'bandeja') view = <Bandeja setRoute={setRoute} />;
+      else if (route === 'apu') view = <APUPane setRoute={setRoute} />;
+      else if (route.startsWith('cotizaciones')) view = <CotizacionEditor setRoute={setRoute} openAdjudicar={() => setShowAdj(true)} />;
+      else view = <MaterialMaster setRoute={setRoute} />;
+
+      // Cotizaciones editor manages its own topbar/layout
+      const embedded = route.startsWith('cotizaciones');
+
+      return (
+        <div className="app">
+          <Sidebar route={route} setRoute={setRoute} />
+          <main style={{minWidth:0}}>
+            <FlowBanner step={flowStep} onStep={onFlowStep} />
+            {view}
+          </main>
+          {showAdj && <AdjudicarModal onClose={() => setShowAdj(false)} onCommit={() => { setToast('Adjudicación confirmada · 6 OCs creadas en bandeja de Oscar'); setRoute('bandeja'); }} />}
+          <FlowToast msg={toast} onDismiss={() => setToast(null)} />
+        </div>
+      );
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Wait until Babel has finished transforming the other src scripts.
+      // All our Object.assign(window, …) exports should now exist.
+      const boot = () => {
+        if (!window.MaterialMaster || !window.Comparador || !window.OrdenCompra || !window.Bandeja || !window.APUPane || !window.CotizacionEditor || !window.AdjudicarModal) {
+          setTimeout(boot, 60); return;
+        }
+        ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+      };
+      boot();
+    });
+  </script>
+</body>
+</html>
