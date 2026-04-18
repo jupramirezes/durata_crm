@@ -57,21 +57,32 @@ function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean 
   )
 }
 
-function EditableList({ items, onChange, placeholder }: { items: string[]; onChange: (items: string[]) => void; placeholder?: string }) {
+function EditableList({ items, onChange, placeholder, multiline }: { items: string[]; onChange: (items: string[]) => void; placeholder?: string; multiline?: boolean }) {
   const [newItem, setNewItem] = useState('')
   return (
     <div className="space-y-1.5">
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2 group">
-          <input
-            type="text"
-            value={item}
-            onChange={e => { const next = [...items]; next[i] = e.target.value; onChange(next) }}
-            className="flex-1 px-3 py-1.5 rounded-md border border-[var(--color-border)] text-xs bg-white focus:outline-none focus:border-[var(--color-primary)] transition-colors"
-          />
+        <div key={i} className="flex items-start gap-2 group">
+          {multiline ? (
+            <textarea
+              value={item}
+              onChange={e => { const next = [...items]; next[i] = e.target.value; onChange(next) }}
+              rows={Math.max(2, Math.ceil(item.length / 90))}
+              className="flex-1 px-3 py-2 rounded-md border border-[var(--color-border)] text-xs bg-white focus:outline-none focus:border-[var(--color-primary)] transition-colors resize-y"
+              style={{ fontFamily: 'inherit', lineHeight: 1.5 }}
+            />
+          ) : (
+            <input
+              type="text"
+              value={item}
+              onChange={e => { const next = [...items]; next[i] = e.target.value; onChange(next) }}
+              className="flex-1 px-3 py-1.5 rounded-md border border-[var(--color-border)] text-xs bg-white focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+            />
+          )}
           <button
             onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className="text-[var(--color-text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+            className="text-[var(--color-text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 mt-1"
+            title="Eliminar ítem"
           >
             <Trash2 size={12} />
           </button>
@@ -450,12 +461,18 @@ function TabCotizacion({ data, onSave, saving }: { data: DefaultsCotizacion; onS
 
       <div>
         <FieldLabel>Condiciones comerciales</FieldLabel>
-        <EditableList items={form.condiciones} onChange={v => setForm({ ...form, condiciones: v })} placeholder="Nueva condición…" />
+        <p className="text-[10px] text-[var(--color-text-muted)] mb-1.5">
+          Texto completo que se inserta por defecto en cada cotización nueva. Usá <code className="mono px-1 bg-[var(--color-surface-2)] rounded" style={{ fontSize: 10 }}>__TIEMPO__</code> para interpolar el tiempo de entrega.
+        </p>
+        <EditableList multiline items={form.condiciones} onChange={v => setForm({ ...form, condiciones: v })} placeholder="Nueva condición…" />
       </div>
 
       <div>
         <FieldLabel>No incluye</FieldLabel>
-        <EditableList items={form.no_incluye} onChange={v => setForm({ ...form, no_incluye: v })} placeholder="Nuevo ítem…" />
+        <p className="text-[10px] text-[var(--color-text-muted)] mb-1.5">
+          Cláusulas "no incluye" que se agregan por defecto a cada cotización nueva.
+        </p>
+        <EditableList multiline items={form.no_incluye} onChange={v => setForm({ ...form, no_incluye: v })} placeholder="Nuevo ítem…" />
       </div>
     </div>
   )

@@ -369,14 +369,26 @@ export default function ConfiguradorGenerico() {
   if (error) return <div className="p-8 text-center text-red-500">Error: {error}</div>
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(`/oportunidades/${id}`)} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:underline"><ArrowLeft size={16} /> Volver</button>
-        <div className="flex-1" />
-        <div className="text-right">
-          <h2 className="text-2xl font-bold text-[var(--color-text)]">{editProductoId ? 'Editar' : 'Configurar'}: {productoNombre}</h2>
-          <p className="text-sm text-slate-500">Empresa: {empresa?.nombre}</p>
+    <div className="page">
+      {/* Header (handoff: crumb + title + back en linea) */}
+      <button
+        onClick={() => navigate(`/oportunidades/${id}`)}
+        className="btn-d ghost sm"
+        style={{ marginBottom: 14, padding: '0 8px' }}
+      >
+        <ArrowLeft size={13} /> Volver a oportunidad
+      </button>
+
+      <div className="opp-header">
+        <div className="body">
+          <div className="mono" style={{ fontSize: 10.5, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+            {editProductoId ? 'Editar producto' : 'Configurar producto'}
+          </div>
+          <div className="opp-title">{productoNombre}</div>
+          <div className="opp-company-line">
+            <strong>{empresa?.nombre || '—'}</strong>
+            {oportunidad && (<><span className="sep">·</span><span className="mono">{oportunidad.id.slice(0, 8).toUpperCase()}</span></>)}
+          </div>
         </div>
       </div>
 

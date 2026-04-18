@@ -179,28 +179,65 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
   ]
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
-      <div className="bg-white rounded-2xl border border-[var(--color-border)] w-full max-w-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center animate-fade-in"
+      style={{ paddingTop: '6vh', paddingBottom: '4vh', background: 'rgba(20,24,28,0.36)', backdropFilter: 'blur(2px)' }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: 'min(640px, 92vw)',
+          maxHeight: '90vh',
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-pop)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         {/* Header */}
-        <div className="flex justify-between items-center px-6 py-5 border-b border-[var(--color-border)]">
-          <h3 className="text-lg font-bold">Nueva Oportunidad</h3>
-          <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1.5 rounded-lg hover:bg-[var(--color-surface)]"><X size={20} /></button>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text)' }}>Nueva oportunidad</div>
+            <div style={{ fontSize: 11, color: 'var(--color-text-label)', marginTop: 2 }}>
+              Crea una oportunidad en 3 pasos · empresa → contacto → datos
+            </div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={onClose}
+            className="btn-d ghost icon sm"
+            style={{ color: 'var(--color-text-label)' }}
+          ><X size={14} /></button>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+        {/* Steps indicator (handoff: mono numbers with separators) */}
+        <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--color-surface-2)' }}>
           {steps.map((s, i) => (
-            <div key={s.key} className="flex items-center gap-2">
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${i <= stepIdx ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-border)] text-[var(--color-text-muted)]'}`}>
-                <s.icon size={12} /> {s.label}
-              </div>
-              {i < 2 && <ChevronRight size={12} className="text-[var(--color-text-muted)]" />}
+            <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                className="mono"
+                style={{
+                  fontSize: 10.5,
+                  padding: '2px 8px',
+                  borderRadius: 3,
+                  background: i < stepIdx ? 'var(--color-primary-weak)' : i === stepIdx ? 'var(--color-text)' : 'transparent',
+                  color: i < stepIdx ? 'var(--color-primary)' : i === stepIdx ? 'var(--color-surface)' : 'var(--color-text-label)',
+                  border: '1px solid ' + (i === stepIdx ? 'var(--color-text)' : i < stepIdx ? 'var(--color-primary-line)' : 'var(--color-border)'),
+                  fontWeight: i === stepIdx ? 600 : 500,
+                  letterSpacing: '0.04em',
+                }}
+              >{i + 1}. {s.label}</span>
+              {i < steps.length - 1 && <span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>→</span>}
             </div>
           ))}
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} style={{ padding: 20, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {step === 'empresa' && (
             <>
               <div className="flex gap-2 mb-2">
@@ -391,17 +428,35 @@ export default function OportunidadFormModal({ onClose, onCreated }: Props) {
         </form>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[var(--color-border)] flex justify-between">
-          <button type="button" onClick={step === 'empresa' ? onClose : () => setStep(step === 'contacto' ? 'empresa' : 'contacto')} className="px-5 py-2.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] rounded-xl hover:bg-[var(--color-surface-hover)] transition-all">
-            {step === 'empresa' ? 'Cancelar' : 'Atras'}
-          </button>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {step !== 'empresa' && (
+            <button
+              type="button"
+              onClick={() => setStep(step === 'contacto' ? 'empresa' : 'contacto')}
+              className="btn-d sm"
+            >
+              <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} /> Anterior
+            </button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button type="button" onClick={onClose} className="btn-d sm">Cancelar</button>
           {step !== 'oportunidad' ? (
-            <button type="button" onClick={step === 'empresa' ? goToContacto : goToOportunidad} disabled={step === 'empresa' && empresaMode === 'search' && !selectedEmpresaId} className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-50">
-              Siguiente <ChevronRight size={14} />
+            <button
+              type="button"
+              onClick={step === 'empresa' ? goToContacto : goToOportunidad}
+              disabled={step === 'empresa' && empresaMode === 'search' && !selectedEmpresaId}
+              className="btn-d accent sm"
+            >
+              Siguiente <ChevronRight size={12} />
             </button>
           ) : (
-            <button type="button" onClick={handleSubmit as any} className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-accent-green)] hover:opacity-90 text-white rounded-xl text-sm font-bold transition-all">
-              <Target size={14} /> Crear oportunidad
+            <button
+              type="button"
+              onClick={handleSubmit as any}
+              className="btn-d accent sm"
+              style={{ background: 'var(--color-accent-green)', borderColor: 'var(--color-accent-green)' }}
+            >
+              <Target size={12} /> Crear oportunidad
             </button>
           )}
         </div>

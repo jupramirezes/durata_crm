@@ -15,7 +15,7 @@ import {
   ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
   StickyNote, Send, Wrench, X, ChevronDown, Copy, Download, Clock,
   ArrowRightLeft, MessageSquare, Box, Phone, Mail, AlertCircle,
-  Paperclip, FileSpreadsheet, File as FileIcon, RotateCcw,
+  Paperclip, FileSpreadsheet, File as FileIcon, RotateCcw, Plus,
 } from 'lucide-react'
 
 const CATEGORIAS_PRODUCTO = [
