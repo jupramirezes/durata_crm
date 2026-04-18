@@ -678,12 +678,12 @@ export default function OportunidadDetalle() {
               </span>
               <EtapaBadge etapa={opp.etapa} size="sm" />
             </div>
-            <div className="opp-title">{opp.nombre || 'Sin proyecto asignado'}</div>
+            <div className="opp-title">{emp.nombre}</div>
             <div className="opp-company-line">
-              <strong>{emp.nombre}</strong>
-              <span className="sep">·</span>
               {contacto ? (
-                <span>{contacto.nombre}{contacto.cargo && ` — ${contacto.cargo}`}</span>
+                <><strong>{contacto.nombre}</strong>
+                  {contacto.cargo && (<><span className="sep">·</span><span>{contacto.cargo}</span></>)}
+                </>
               ) : (
                 <button
                   onClick={() => { setShowAssignContacto(true); document.getElementById('contacto-card')?.scrollIntoView({ behavior: 'smooth' }) }}
@@ -1401,27 +1401,26 @@ export default function OportunidadDetalle() {
           </>)}
         </div>
 
-        {/* ─── RIGHT COLUMN - SIDEBAR (30%) ─── */}
-        <div className="flex-[3] min-w-[340px] max-w-[380px] space-y-5 sticky top-6">
-          {/* ═══ CAMBIO 2: SIDEBAR RESUMEN ═══ */}
-          <div className="card p-7">
-            <div className="mb-6 pb-6 border-b border-[#f1f5f9]">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8] mb-1">Valor cotizado</p>
-              <p className="text-[32px] font-extrabold text-[#059669] tabular-nums leading-tight">{formatCOP(opp.valor_cotizado)}</p>
-              {opp.valor_adjudicado > 0 && (
-                <p className="text-sm font-bold text-[var(--color-accent-green)] font-mono mt-1">
-                  Adjudicado: {formatCOP(opp.valor_adjudicado)}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-3.5 text-[14px]">
-              <div className="flex justify-between items-center">
-                <span className="text-[13px] font-medium text-slate-500">Etapa</span>
-                <EtapaBadge etapa={opp.etapa} size="sm" />
+        {/* ─── ASIDE (design: 320px sticky) ─── */}
+        <aside className="detail-aside" style={{ flex: '0 0 320px', position: 'sticky', top: 48, alignSelf: 'flex-start', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto' }}>
+          {/* Value card */}
+          <div className="aside-value">
+            <div className="l">Valor cotizado</div>
+            <div className="v mono">{formatCOP(opp.valor_cotizado)}</div>
+            <div style={{ marginTop: 10 }}><EtapaBadge etapa={opp.etapa} size="sm" /></div>
+            {opp.valor_adjudicado > 0 && (
+              <div className="mono" style={{ marginTop: 8, fontSize: 12, color: 'var(--color-accent-green)' }}>
+                Adjudicado: {formatCOP(opp.valor_adjudicado)}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[13px] font-medium text-slate-500">Cotizador</span>
+            )}
+          </div>
+
+          {/* Propiedades */}
+          <div className="aside-h">Propiedades</div>
+          <div className="prop-list">
+            <div className="prop-row">
+              <div className="k">Cotizador</div>
+              <div className="v">
                 <select
                   value={opp.cotizador_asignado}
                   onChange={e => {
@@ -1429,81 +1428,75 @@ export default function OportunidadDetalle() {
                     const c = findCotizador(e.target.value)
                     showToast('success', `Cotizador actualizado a ${c?.nombre || e.target.value}`)
                   }}
-                  className="text-[14px] font-medium bg-transparent border-none cursor-pointer text-right pr-0 focus:ring-0 focus:outline-none hover:text-[var(--color-primary)] transition-colors"
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text)', fontWeight: 500, fontSize: 12.5, padding: 0, textAlign: 'right', minHeight: 0 }}
                 >
                   {COTIZADORES.map(c => (
                     <option key={c.id} value={c.id}>{c.iniciales} — {c.nombre}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[13px] font-medium text-slate-500">Empresa</span>
-                <button
-                  onClick={() => navigate(`/empresas/${emp.id}`)}
-                  className="text-[14px] font-medium text-[var(--color-primary)] hover:underline truncate max-w-[180px]"
-                >
-                  {emp.nombre}
-                </button>
+            </div>
+            <div className="prop-row">
+              <div className="k">Días pipeline</div>
+              <div className="v mono">{diasEnPipeline}d</div>
+            </div>
+            <div className="prop-row">
+              <div className="k">Ingreso</div>
+              <div className="v mono">{formatDate(opp.fecha_ingreso)}</div>
+            </div>
+            <div className="prop-row">
+              <div className="k">Envío</div>
+              <div className="v mono" style={{ color: opp.fecha_envio ? 'var(--color-text)' : 'var(--color-text-label)' }}>
+                {opp.fecha_envio ? formatDate(opp.fecha_envio) : '—'}
               </div>
-
-              <div className="pt-3 border-t border-[var(--color-border)] space-y-3.5">
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-slate-500">Dias en pipeline</span>
-                  <span className="text-[14px] font-medium">{diasEnPipeline}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-slate-500">Fecha ingreso</span>
-                  <span className="text-[14px] font-medium">{formatDate(opp.fecha_ingreso)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-slate-500">Fecha envio</span>
-                  <span className="text-[14px] font-medium">{opp.fecha_envio ? formatDate(opp.fecha_envio) : 'Sin fecha de envio'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[13px] text-slate-500">Fuente</span>
-                  <span className="text-[14px] font-medium">{opp.fuente_lead}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-[13px] text-slate-500 shrink-0">Ubicacion</span>
-                  <span className="text-[14px] font-medium text-right truncate" title={opp.ubicacion || ''}>
-                    {opp.ubicacion || '—'}
-                  </span>
-                </div>
-                {emp.sector && (
-                  <div className="flex justify-between">
-                    <span className="text-[var(--color-text-muted)]">Sector</span>
-                    <span className="font-medium">{emp.sector}</span>
-                  </div>
-                )}
+            </div>
+            <div className="prop-row">
+              <div className="k">Fuente</div>
+              <div className="v">{opp.fuente_lead || '—'}</div>
+            </div>
+            <div className="prop-row">
+              <div className="k">Sector</div>
+              <div className="v">{emp.sector || '—'}</div>
+            </div>
+            <div className="prop-row">
+              <div className="k">Ubicación</div>
+              <div className="v" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={opp.ubicacion || ''}>
+                {opp.ubicacion || '—'}
               </div>
             </div>
           </div>
 
-          {/* ═══ CAMBIO 6: EMPRESA CARD ═══ */}
-          <div className="card p-5 mt-5">
-            <div className="flex items-center gap-1.5 mb-3">
-              <Building2 size={14} className="text-[var(--color-primary)]" />
-              <span className="text-[13px] font-bold text-[var(--color-text)]">Empresa</span>
+          {/* Empresa card */}
+          <div className="aside-h">Empresa</div>
+          <div className="aside-card">
+            <button
+              onClick={() => navigate(`/empresas/${emp.id}`)}
+              style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-primary)', background: 'transparent', border: 'none', padding: 0, minHeight: 0, cursor: 'pointer' }}
+            >{emp.nombre}</button>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--color-text-label)', marginTop: 2 }}>
+              NIT: {emp.nit || '—'}{emp.sector ? ` · ${emp.sector}` : ''}
             </div>
-            <div className="space-y-1.5 text-[13px]">
-              <div className="font-medium text-[14px] text-[var(--color-text)]">{emp.nombre}</div>
-              <div className="text-slate-500">NIT: {emp.nit || '—'}</div>
-              <div className="text-slate-500">{emp.direccion || '—'}</div>
-              <div className="text-slate-500">{emp.sector}</div>
-            </div>
-            <button onClick={() => navigate(`/empresas/${emp.id}`)} className="text-[10px] text-[var(--color-primary)] hover:underline mt-2 block">
-              Ver todas las oportunidades
-            </button>
-            {totalHistoricoEmpresa > 0 && (
-              <div className="mt-2 pt-2 border-t border-[var(--color-border)]">
-                <span className="text-[9px] text-[var(--color-text-muted)]">Total historico cotizado:</span>
-                <span className="text-[10px] font-bold font-mono text-[var(--color-text)] ml-1">{formatCOP(totalHistoricoEmpresa)}</span>
-              </div>
+            {emp.direccion && (
+              <div style={{ fontSize: 11, color: 'var(--color-text-label)', marginTop: 2 }}>{emp.direccion}</div>
             )}
+            {totalHistoricoEmpresa > 0 && (
+              <>
+                <div style={{ height: 1, background: 'var(--color-border)', margin: '10px 0' }} />
+                <div style={{ fontSize: 11, color: 'var(--color-text-label)' }}>Histórico cotizado</div>
+                <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', marginTop: 2 }}>
+                  {formatCOP(totalHistoricoEmpresa)}
+                </div>
+              </>
+            )}
+            <button
+              onClick={() => navigate(`/empresas/${emp.id}`)}
+              style={{ display: 'block', marginTop: 10, fontSize: 11, color: 'var(--color-primary)', background: 'transparent', border: 'none', padding: 0, minHeight: 0, cursor: 'pointer' }}
+            >Ver todas las oportunidades →</button>
           </div>
 
-          {/* ═══ CAMBIO 6: CONTACTO CARD (editable) ═══ */}
-          <div id="contacto-card" className="card p-5 mt-5">
+          {/* Contacto card */}
+          <div className="aside-h">Contacto</div>
+          <div id="contacto-card" className="aside-card">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
                 <User size={14} className="text-[var(--color-primary)]" />
@@ -1622,7 +1615,7 @@ export default function OportunidadDetalle() {
               </div>
             )}
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* ═══ MODALS ═══ */}
