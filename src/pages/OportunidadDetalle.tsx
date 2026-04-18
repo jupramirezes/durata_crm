@@ -652,143 +652,156 @@ export default function OportunidadDetalle() {
   // RENDER
   // ══════════════════════════════════════════════════
 
-  return (
-    <div className="px-10 py-8 animate-fade-in max-w-[1400px]">
-      {/* Back */}
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[13px] text-[#94a3b8] hover:text-[var(--color-text)] transition-colors mb-5">
-        <ArrowLeft size={14} /> Volver
-      </button>
+  // Compute margin for meta-grid
+  const costoTotal = productos.reduce((s, p: any) => s + (p.total_costo || 0), 0)
+  const margenPct = opp.valor_cotizado > 0 ? ((opp.valor_cotizado - costoTotal) / opp.valor_cotizado) * 100 : 0
 
-      {/* ═══ CAMBIO 1: HEADER FUERTE ═══ */}
-      <div className="card p-7 mb-7">
-        <div className="flex items-start justify-between gap-4">
-          {/* Left: company info */}
-          <div className="flex items-start gap-4 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-              <Building2 size={22} className="text-[var(--color-primary)]" />
+  return (
+    <div className="detail-page animate-fade-in">
+      <div className="detail-main">
+        {/* Back */}
+        <button
+          onClick={() => navigate(-1)}
+          className="btn-d ghost sm"
+          style={{ marginBottom: 14, padding: '0 8px' }}
+        >
+          <ArrowLeft size={13} /> Volver
+        </button>
+
+        {/* Header */}
+        <div className="opp-header">
+          <div className="body">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--color-text-label)' }}>
+                {opp.id.slice(0, 8).toUpperCase()}
+              </span>
+              <EtapaBadge etapa={opp.etapa} size="sm" />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-[32px] font-bold text-[var(--color-text)] truncate tracking-tight leading-tight mb-1">{emp.nombre}</h1>
+            <div className="opp-title">{emp.nombre}</div>
+            <div className="opp-company-line">
               {contacto ? (
-                <p className="text-base text-[#64748b] mt-1">
-                  {contacto.nombre}{contacto.cargo && ` — ${contacto.cargo}`}
-                </p>
+                <>
+                  <strong>{contacto.nombre}</strong>
+                  {contacto.cargo && (<><span className="sep">·</span><span>{contacto.cargo}</span></>)}
+                </>
               ) : (
                 <button
                   onClick={() => { setShowAssignContacto(true); document.getElementById('contacto-card')?.scrollIntoView({ behavior: 'smooth' }) }}
-                  className="text-[13px] text-[var(--color-primary)] hover:underline mt-1"
+                  style={{ color: 'var(--color-primary)', textDecoration: 'underline', fontSize: 12.5, minHeight: 0 }}
                 >Agregar contacto</button>
               )}
-              <p className="text-[13px] text-[#94a3b8] mt-1">
-                Fuente: {opp.fuente_lead} &bull; Ingreso: {formatDate(opp.fecha_ingreso)} &bull; Cotizador: {cotizador?.nombre || opp.cotizador_asignado}
-              </p>
+              <span className="sep">·</span>
+              <span>Fuente: {opp.fuente_lead}</span>
+              <span className="sep">·</span>
+              <span>Ingreso: {formatDate(opp.fecha_ingreso)}</span>
+              <span className="sep">·</span>
+              <span>Cotizador: {cotizador?.nombre || opp.cotizador_asignado}</span>
             </div>
           </div>
 
-          {/* Right: stage badge + days */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="text-right">
-              <EtapaBadge etapa={opp.etapa} size="md" />
-              <div className="flex items-center gap-1 mt-2 justify-end">
-                <Clock size={12} className="text-[#94a3b8]" />
-                <span className="text-[13px] text-[#94a3b8] font-medium">{diasEnPipeline} dias en pipeline</span>
-              </div>
+          <div className="opp-header-actions">
+            <button
+              onClick={() => document.getElementById('nota-input')?.focus()}
+              className="btn-d sm"
+            ><StickyNote size={12} /> Nota</button>
+
+            <button
+              onClick={() => setShowProductModal(true)}
+              className="btn-d sm"
+            ><Package size={12} /> Producto</button>
+
+            {productos.length > 0 && (
+              <button
+                onClick={() => {
+                  const draft = cotizaciones
+                    .filter(c => c.oportunidad_id === opp.id && c.estado === 'borrador')
+                    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+                  if (draft) navigate(`/cotizaciones/${draft.id}/editar`)
+                  else setShowCotModal(true)
+                }}
+                className="btn-d sm"
+                style={{ background: 'var(--color-accent-green)', color: '#fff', borderColor: 'var(--color-accent-green)' }}
+              ><FileText size={12} /> Cotización</button>
+            )}
+
+            <div className="relative">
+              <button
+                onClick={() => setShowEtapaDropdown(!showEtapaDropdown)}
+                className="btn-d accent sm"
+              >Mover etapa <ChevronDown size={12} /></button>
+              {showEtapaDropdown && (
+                <div className="absolute right-0 mt-1 z-20 py-1 overflow-hidden" style={{ width: 220, background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-pop)' }}>
+                  {ETAPAS.map(e => (
+                    <button
+                      key={e.key}
+                      onClick={() => handleMoveEtapa(e.key)}
+                      disabled={e.key === opp.etapa}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left"
+                      style={{
+                        background: e.key === opp.etapa ? 'var(--color-surface-2)' : 'transparent',
+                        color: e.key === opp.etapa ? 'var(--color-text-label)' : 'var(--color-text)',
+                        cursor: e.key === opp.etapa ? 'not-allowed' : 'pointer',
+                        minHeight: 0,
+                      }}
+                      onMouseEnter={(ev) => { if (e.key !== opp.etapa) ev.currentTarget.style.background = 'var(--color-surface-2)' }}
+                      onMouseLeave={(ev) => { if (e.key !== opp.etapa) ev.currentTarget.style.background = 'transparent' }}
+                    >
+                      <span className="stage-dot" style={{ background: e.color }} />
+                      <span style={{ fontWeight: 500 }}>{e.label}</span>
+                      {e.key === opp.etapa && <span className="mono" style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--color-text-faint)' }}>actual</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <button
+              onClick={() => {
+                if (window.confirm('¿Seguro que deseas eliminar esta oportunidad? Se eliminarán también sus productos y cotizaciones.')) {
+                  dispatch({ type: 'DELETE_OPORTUNIDAD', payload: { id: opp.id } })
+                  navigate('/pipeline')
+                }
+              }}
+              className="btn-d ghost icon sm"
+              style={{ color: 'var(--color-accent-red)' }}
+              title="Eliminar oportunidad"
+            ><Trash2 size={12} /></button>
           </div>
         </div>
 
         {/* Motivo pérdida banner */}
         {opp.etapa === 'perdida' && (
-          <div className="mt-4 rounded-lg p-3 bg-[#FEF2F2] border border-[#FECACA] flex items-center gap-2">
-            <AlertCircle size={16} className="text-[#991B1B] shrink-0" />
-            <span className="text-sm text-[#991B1B] font-medium">
-              Oportunidad perdida — Motivo: {opp.motivo_perdida || 'No registrado'}
-            </span>
+          <div className="alert-banner" style={{ borderLeftColor: 'var(--color-accent-red)' }}>
+            <AlertCircle size={14} style={{ color: 'var(--color-accent-red)', flexShrink: 0 }} />
+            <div>
+              <div className="t">Oportunidad perdida</div>
+              <div className="d">Motivo: {opp.motivo_perdida || 'No registrado'}</div>
+            </div>
           </div>
         )}
 
-        {/* Action bar */}
-        <div className="flex items-center gap-2.5 mt-5 pt-5 border-t border-[#f1f5f9]">
-          <button
-            onClick={() => document.getElementById('nota-input')?.focus()}
-            className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium border border-[#e2e8f0] text-[#334155] hover:shadow-sm hover:opacity-90 transition-all"
-          >
-            <StickyNote size={14} /> + Nota
-          </button>
-
-          <button
-            onClick={() => setShowProductModal(true)}
-            className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium border border-[#e2e8f0] text-[#334155] hover:shadow-sm hover:opacity-90 transition-all"
-          >
-            <Package size={14} /> + Producto
-          </button>
-
-          {productos.length > 0 && (
-            <button
-              onClick={() => {
-                // If there's an existing draft for this opp (e.g. just-recotizada or previously started),
-                // go to its editor instead of creating a new one — prevents duplicate cotizaciones.
-                const draft = cotizaciones
-                  .filter(c => c.oportunidad_id === opp.id && c.estado === 'borrador')
-                  .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
-                if (draft) {
-                  navigate(`/cotizaciones/${draft.id}/editar`)
-                } else {
-                  setShowCotModal(true)
-                }
-              }}
-              className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium bg-[#059669] hover:opacity-90 text-white transition-all shadow-sm"
-            >
-              <FileText size={14} /> Generar cotizacion
-            </button>
-          )}
-
-          {/* Move stage dropdown */}
-          <div className="relative ml-auto">
-            <button
-              onClick={() => setShowEtapaDropdown(!showEtapaDropdown)}
-              className="flex items-center gap-1.5 h-11 px-6 rounded-[10px] text-sm font-medium bg-[var(--color-primary)] hover:opacity-90 text-white transition-all shadow-sm"
-            >
-              Mover etapa <ChevronDown size={13} />
-            </button>
-            {showEtapaDropdown && (
-              <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-[var(--color-border)] z-20 py-1 overflow-hidden">
-                {ETAPAS.map(e => (
-                  <button
-                    key={e.key}
-                    onClick={() => handleMoveEtapa(e.key)}
-                    disabled={e.key === opp.etapa}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${
-                      e.key === opp.etapa
-                        ? 'bg-[var(--color-surface)] text-[var(--color-text-muted)] cursor-not-allowed'
-                        : 'hover:bg-[var(--color-surface)]'
-                    }`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: e.color }} />
-                    <span className="font-medium">{e.label}</span>
-                    {e.key === opp.etapa && <span className="ml-auto text-[9px] text-[var(--color-text-muted)]">actual</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+        {/* Meta grid */}
+        <div className="meta-grid">
+          <div className="meta-cell">
+            <div className="l">Valor cotizado</div>
+            <div className="v mono">{opp.valor_cotizado > 0 ? formatCOP(opp.valor_cotizado, { short: true }) : '—'}</div>
           </div>
-
-          <button
-            onClick={() => {
-              if (window.confirm('\u00bfSeguro que deseas eliminar esta opp? Se eliminaran tambien sus productos y cotizaciones.')) {
-                dispatch({ type: 'DELETE_OPORTUNIDAD', payload: { id: opp.id } })
-                navigate('/pipeline')
-              }
-            }}
-            className="flex items-center gap-1 text-[10px] px-2.5 py-2 rounded-lg text-red-500 hover:bg-red-50 border border-red-200 font-medium transition-all"
-          >
-            <Trash2 size={12} />
-          </button>
+          <div className="meta-cell">
+            <div className="l">Costo</div>
+            <div className="v mono">{costoTotal > 0 ? formatCOP(costoTotal, { short: true }) : '—'}</div>
+          </div>
+          <div className="meta-cell">
+            <div className="l">Margen</div>
+            <div className="v mono">{isFinite(margenPct) && opp.valor_cotizado > 0 ? `${margenPct.toFixed(1)}%` : '—'}</div>
+          </div>
+          <div className="meta-cell">
+            <div className="l">Días pipeline</div>
+            <div className="v mono">{diasEnPipeline}d</div>
+          </div>
         </div>
-      </div>
 
-      {/* ═══ CAMBIO 2: LAYOUT 2 COLUMNAS ═══ */}
-      <div className="flex gap-8 items-start">
+      {/* Content: 2 columnas (left=timeline+productos+cotizaciones+adjuntos, right=aside sticky) */}
+      <div className="flex gap-6 items-start">
         {/* ─── LEFT COLUMN (70%) ─── */}
         <div className="flex-[7] min-w-0 space-y-7">
 
@@ -1994,6 +2007,7 @@ export default function OportunidadDetalle() {
       {(showEtapaDropdown || showAddMenu) && (
         <div className="fixed inset-0 z-10" onClick={() => { setShowEtapaDropdown(false); setShowAddMenu(false) }} />
       )}
+      </div> {/* close .detail-main */}
     </div>
   )
 }
