@@ -399,19 +399,23 @@ export default function Pipeline() {
                         <span className="company" title={empresa?.nombre}>{empresa?.nombre || '—'}</span>
                         {cotNumero && <span className="num">{cotNumero}</span>}
                       </div>
-                      {contactoNombre && <div className="contact">{contactoNombre}</div>}
+                      <div className="contact">
+                        {contactoNombre && contactoNombre !== '—' ? contactoNombre : ''}
+                      </div>
                       <div className="row2">
                         <span className="val">{o.valor_cotizado === 0 ? '—' : formatCOP(o.valor_cotizado, { short: true })}</span>
                         {hasNotas && <StickyNote size={11} style={{ color: 'var(--color-accent-yellow)' }} />}
-                        {cotizador && (
+                        {cotizador ? (
                           <span
                             className="avatar xs"
                             style={{ background: getAvatarColor(cotizador.nombre), color: '#fff', border: 'none' }}
                             title={cotizador.nombre}
                           >{cotizador.iniciales}</span>
+                        ) : (
+                          <span className="avatar xs" style={{ opacity: 0.3 }}>—</span>
                         )}
                         <span className={`age ${ageClass}`}>
-                          <Clock size={10} />{dias}d
+                          <Clock size={10} />{isFinite(dias) && dias >= 0 ? `${dias}d` : '—'}
                         </span>
                       </div>
                     </div>
