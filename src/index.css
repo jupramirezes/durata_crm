@@ -854,18 +854,19 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 
 /* ── OPPORTUNITY DETAIL ───────────────────────── */
 .detail-page {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  display: flex;
   min-height: calc(100vh - 48px);
 }
-.detail-main { padding: 24px 32px 48px; min-width: 0; }
+.detail-main { flex: 1; min-width: 0; padding: 24px 32px 48px; }
 .detail-aside {
+  flex: 0 0 320px;
   padding: 24px 20px;
   border-left: 1px solid var(--color-border);
   background: var(--color-surface);
   position: sticky;
   top: 48px;
-  height: calc(100vh - 48px);
+  align-self: flex-start;
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
 }
 
@@ -996,6 +997,234 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
+
+/* ── TIMELINE (activity) ─────────────────────── */
+.timeline { position: relative; padding-left: 18px; }
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--color-border);
+}
+.tl-item { position: relative; padding-bottom: 16px; }
+.tl-item::before {
+  content: "";
+  position: absolute;
+  left: -17px;
+  top: 4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border-strong);
+}
+.tl-item.accent::before {
+  border-color: var(--color-primary);
+  background: var(--color-primary-weak);
+}
+.tl-item.adj::before { border-color: var(--color-accent-green); }
+.tl-item .hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.tl-item .hd .t { font-weight: 500; color: var(--color-text); }
+.tl-item .hd .time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-label);
+  margin-left: auto;
+}
+.tl-item .body {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  margin-top: 3px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.note-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 8px 10px;
+  margin-bottom: 20px;
+}
+.note-bar input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 6px 4px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+/* ── PRODUCT CARD ─────────────────────────────── */
+.product-card {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.product-card + .product-card { margin-top: 8px; }
+.product-thumb {
+  width: 96px;
+  height: 72px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-faint);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  background-image: repeating-linear-gradient(45deg, transparent 0 6px, rgba(0,0,0,0.02) 6px 7px);
+  border: 1px solid var(--color-border);
+}
+.product-card .name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--color-text);
+}
+.product-card .spec {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-text-label);
+  margin-top: 2px;
+}
+.product-card .desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.product-card .price { text-align: right; }
+.product-card .price .p {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.product-card .price .q {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-label);
+  margin-top: 2px;
+}
+
+/* ── QUOTE ROW ────────────────────────────────── */
+.quote-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto auto;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  align-items: center;
+}
+.quote-row + .quote-row { margin-top: 6px; }
+.quote-row .num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.quote-row .meta { font-size: 12px; color: var(--color-text-label); }
+.quote-row .meta .title {
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 12.5px;
+  display: block;
+  margin-bottom: 2px;
+}
+.quote-row .total {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.quote-row .actions { display: flex; gap: 4px; }
+
+/* ── ATTACHMENT ROW ────────────────────────────── */
+.att {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+.att + .att { margin-top: 6px; }
+.att:hover { background: var(--color-surface-2); }
+.att .ext {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: #fff;
+  background: var(--color-text);
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.att .ext.xlsx, .att .ext.xlsm, .att .ext.xls { background: var(--color-accent-green); }
+.att .ext.pdf { background: var(--color-accent-red); }
+.att .ext.jpg, .att .ext.jpeg, .att .ext.png { background: var(--color-stage-enviada); }
+.att .ext.doc, .att .ext.docx { background: var(--color-stage-cotiz); }
+.att .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+.att .size {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-label);
+  flex-shrink: 0;
+}
+
+/* ── Section head (used inside tab content) ─── */
+.tab-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tab-section-head h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.005em;
+}
+.tab-section-head .count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-label);
+}
+.tab-section-head .spacer { flex: 1; }
 
 /* ── TABS ─────────────────────────────────────── */
 .tabs {

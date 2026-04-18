@@ -800,10 +800,7 @@ export default function OportunidadDetalle() {
           </div>
         </div>
 
-      {/* Content: 2 columnas (left=timeline+productos+cotizaciones+adjuntos, right=aside sticky) */}
-      <div className="flex gap-6 items-start">
-        {/* ─── LEFT COLUMN (70%) ─── */}
-        <div className="flex-[7] min-w-0 space-y-7">
+      {/* Tabs + content (directly inside detail-main; aside is sibling outside) */}
 
           {/* ═══ TABS ═══ */}
           <div className="tabs">
@@ -822,127 +819,109 @@ export default function OportunidadDetalle() {
           </div>
 
           {tab === 'actividad' && (<>
-          {/* ═══ CAMBIO 3: TIMELINE UNIFICADO ═══ */}
-          <div className="card p-7 mb-8">
-            <div className="flex items-center gap-2.5 mb-2 pb-4 border-b border-[#e2e8f0]">
-              <Clock size={18} className="text-[var(--color-primary)]" />
-              <h3 className="font-bold text-xl text-[var(--color-text)]">Actividad</h3>
-              {timelineEvents.length > 0 && (
-                <span className="text-[10px] font-bold text-[var(--color-primary)] bg-blue-50 px-2 py-0.5 rounded">{timelineEvents.length}</span>
-              )}
-            </div>
-
-            {/* Add note input */}
-            <div className="relative mb-6 mt-5">
+            {/* Quick note input (handoff: .note-bar) */}
+            <div className="note-bar">
               <input
                 id="nota-input"
                 value={notaTexto}
                 onChange={e => setNotaTexto(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNota() } }}
-                placeholder="Escribir una nota..."
-                className="w-full h-[52px] px-5 pr-28 rounded-xl text-[15px] border border-[#e2e8f0] focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)] focus:outline-none transition-all placeholder:text-[#94a3b8]"
+                placeholder="Añadir una nota, mención o actualización…"
               />
               <button
                 onClick={handleAddNota}
                 disabled={!notaTexto.trim()}
-                className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--color-primary)] text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="btn-d primary sm"
               >
-                <Send size={13} /> Agregar
+                <Send size={12} /> Publicar
               </button>
             </div>
 
-            {/* Timeline feed */}
+            {/* Timeline (handoff: .timeline + .tl-item) */}
             {timelineEvents.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-muted)] text-center py-8">Sin actividad registrada. Agrega la primera nota arriba.</p>
+              <div style={{ padding: 32, textAlign: 'center', fontSize: 13, color: 'var(--color-text-label)' }}>
+                Sin actividad registrada. Agregá la primera nota arriba.
+              </div>
             ) : (
-              <div className="relative ml-5 max-h-[600px] overflow-y-auto pr-2">
-                {/* Vertical line */}
-                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#e2e8f0]" />
-                <div className="space-y-3 pl-8">
-                  {timelineEvents.map((ev) => {
-                    const Icon = ev.icon
-                    const isCotTitle = ev.type === 'nota' && ev.title.startsWith('COT:')
-                    const bgCard = ev.type === 'nota' ? 'bg-[#fffbeb] border-[#fef3c7]'
-                      : ev.type === 'producto' ? 'bg-[#f5f3ff] border-[#ede9fe]'
-                      : ev.type === 'cotizacion' ? 'bg-[#ecfdf5] border-[#d1fae5]'
-                      : ''
-                    const isInline = ev.type === 'etapa'
-                    return (
-                      <div key={ev.id} className="relative">
-                        {/* Dot on the timeline line */}
-                        <div
-                          className="absolute -left-8 top-1 w-3 h-3 rounded-full border-2 border-white z-10"
-                          style={{ background: ev.color, marginLeft: '-2px' }}
-                        />
-                        {isInline ? (
-                          <div className="py-1">
-                            <span className="text-[14px] text-[#64748b]">{ev.title}</span>
-                            {ev.timestamp && <span className="text-[13px] text-[#94a3b8] ml-3">{formatDate(ev.timestamp)}</span>}
+              <div className="timeline" style={{ maxHeight: 640, overflowY: 'auto' }}>
+                {timelineEvents.map((ev) => {
+                  const accentClass = ev.type === 'cotizacion' ? 'adj' : ev.type === 'producto' || ev.type === 'nota' ? 'accent' : ''
+                  const isCotTitle = ev.type === 'nota' && ev.title.startsWith('COT:')
+                  const isEditingThis = ev.type === 'nota' && editingNotaIdx !== null && ev.id === `nota-${editingNotaIdx}`
+                  const notaIdx = ev.type === 'nota' ? Number(ev.id.replace('nota-', '')) : -1
+
+                  return (
+                    <div key={ev.id} className={`tl-item ${accentClass}`}>
+                      <div className="hd">
+                        {isEditingThis ? (
+                          <div style={{ flex: 1, display: 'flex', gap: 6 }}>
+                            <input
+                              value={editingNotaText}
+                              onChange={e => setEditingNotaText(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleSaveEditNota(); if (e.key === 'Escape') setEditingNotaIdx(null) }}
+                              autoFocus
+                              style={{ flex: 1, fontSize: 12.5, padding: '4px 8px', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface)' }}
+                            />
+                            <button onClick={handleSaveEditNota} className="btn-d sm primary">OK</button>
+                            <button onClick={() => setEditingNotaIdx(null)} className="btn-d sm ghost">✕</button>
                           </div>
                         ) : (
-                          <div className={`rounded-[12px] border ${isCotTitle ? 'p-4 mb-4' : 'p-[14px]'} ${bgCard} group/note`}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                <Icon size={isCotTitle ? 16 : 14} style={{ color: ev.color }} className="shrink-0 mt-0.5" />
-                                {ev.type === 'nota' && editingNotaIdx !== null && ev.id === `nota-${editingNotaIdx}` ? (
-                                  <div className="flex-1 flex gap-1.5">
-                                    <input value={editingNotaText} onChange={e => setEditingNotaText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveEditNota(); if (e.key === 'Escape') setEditingNotaIdx(null) }} autoFocus className="flex-1 text-sm px-2 py-1 rounded border border-amber-300 bg-white" />
-                                    <button onClick={handleSaveEditNota} className="text-xs px-2 py-1 rounded bg-amber-500 text-white hover:bg-amber-600">OK</button>
-                                    <button onClick={() => setEditingNotaIdx(null)} className="text-xs px-2 py-1 rounded text-[var(--color-text-muted)] hover:bg-white">✕</button>
-                                  </div>
-                                ) : (
-                                  <span className={isCotTitle ? 'text-[16px] font-bold text-slate-800' : 'text-[14px] text-[#334155]'}>{ev.title}</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {ev.type === 'nota' && editingNotaIdx === null && (
-                                  <div className="flex gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
-                                    <button onClick={(e) => { e.stopPropagation(); const idx = Number(ev.id.replace('nota-', '')); handleEditNota(idx) }} className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-amber-600 hover:bg-amber-50" title="Editar nota"><Edit3 size={11} /></button>
-                                    <button onClick={(e) => { e.stopPropagation(); const idx = Number(ev.id.replace('nota-', '')); handleDeleteNota(idx) }} className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-50" title="Eliminar nota"><X size={11} /></button>
-                                  </div>
-                                )}
-                                {ev.detail && <span className="text-xs font-semibold tabular-nums" style={{ color: ev.color }}>{ev.detail}</span>}
-                                {ev.timestamp && <span className="text-xs text-[#94a3b8]">{ev.type === 'cotizacion' ? formatDate(ev.timestamp) : ev.timestamp}</span>}
-                              </div>
-                            </div>
-                          </div>
+                          <>
+                            <span className="t" style={{ fontWeight: isCotTitle ? 600 : 500 }}>{ev.title}</span>
+                            {ev.detail && (
+                              <span className="mono" style={{ fontSize: 11, color: ev.color, fontWeight: 500 }}>{ev.detail}</span>
+                            )}
+                            {ev.timestamp && (
+                              <span className="time">{ev.type === 'cotizacion' ? formatDate(ev.timestamp) : ev.timestamp}</span>
+                            )}
+                            {ev.type === 'nota' && !isEditingThis && (
+                              <span style={{ display: 'inline-flex', gap: 2, marginLeft: 4 }}>
+                                <button
+                                  onClick={() => handleEditNota(notaIdx)}
+                                  className="btn-d ghost icon sm"
+                                  title="Editar nota"
+                                ><Edit3 size={11} /></button>
+                                <button
+                                  onClick={() => handleDeleteNota(notaIdx)}
+                                  className="btn-d ghost icon sm"
+                                  style={{ color: 'var(--color-accent-red)' }}
+                                  title="Eliminar nota"
+                                ><X size={11} /></button>
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
-                    )
-                  })}
-                </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
-          </div>
-
           </>)}
 
           {tab === 'productos' && (<>
-          {/* ═══ CAMBIO 4: PRODUCTOS MEJORADOS ═══ */}
-          <div className="card p-7 mb-8">
-            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
-              <div className="flex items-center gap-2.5">
-                <Package size={18} className="text-purple-500" />
-                <h3 className="font-bold text-xl text-[var(--color-text)]">Productos</h3>
-                {productos.length > 0 && (
-                  <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{productos.length}</span>
-                )}
-              </div>
-            </div>
+          <div className="tab-section-head">
+            <h3>Productos configurados</h3>
+            <span className="count">{productos.length}</span>
+            <div className="spacer" />
+            <button onClick={() => setShowProductModal(true)} className="btn-d sm">
+              <Plus size={12} /> Agregar producto
+            </button>
+          </div>
 
-            {productos.length === 0 ? (
-              <div className="text-center py-8">
-                <Package size={28} className="text-[var(--color-border)] mx-auto mb-2" />
-                <p className="text-xs text-[var(--color-text-muted)] mb-3">Sin productos configurados.</p>
-                <button
-                  onClick={() => setShowProductModal(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--color-primary)] hover:opacity-90 text-white transition-all"
-                >
-                  <Wrench size={13} /> Configurar primer producto
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
+          {productos.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-lg)', background: 'var(--color-surface)' }}>
+              <Package size={28} style={{ color: 'var(--color-text-faint)', margin: '0 auto 8px' }} />
+              <p style={{ fontSize: 12.5, color: 'var(--color-text-label)', marginBottom: 12 }}>Sin productos configurados.</p>
+              <button
+                onClick={() => setShowProductModal(true)}
+                className="btn-d primary sm"
+              >
+                <Wrench size={12} /> Configurar primer producto
+              </button>
+            </div>
+          ) : (
+              <div className="space-y-2">
                 {productos.map(p => {
                   const specs = extractSpecs(p.descripcion_comercial)
                   const descShort = p.descripcion_comercial
@@ -1170,67 +1149,59 @@ export default function OportunidadDetalle() {
                 })}
               </div>
             )}
-          </div>
 
           </>)}
 
           {tab === 'adjuntos' && (<>
-          {/* ═══ ARCHIVOS ADJUNTOS ═══ */}
-          <div className="card p-7 mb-8">
-            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
-              <div className="flex items-center gap-2.5">
-                <Paperclip size={18} className="text-slate-500" />
-                <h3 className="font-bold text-xl text-[var(--color-text)]">Archivos adjuntos</h3>
-                {archivos.length > 0 && (
-                  <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{archivos.length}</span>
-                )}
-              </div>
-              <label className={`flex items-center gap-1.5 h-10 px-5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${uploadingFile ? 'bg-gray-100 text-gray-400' : 'bg-[var(--color-primary)] text-white hover:opacity-90'}`}>
-                <Paperclip size={13} /> {uploadingFile ? 'Subiendo...' : '+ Subir archivo'}
-                <input type="file" className="hidden" accept=".pdf,.xlsx,.xlsm,.xls,.png,.jpg,.jpeg,.doc,.docx" disabled={uploadingFile} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); e.target.value = '' }} />
-              </label>
-            </div>
-            {archivos.length === 0 ? (
-              <p className="text-[14px] text-slate-400 text-center py-6">Sin archivos adjuntos</p>
-            ) : (
-              <div className="space-y-2">
-                {archivos.map(f => {
-                  const ext = f.name.split('.').pop()?.toLowerCase() || ''
-                  const isExcel = ['xlsx', 'xlsm', 'xls'].includes(ext)
-                  const isPdf = ext === 'pdf'
-                  const iconColor = isExcel ? 'text-emerald-500' : isPdf ? 'text-red-500' : 'text-slate-400'
-                  const IconFile = isExcel ? FileSpreadsheet : isPdf ? FileIcon : Paperclip
-                  const sizeStr = f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : f.size > 0 ? `${Math.round(f.size / 1024)} KB` : ''
-                  return (
-                    <div key={f.path} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-surface)] group transition-colors">
-                      <IconFile size={18} className={iconColor} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{f.name}</div>
-                        <div className="text-[10px] text-[var(--color-text-muted)]">{sizeStr}</div>
-                      </div>
-                      <button onClick={() => handleDownloadFile(f.path, f.name)} className="text-xs text-[var(--color-primary)] hover:underline opacity-0 group-hover:opacity-100 transition-opacity" title="Descargar"><Download size={14} /></button>
-                      <button onClick={() => handleDeleteFile(f.path, f.name)} className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Eliminar"><Trash2 size={14} /></button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+          <div className="tab-section-head">
+            <h3>Adjuntos de la oportunidad</h3>
+            <span className="count">{archivos.length}</span>
+            <div className="spacer" />
+            <label className={`btn-d sm ${uploadingFile ? '' : 'primary'}`} style={{ cursor: uploadingFile ? 'wait' : 'pointer' }}>
+              <Paperclip size={12} /> {uploadingFile ? 'Subiendo…' : 'Subir archivo'}
+              <input type="file" className="hidden" accept=".pdf,.xlsx,.xlsm,.xls,.png,.jpg,.jpeg,.doc,.docx" disabled={uploadingFile} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); e.target.value = '' }} />
+            </label>
           </div>
+
+          {archivos.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: 'var(--color-text-label)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-lg)' }}>
+              Sin archivos adjuntos
+            </div>
+          ) : (
+            <div>
+              {archivos.map(f => {
+                const ext = (f.name.split('.').pop() || '').toLowerCase()
+                const sizeStr = f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : f.size > 0 ? `${Math.round(f.size / 1024)} KB` : ''
+                return (
+                  <div key={f.path} className="att" onClick={() => handleDownloadFile(f.path, f.name)}>
+                    <span className={`ext ${ext}`}>{ext || 'FILE'}</span>
+                    <span className="name" title={f.name}>{f.name}</span>
+                    <span className="size">{sizeStr}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDownloadFile(f.path, f.name) }}
+                      className="btn-d ghost icon sm"
+                      title="Descargar"
+                    ><Download size={12} /></button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.path, f.name) }}
+                      className="btn-d ghost icon sm"
+                      style={{ color: 'var(--color-accent-red)' }}
+                      title="Eliminar"
+                    ><Trash2 size={12} /></button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           </>)}
 
           {tab === 'cotizaciones' && (<>
-          {/* ═══ CAMBIO 5: COTIZACIONES MEJORADAS ═══ */}
-          <div className="card p-7">
-            <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
-              <div className="flex items-center gap-2.5">
-                <FileText size={18} className="text-[var(--color-primary)]" />
-                <h3 className="font-bold text-xl text-[var(--color-text)]">Cotizaciones</h3>
-                {cotizaciones.length > 0 && (
-                  <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{cotizaciones.length}</span>
-                )}
-              </div>
-              {(() => {
+          <div className="tab-section-head">
+            <h3>Cotizaciones</h3>
+            <span className="count">{cotizaciones.filter(c => c.oportunidad_id === opp.id).length}</span>
+            <div className="spacer" />
+            {(() => {
                 const recotizableBtn = [...cotizaciones]
                   .filter(c => c.estado === 'borrador' || c.estado === 'enviada')
                   .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
@@ -1397,12 +1368,12 @@ export default function OportunidadDetalle() {
                 </div>
               )
             })()}
-          </div>
           </>)}
-        </div>
 
-        {/* ─── ASIDE (design: 320px sticky) ─── */}
-        <aside className="detail-aside" style={{ flex: '0 0 320px', position: 'sticky', top: 48, alignSelf: 'flex-start', maxHeight: 'calc(100vh - 48px)', overflowY: 'auto' }}>
+        </div> {/* close .detail-main */}
+
+        {/* ─── ASIDE (sibling of detail-main, fills 320px right column) ─── */}
+        <aside className="detail-aside">
           {/* Value card */}
           <div className="aside-value">
             <div className="l">Valor cotizado</div>
@@ -1616,7 +1587,6 @@ export default function OportunidadDetalle() {
             )}
           </div>
         </aside>
-      </div>
 
       {/* ═══ MODALS ═══ */}
 
@@ -2027,7 +1997,6 @@ export default function OportunidadDetalle() {
       {(showEtapaDropdown || showAddMenu) && (
         <div className="fixed inset-0 z-10" onClick={() => { setShowEtapaDropdown(false); setShowAddMenu(false) }} />
       )}
-      </div> {/* close .detail-main */}
     </div>
   )
 }
