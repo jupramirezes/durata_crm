@@ -819,8 +819,11 @@ export default function OportunidadDetalle() {
           </div>
 
           {tab === 'actividad' && (<>
-            {/* Quick note input (handoff: .note-bar) */}
+            {/* Quick note input (handoff: .note-bar con avatar + input + botones) */}
             <div className="note-bar">
+              <span className="avatar sm" style={{ background: cotizador ? getAvatarColor(cotizador.nombre) : 'var(--color-surface-3)', color: cotizador ? '#fff' : 'var(--color-text)', border: 'none' }}>
+                {cotizador?.iniciales || '—'}
+              </span>
               <input
                 id="nota-input"
                 value={notaTexto}
@@ -900,97 +903,78 @@ export default function OportunidadDetalle() {
           </>)}
 
           {tab === 'productos' && (<>
-          <div className="tab-section-head">
-            <h3>Productos configurados</h3>
-            <span className="count">{productos.length}</span>
-            <div className="spacer" />
-            <button onClick={() => setShowProductModal(true)} className="btn-d sm">
-              <Plus size={12} /> Agregar producto
-            </button>
-          </div>
-
-          {productos.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-lg)', background: 'var(--color-surface)' }}>
-              <Package size={28} style={{ color: 'var(--color-text-faint)', margin: '0 auto 8px' }} />
-              <p style={{ fontSize: 12.5, color: 'var(--color-text-label)', marginBottom: 12 }}>Sin productos configurados.</p>
-              <button
-                onClick={() => setShowProductModal(true)}
-                className="btn-d primary sm"
-              >
-                <Wrench size={12} /> Configurar primer producto
+            <div className="tab-section-head">
+              <h3>Productos configurados</h3>
+              <span className="count">{productos.length}</span>
+              <div className="spacer" />
+              <button onClick={() => setShowProductModal(true)} className="btn-d sm">
+                <Plus size={12} /> Agregar producto
               </button>
             </div>
-          ) : (
-              <div className="space-y-2">
+
+            {productos.length === 0 ? (
+              <div style={{ padding: 32, textAlign: 'center', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-lg)', background: 'var(--color-surface)' }}>
+                <Package size={28} style={{ color: 'var(--color-text-faint)', margin: '0 auto 8px' }} />
+                <p style={{ fontSize: 12.5, color: 'var(--color-text-label)', marginBottom: 12 }}>Sin productos configurados.</p>
+                <button
+                  onClick={() => setShowProductModal(true)}
+                  className="btn-d primary sm"
+                >
+                  <Wrench size={12} /> Configurar primer producto
+                </button>
+              </div>
+            ) : (
+              <div>
                 {productos.map(p => {
-                  const specs = extractSpecs(p.descripcion_comercial)
                   const descShort = p.descripcion_comercial
-                    ? p.descripcion_comercial.length > 100
-                      ? p.descripcion_comercial.slice(0, 100) + '...'
-                      : p.descripcion_comercial
+                    ? (p.descripcion_comercial.length > 140 ? p.descripcion_comercial.slice(0, 140) + '…' : p.descripcion_comercial)
                     : ''
+                  const unitPrice = p.precio_calculado || 0
+                  const qty = p.cantidad || 1
+                  const total = unitPrice * qty
+
                   return (
-                    <div key={p.id} className="bg-white rounded-xl p-5 border border-[#f1f5f9] hover:shadow-[var(--shadow-card-hover)] transition-all group">
-                      <div className="flex justify-between items-start gap-3">
-                        {/* Thumbnail */}
-                        {p.imagen_render && (
-                          <img
-                            src={p.imagen_render}
-                            alt="Render 3D"
-                            className="w-[80px] h-[60px] object-contain rounded-lg border border-[var(--color-border)] shrink-0"
-                          />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-base text-[var(--color-text)]">{p.subtipo}</span>
-                            <span className="text-xs text-[#64748b] bg-[#f1f5f9] px-2.5 py-0.5 rounded-full">{p.categoria}</span>
-                          </div>
-                          {descShort && (
-                            <p className="text-[10px] text-[var(--color-text-muted)] leading-relaxed mb-2">{descShort}</p>
-                          )}
-                          {specs.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {specs.map((s, i) => (
-                                <span key={i} className="text-xs font-medium px-2.5 py-0.5 rounded-xl bg-[#f0f9ff] text-[#0369a1]">{s}</span>
-                              ))}
-                            </div>
+                    <div key={p.id}>
+                      <div className="product-card">
+                        {/* Thumb */}
+                        <div className="product-thumb">
+                          {p.imagen_render ? (
+                            <img src={p.imagen_render} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          ) : (
+                            p.subtipo?.slice(0, 8) || 'render'
                           )}
                         </div>
-                        <div className="shrink-0 text-right">
-                          <div className="font-bold text-lg text-[var(--color-text)] tabular-nums">{formatCOP(p.precio_calculado || 0)}</div>
-                          <div className="text-[13px] text-[#94a3b8] tabular-nums">{'\u00d7'} {p.cantidad} = <span className="font-semibold text-[var(--color-text)]">{formatCOP((p.precio_calculado || 0) * p.cantidad)}</span></div>
-                          <div className="flex items-center justify-end gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Info */}
+                        <div style={{ minWidth: 0 }}>
+                          <div className="name">{p.subtipo || '—'}</div>
+                          <div className="spec">{p.categoria || '—'}</div>
+                          {descShort && <div className="desc">{descShort}</div>}
+                        </div>
+                        {/* Price + actions */}
+                        <div className="price">
+                          <div className="p">{formatCOP(total, { short: true })}</div>
+                          <div className="q">{qty} × {formatCOP(unitPrice, { short: true })}</div>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', marginTop: 8 }}>
                             <button
                               onClick={() => {
                                 const pid = p.configuracion?.producto_id
-                                if (!pid || pid === 'mesa') {
-                                  navigate(`/oportunidades/${id}/configurar?editar=${p.id}`)
-                                } else {
-                                  navigate(`/oportunidades/${id}/configurar-producto/${pid}?editar=${p.id}`)
-                                }
+                                if (!pid || pid === 'mesa') navigate(`/oportunidades/${id}/configurar?editar=${p.id}`)
+                                else navigate(`/oportunidades/${id}/configurar-producto/${pid}?editar=${p.id}`)
                               }}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] transition-all"
-                              title="Editar"
-                            >
-                              <Edit3 size={13} />
-                            </button>
+                              className="btn-d ghost icon sm"
+                              title="Editar configuración"
+                            ><Edit3 size={12} /></button>
                             <button
                               onClick={() => handleDuplicarProducto(p.id)}
-                              className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                              className="btn-d ghost icon sm"
                               title="Duplicar"
-                            >
-                              <Copy size={13} />
-                            </button>
+                            ><Copy size={12} /></button>
                             <button
                               onClick={() => setAttachingProduct(attachingProduct === p.id ? null : p.id)}
-                              className={`p-1.5 rounded transition-all ${attachingProduct === p.id ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                              className="btn-d ghost icon sm"
+                              style={{ color: attachingProduct === p.id ? 'var(--color-primary)' : undefined }}
                               title="Adjuntar archivo"
-                            >
-                              <Paperclip size={13} />
-                            </button>
-                            {/* Prototipo spreadsheet oculto — queda como referencia, no visible a usuarios.
-                                Si se quiere reactivar: descomentar el bloque y la ruta en App.tsx está activa.
-                                Accesible solo por URL directa: /oportunidades/:id/spreadsheet/:productoId (mesa|carcamo) */}
+                            ><Paperclip size={12} /></button>
                             {p.apu_resultado && (
                               <button
                                 onClick={() => {
@@ -1003,116 +987,88 @@ export default function OportunidadDetalle() {
                                     contactoNombre: contacto?.nombre,
                                   })
                                   downloadBlob(apuBlob, apuFilename)
-
-                                  // Fire-and-forget: upload APU to Supabase Storage
                                   if (cot) {
                                     const apuFile = new File([apuBlob], apuFilename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
                                     uploadCotizacionFile(opp.id, cot.id, apuFile, 'apu').then(res => {
-                                      if ('error' in res) {
-                                        console.warn('[APU upload] Error:', res.error)
-                                        return
-                                      }
-                                      dispatch({
-                                        type: 'UPDATE_COTIZACION',
-                                        payload: {
-                                          id: cot.id,
-                                          archivo_apu_url: res.url,
-                                          archivo_apu_nombre: res.nombre,
-                                        },
-                                      })
-                                      svcCotizaciones.updateCotizacion({
-                                        id: cot.id,
-                                        archivo_apu_url: res.url,
-                                        archivo_apu_nombre: res.nombre,
-                                      } as any)
+                                      if ('error' in res) { console.warn('[APU upload] Error:', res.error); return }
+                                      dispatch({ type: 'UPDATE_COTIZACION', payload: { id: cot.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } })
+                                      svcCotizaciones.updateCotizacion({ id: cot.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } as any)
                                     })
                                   }
                                 }}
-                                className="p-1.5 rounded text-green-500 hover:text-green-700 hover:bg-green-50 transition-all"
+                                className="btn-d ghost icon sm"
+                                style={{ color: 'var(--color-accent-green)' }}
                                 title="Descargar APU Excel"
-                              >
-                                <FileSpreadsheet size={13} />
-                              </button>
+                              ><FileSpreadsheet size={12} /></button>
                             )}
                             <button
-                              onClick={() => { if (window.confirm('\u00bfEliminar este producto?')) dispatch({ type: 'DELETE_PRODUCTO', payload: { id: p.id } }) }}
-                              className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                              onClick={() => { if (window.confirm('¿Eliminar este producto?')) dispatch({ type: 'DELETE_PRODUCTO', payload: { id: p.id } }) }}
+                              className="btn-d ghost icon sm"
+                              style={{ color: 'var(--color-accent-red)' }}
                               title="Eliminar"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                            ><Trash2 size={12} /></button>
                           </div>
                         </div>
                       </div>
-                      {/* Attached files display */}
+
+                      {/* Adjuntos del producto (APU/PDF) como chips .att */}
                       {(p.archivo_apu_nombre || p.archivo_pdf_nombre) && (
-                        <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-wrap gap-2">
+                        <div style={{ marginLeft: 16, marginTop: 6, marginBottom: 6 }}>
                           {p.archivo_apu_nombre && (
-                            <div className="inline-flex items-stretch rounded bg-green-50 border border-green-200 overflow-hidden">
+                            <div className="att" onClick={async () => {
+                              if (!p.archivo_apu_url) return
+                              const url = await getSignedUrl(p.archivo_apu_url)
+                              if (url) window.open(url, '_blank')
+                            }}>
+                              <span className="ext xlsx">XLSX</span>
+                              <span className="name">{p.archivo_apu_nombre}</span>
                               <button
-                                onClick={async () => {
-                                  if (!p.archivo_apu_url) return
-                                  const url = await getSignedUrl(p.archivo_apu_url)
-                                  if (url) window.open(url, '_blank')
-                                }}
-                                className="flex items-center gap-1.5 px-2 py-1 hover:bg-green-100 transition-all text-[10px] text-green-800"
-                              >
-                                <FileSpreadsheet size={12} className="text-green-600" />
-                                {p.archivo_apu_nombre}
-                                <Download size={10} />
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!window.confirm(`¿Eliminar adjunto "${p.archivo_apu_nombre}"?`)) return
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  if (!window.confirm(`¿Eliminar "${p.archivo_apu_nombre}"?`)) return
                                   if (p.archivo_apu_url) await deleteProductFile(p.archivo_apu_url).catch(() => {})
                                   await svcOportunidades.updateProducto({ id: p.id, archivo_apu_url: null, archivo_apu_nombre: null } as any)
                                   dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_apu_url: null, archivo_apu_nombre: null } as any })
                                   showToast('success', 'APU eliminado')
                                 }}
-                                className="px-1.5 border-l border-green-200 hover:bg-red-100 hover:text-red-600 text-green-700 text-[10px]"
+                                className="btn-d ghost icon sm"
+                                style={{ color: 'var(--color-accent-red)' }}
                                 title="Eliminar APU"
-                              >
-                                <X size={10} />
-                              </button>
+                              ><X size={11} /></button>
                             </div>
                           )}
                           {p.archivo_pdf_nombre && (
-                            <div className="inline-flex items-stretch rounded bg-red-50 border border-red-200 overflow-hidden">
+                            <div className="att" onClick={async () => {
+                              if (!p.archivo_pdf_url) return
+                              const url = await getSignedUrl(p.archivo_pdf_url)
+                              if (url) window.open(url, '_blank')
+                            }}>
+                              <span className="ext pdf">PDF</span>
+                              <span className="name">{p.archivo_pdf_nombre}</span>
                               <button
-                                onClick={async () => {
-                                  if (!p.archivo_pdf_url) return
-                                  const url = await getSignedUrl(p.archivo_pdf_url)
-                                  if (url) window.open(url, '_blank')
-                                }}
-                                className="flex items-center gap-1.5 px-2 py-1 hover:bg-red-100 transition-all text-[10px] text-red-700"
-                              >
-                                <FileIcon size={12} className="text-red-500" />
-                                {p.archivo_pdf_nombre}
-                                <Download size={10} />
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!window.confirm(`¿Eliminar adjunto "${p.archivo_pdf_nombre}"?`)) return
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  if (!window.confirm(`¿Eliminar "${p.archivo_pdf_nombre}"?`)) return
                                   if (p.archivo_pdf_url) await deleteProductFile(p.archivo_pdf_url).catch(() => {})
                                   await svcOportunidades.updateProducto({ id: p.id, archivo_pdf_url: null, archivo_pdf_nombre: null } as any)
                                   dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_pdf_url: null, archivo_pdf_nombre: null } as any })
                                   showToast('success', 'PDF eliminado')
                                 }}
-                                className="px-1.5 border-l border-red-200 hover:bg-red-100 hover:text-red-700 text-red-700 text-[10px]"
+                                className="btn-d ghost icon sm"
+                                style={{ color: 'var(--color-accent-red)' }}
                                 title="Eliminar PDF"
-                              >
-                                <X size={10} />
-                              </button>
+                              ><X size={11} /></button>
                             </div>
                           )}
                         </div>
                       )}
+
                       {/* Inline attach area */}
                       {attachingProduct === p.id && (
-                        <div className="mt-3 pt-3 border-t border-dashed border-blue-200 bg-blue-50/30 rounded-lg p-3">
-                          <div className="text-[10px] font-semibold text-blue-700 mb-2">Adjuntar archivos</div>
-                          <div className="flex gap-2 flex-wrap">
-                            <input ref={attachApuRef} type="file" accept={acceptString('apu')} className="hidden" onChange={async (e) => {
+                        <div style={{ marginLeft: 16, marginTop: 6, marginBottom: 12, padding: 10, border: '1px dashed var(--color-primary-line)', borderRadius: 'var(--radius-md)', background: 'var(--color-primary-weak)' }}>
+                          <div className="mono" style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Adjuntar archivos</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <input ref={attachApuRef} type="file" accept={acceptString('apu')} style={{ display: 'none' }} onChange={async (e) => {
                               const file = e.target.files?.[0]
                               if (!file || !opp) return
                               setUploading(true)
@@ -1120,13 +1076,12 @@ export default function OportunidadDetalle() {
                               if ('error' in res) { alert(res.error); setUploading(false); return }
                               await svcOportunidades.updateProducto({ id: p.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } as any)
                               dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } as any })
-                              setUploading(false)
-                              setAttachingProduct(null)
+                              setUploading(false); setAttachingProduct(null)
                             }} />
-                            <button onClick={() => attachApuRef.current?.click()} disabled={uploading} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-green-300 bg-white hover:bg-green-50 text-[10px] text-green-700 transition-all disabled:opacity-50">
+                            <button onClick={() => attachApuRef.current?.click()} disabled={uploading} className="btn-d sm">
                               <FileSpreadsheet size={12} /> {p.archivo_apu_nombre ? 'Reemplazar APU' : 'Subir APU (.xlsx)'}
                             </button>
-                            <input ref={attachPdfRef} type="file" accept={acceptString('pdf')} className="hidden" onChange={async (e) => {
+                            <input ref={attachPdfRef} type="file" accept={acceptString('pdf')} style={{ display: 'none' }} onChange={async (e) => {
                               const file = e.target.files?.[0]
                               if (!file || !opp) return
                               setUploading(true)
@@ -1134,14 +1089,13 @@ export default function OportunidadDetalle() {
                               if ('error' in res) { alert(res.error); setUploading(false); return }
                               await svcOportunidades.updateProducto({ id: p.id, archivo_pdf_url: res.url, archivo_pdf_nombre: res.nombre } as any)
                               dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_pdf_url: res.url, archivo_pdf_nombre: res.nombre } as any })
-                              setUploading(false)
-                              setAttachingProduct(null)
+                              setUploading(false); setAttachingProduct(null)
                             }} />
-                            <button onClick={() => attachPdfRef.current?.click()} disabled={uploading} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-300 bg-white hover:bg-red-50 text-[10px] text-red-600 transition-all disabled:opacity-50">
+                            <button onClick={() => attachPdfRef.current?.click()} disabled={uploading} className="btn-d sm">
                               <FileIcon size={12} /> {p.archivo_pdf_nombre ? 'Reemplazar PDF' : 'Subir PDF (.pdf)'}
                             </button>
                           </div>
-                          {uploading && <p className="text-[10px] text-blue-500 mt-1">Subiendo...</p>}
+                          {uploading && <p className="mono" style={{ fontSize: 11, color: 'var(--color-primary)', marginTop: 6 }}>Subiendo…</p>}
                         </div>
                       )}
                     </div>
@@ -1149,7 +1103,6 @@ export default function OportunidadDetalle() {
                 })}
               </div>
             )}
-
           </>)}
 
           {tab === 'adjuntos' && (<>
@@ -1197,175 +1150,128 @@ export default function OportunidadDetalle() {
           </>)}
 
           {tab === 'cotizaciones' && (<>
-          <div className="tab-section-head">
-            <h3>Cotizaciones</h3>
-            <span className="count">{cotizaciones.filter(c => c.oportunidad_id === opp.id).length}</span>
-            <div className="spacer" />
             {(() => {
-                const recotizableBtn = [...cotizaciones]
-                  .filter(c => c.estado === 'borrador' || c.estado === 'enviada')
-                  .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
-                if (!recotizableBtn) return null
-                const base = recotizableBtn.numero.replace(/[A-Z]$/, '')
-                return (
-                  <button
-                    onClick={() => {
-                      const ok = window.confirm(
-                        `¿Desea recotizar esta oportunidad?\n\nSe creará una nueva versión de ${recotizableBtn.numero}. Las cotizaciones previas con el número ${base} quedarán descartadas.`
-                      )
-                      if (!ok) return
-                      const currentLetter = recotizableBtn.numero.match(/([A-Z])$/)?.[1]
-                      const nextLetter = currentLetter ? String.fromCharCode(currentLetter.charCodeAt(0) + 1) : 'A'
-                      const nuevoNumero = base + nextLetter
-                      const newCotId = crypto.randomUUID()
-                      dispatch({ type: 'RECOTIZAR', payload: { cotizacionId: recotizableBtn.id, nuevoNumero, newCotId } })
-                      showToast('success', `Recotización ${nuevoNumero} creada. La ${recotizableBtn.numero} fue descartada.`)
-                    }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all"
-                    title={`Crear nueva versión de ${recotizableBtn.numero}`}
-                  >
-                    <ArrowRightLeft size={16} />
-                    RECOTIZAR
-                  </button>
-                )
-              })()}
-            </div>
-
-            {(() => {
-              const activeCots = cotizaciones.filter(c => c.estado !== 'descartada')
-              const discardedCots = cotizaciones.filter(c => c.estado === 'descartada')
+              const oppCots = cotizaciones.filter(c => c.oportunidad_id === opp.id)
+              const activeCots = oppCots.filter(c => c.estado !== 'descartada')
+              const discardedCots = oppCots.filter(c => c.estado === 'descartada')
+              const recotizableBtn = [...oppCots]
+                .filter(c => c.estado === 'borrador' || c.estado === 'enviada')
+                .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
 
               function handleRecotizar(cotId: string) {
-                const cot = cotizaciones.find(c => c.id === cotId)
+                const cot = oppCots.find(c => c.id === cotId)
                 if (!cot) return
-                // Calculate next version letter
                 const base = cot.numero.replace(/[A-Z]$/, '')
                 const currentLetter = cot.numero.match(/([A-Z])$/)?.[1]
                 const nextLetter = currentLetter ? String.fromCharCode(currentLetter.charCodeAt(0) + 1) : 'A'
                 const nuevoNumero = base + nextLetter
-                // Generate id here so reducer, URL, and DB all share the same UUID
                 const newCotId = crypto.randomUUID()
                 dispatch({ type: 'RECOTIZAR', payload: { cotizacionId: cotId, nuevoNumero, newCotId } })
                 showToast('success', `Recotización ${nuevoNumero} creada. La ${cot.numero} fue descartada.`)
               }
 
-              function renderCotCard(c: typeof cotizaciones[0], isDiscarded: boolean) {
+              function renderQuoteRow(c: typeof oppCots[0], isDiscarded: boolean) {
                 const prodCount = c.productos_snapshot?.length || 0
+                const filesCount = (c.archivo_apu_nombre ? 1 : 0) + (c.archivo_pdf_nombre ? 1 : 0)
                 return (
-                  <div key={c.id} className={`bg-white rounded-xl p-5 border border-[#f1f5f9] transition-all group ${isDiscarded ? 'opacity-50' : 'hover:shadow-[var(--shadow-card-hover)]'}`}>
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`font-semibold text-[15px] font-mono ${isDiscarded ? 'text-gray-400 line-through' : 'text-[var(--color-text)]'}`}>{c.numero}</span>
-                          <EstadoBadge estado={c.estado} />
-                        </div>
-                        <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
-                          <span>{formatDate(c.fecha)}</span>
-                          <span>{prodCount} producto{prodCount !== 1 ? 's' : ''}</span>
-                          {c.archivo_apu_nombre && <span className="text-emerald-600">· APU</span>}
-                          {c.archivo_pdf_nombre && <span className="text-red-500">· PDF</span>}
-                        </div>
+                  <div key={c.id}>
+                    <div className="quote-row" style={{ opacity: isDiscarded ? 0.55 : 1 }}>
+                      <span className="num" style={{ textDecoration: isDiscarded ? 'line-through' : 'none' }}>#{c.numero}</span>
+                      <div className="meta">
+                        <span className="title">{prodCount} producto{prodCount !== 1 ? 's' : ''} · Cotización {c.estado}</span>
+                        {formatDate(c.fecha)} · <span className={`state-pill ${c.estado}`} style={{ marginLeft: 2 }}>{c.estado}</span>{filesCount > 0 && ` · ${filesCount} archivo${filesCount !== 1 ? 's' : ''}`}
                       </div>
-                      <div className="shrink-0 text-right">
-                        <div className={`font-bold text-lg tabular-nums ${isDiscarded ? 'text-gray-400' : 'text-[var(--color-text)]'}`}>{formatCOP(c.total)}</div>
-                        <div className="text-[9px] text-[var(--color-text-muted)]">con IVA</div>
-                        <div className="flex items-center justify-end gap-1 mt-2">
-                          {!isDiscarded && (c.estado === 'enviada' || c.estado === 'borrador') && (
-                            <button
-                              onClick={() => handleRecotizar(c.id)}
-                              className="p-1.5 rounded text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-all"
-                              title="Recotizar (crear nueva versión)"
-                            >
-                              <ArrowRightLeft size={13} />
-                            </button>
-                          )}
+                      <div className="total">{formatCOP(c.total, { short: true })}</div>
+                      <div className="actions">
+                        {!isDiscarded && (c.estado === 'enviada' || c.estado === 'borrador') && (
+                          <button onClick={() => handleRecotizar(c.id)} className="btn-d ghost icon sm" style={{ color: 'var(--color-accent-yellow)' }} title="Recotizar"><ArrowRightLeft size={12} /></button>
+                        )}
+                        <button onClick={() => navigate(`/cotizaciones/${c.id}/editar`)} className="btn-d sm" title="Abrir editor"><Edit3 size={11} /> Abrir</button>
+                        <button onClick={() => handleDescargarPdf(c.id)} className="btn-d ghost icon sm" title="Descargar PDF"><Download size={12} /></button>
+                        {isDiscarded && opp.etapa !== 'adjudicada' && opp.etapa !== 'perdida' && (
                           <button
-                            onClick={() => navigate(`/cotizaciones/${c.id}/editar`)}
-                            className="p-1.5 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                            title="Ver/Editar"
-                          >
-                            <Edit3 size={13} />
-                          </button>
-                          <button
-                            onClick={() => handleDescargarPdf(c.id)}
-                            className="p-1.5 rounded text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
-                            title="Descargar PDF"
-                          >
-                            <Download size={13} />
-                          </button>
-                          {isDiscarded && opp.etapa !== 'adjudicada' && opp.etapa !== 'perdida' && (
+                            onClick={() => {
+                              const activeCount = oppCots.filter(ct => ct.estado === 'borrador' || ct.estado === 'enviada').length
+                              const msg = activeCount > 0
+                                ? `¿Reactivar ${c.numero}?\n\nLa cotización activa actual pasará a "descartada".`
+                                : `¿Reactivar ${c.numero}?`
+                              if (!window.confirm(msg)) return
+                              dispatch({ type: 'REACTIVAR_COTIZACION', payload: { cotizacionDescartadaId: c.id } })
+                              showToast('success', `${c.numero} reactivada`)
+                            }}
+                            className="btn-d ghost icon sm"
+                            style={{ color: 'var(--color-accent-purple)' }}
+                            title="Reactivar versión"
+                          ><RotateCcw size={12} /></button>
+                        )}
+                        {!isDiscarded && (
+                          <>
+                            <button onClick={() => handleDuplicarCotizacion(c.id)} className="btn-d ghost icon sm" title="Duplicar"><Copy size={12} /></button>
                             <button
-                              onClick={() => {
-                                const activeCount = cotizaciones.filter(ct => ct.estado === 'borrador' || ct.estado === 'enviada').length
-                                const msg = activeCount > 0
-                                  ? `¿Reactivar ${c.numero}?\n\nLa cotización activa actual pasará a "descartada" y ${c.numero} volverá a estar activa.`
-                                  : `¿Reactivar ${c.numero}?\n\nSe restaurará como cotización activa.`
-                                if (!window.confirm(msg)) return
-                                dispatch({ type: 'REACTIVAR_COTIZACION', payload: { cotizacionDescartadaId: c.id } })
-                                showToast('success', `${c.numero} reactivada`)
-                              }}
-                              className="p-1.5 rounded text-violet-500 hover:text-violet-700 hover:bg-violet-50 transition-all"
-                              title="Reactivar esta versión (la versión activa actual pasará a descartada)"
-                            >
-                              <RotateCcw size={13} />
-                            </button>
-                          )}
-                          {!isDiscarded && (
-                            <>
-                              <button
-                                onClick={() => handleDuplicarCotizacion(c.id)}
-                                className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
-                                title="Duplicar"
-                              >
-                                <Copy size={13} />
-                              </button>
-                              <button
-                                onClick={() => { if (window.confirm('\u00bfEliminar esta cotizacion?')) dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } }) }}
-                                className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                                title="Eliminar"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                              onClick={() => { if (window.confirm('¿Eliminar esta cotización?')) dispatch({ type: 'DELETE_COTIZACION', payload: { id: c.id } }) }}
+                              className="btn-d ghost icon sm"
+                              style={{ color: 'var(--color-accent-red)' }}
+                              title="Eliminar"
+                            ><Trash2 size={12} /></button>
+                          </>
+                        )}
                       </div>
                     </div>
-                    {/* Adjuntos de cotización (M10): APU + PDF + file uploads */}
-                    <CotAdjuntos cot={c} oportunidadId={opp.id} />
+
+                    {/* Adjuntos de cotización como .att chips */}
+                    {(c.archivo_apu_nombre || c.archivo_pdf_nombre) && (
+                      <div style={{ marginLeft: 16, marginTop: 6, marginBottom: 6 }}>
+                        <CotAdjuntos cot={c} oportunidadId={opp.id} />
+                      </div>
+                    )}
                   </div>
                 )
               }
 
-              if (cotizaciones.length === 0) return (
-                <div className="text-center py-8">
-                  <FileText size={28} className="text-[var(--color-border)] mx-auto mb-2" />
-                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Sin cotizaciones.</p>
-                  <p className="text-[10px] text-[var(--color-text-muted)] mb-3">Agrega productos y genera una.</p>
-                  {productos.length > 0 && (
-                    <button
-                      onClick={() => setShowCotModal(true)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-all"
-                    >
-                      <FileText size={13} /> Generar primera cotizacion
-                    </button>
-                  )}
-                </div>
-              )
               return (
-                <div className="space-y-3">
-                  {activeCots.map(c => renderCotCard(c, false))}
-                  {discardedCots.length > 0 && (
-                    <details className="group/versions">
-                      <summary className="cursor-pointer text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] py-2 select-none">
-                        Ver versiones anteriores ({discardedCots.length})
-                      </summary>
-                      <div className="space-y-2 mt-2">
-                        {discardedCots.map(c => renderCotCard(c, true))}
-                      </div>
-                    </details>
+                <>
+                  <div className="tab-section-head">
+                    <h3>Cotizaciones</h3>
+                    <span className="count">{oppCots.length}</span>
+                    <div className="spacer" />
+                    {recotizableBtn && (
+                      <button
+                        onClick={() => handleRecotizar(recotizableBtn.id)}
+                        className="btn-d sm"
+                        style={{ background: 'var(--color-accent-yellow)', color: '#fff', borderColor: 'var(--color-accent-yellow)' }}
+                        title={`Crear nueva versión de ${recotizableBtn.numero}`}
+                      ><ArrowRightLeft size={12} /> Recotizar</button>
+                    )}
+                  </div>
+
+                  {oppCots.length === 0 ? (
+                    <div style={{ padding: 32, textAlign: 'center', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-lg)' }}>
+                      <FileText size={28} style={{ color: 'var(--color-text-faint)', margin: '0 auto 8px' }} />
+                      <p style={{ fontSize: 12.5, color: 'var(--color-text-label)', marginBottom: 4 }}>Sin cotizaciones.</p>
+                      <p style={{ fontSize: 11, color: 'var(--color-text-label)', marginBottom: 12 }}>Agregá productos y generá una.</p>
+                      {productos.length > 0 && (
+                        <button
+                          onClick={() => setShowCotModal(true)}
+                          className="btn-d primary sm"
+                        ><FileText size={12} /> Generar primera cotización</button>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      {activeCots.map(c => renderQuoteRow(c, false))}
+                      {discardedCots.length > 0 && (
+                        <details style={{ marginTop: 12 }}>
+                          <summary className="mono" style={{ cursor: 'pointer', fontSize: 11, color: 'var(--color-text-label)', padding: '8px 0', userSelect: 'none' }}>
+                            Ver versiones anteriores ({discardedCots.length})
+                          </summary>
+                          <div style={{ marginTop: 8 }}>
+                            {discardedCots.map(c => renderQuoteRow(c, true))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )
             })()}
           </>)}
