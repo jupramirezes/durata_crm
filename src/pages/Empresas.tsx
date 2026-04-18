@@ -2,14 +2,26 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { CONFIG_DEFAULTS } from '../hooks/useConfiguracion'
-import { formatCOP, getInitials, getAvatarColor } from '../lib/utils'
-import { PageHeader } from '../components/ui'
-import { Search, ChevronUp, ChevronDown, Trash2, AlertTriangle } from 'lucide-react'
+import { formatCOP } from '../lib/utils'
+import { Search, ChevronUp, ChevronDown, Trash2, AlertTriangle, Plus, Download, X } from 'lucide-react'
 
 const PAGE_SIZE = 50
 
-type SortKey = 'nombre' | 'opCount' | 'valorCotizado' | 'valorAdjudicado'
+type SortKey = 'nombre' | 'opCount' | 'adjCount' | 'valorCotizado' | 'ultContacto'
 type SortDir = 'asc' | 'desc'
+
+function formatDays(date: string | null | undefined): { str: string; days: number | null } {
+  if (!date) return { str: '—', days: null }
+  const ts = new Date(date).getTime()
+  if (!isFinite(ts) || ts <= 0) return { str: '—', days: null }
+  const days = Math.floor((Date.now() - ts) / 86400000)
+  if (days < 0 || days > 3650) return { str: '—', days: null }
+  if (days === 0) return { str: 'Hoy', days: 0 }
+  if (days === 1) return { str: 'Ayer', days: 1 }
+  if (days < 30) return { str: `${days}d`, days }
+  if (days < 365) return { str: `${Math.floor(days / 30)}mes`, days }
+  return { str: `${Math.floor(days / 365)}a`, days }
+}
 
 export default function Empresas() {
   const { state, dispatch } = useStore()
@@ -21,8 +33,6 @@ export default function Empresas() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [deleteModal, setDeleteModal] = useState<string | null>(null)
 
-  // A-03: derive sector list from actual empresa data so that sectors added via Supabase
-  // config (or present in historical data) always appear in the filter dropdown.
   const sectoresDisponibles = useMemo(() => {
     const fromData = [...new Set(state.empresas.map(e => e.sector).filter(Boolean))]
     const fromDefaults = CONFIG_DEFAULTS.sectores
@@ -31,58 +41,61 @@ export default function Empresas() {
   }, [state.empresas])
 
   const empresaStats = useMemo(() => {
-    const map = new Map<string, { opCount: number; valorCotizado: number; valorAdjudicado: number }>()
+    const map = new Map<string, { opCount: number; adjCount: number; valorCotizado: number; valorAdjudicado: number; ultContacto: string | null }>()
     for (const o of state.oportunidades) {
       let s = map.get(o.empresa_id)
-      if (!s) { s = { opCount: 0, valorCotizado: 0, valorAdjudicado: 0 }; map.set(o.empresa_id, s) }
+      if (!s) { s = { opCount: 0, adjCount: 0, valorCotizado: 0, valorAdjudicado: 0, ultContacto: null }; map.set(o.empresa_id, s) }
       s.opCount++
+      if (o.etapa === 'adjudicada') s.adjCount++
       s.valorCotizado += o.valor_cotizado
       s.valorAdjudicado += o.valor_adjudicado
+      const ref = o.fecha_ultimo_contacto || o.fecha_envio || o.fecha_ingreso
+      if (ref && (!s.ultContacto || ref > s.ultContacto)) s.ultContacto = ref
     }
     return map
   }, [state.oportunidades])
 
+  const contactosCountMap = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of state.contactos) m.set(c.empresa_id, (m.get(c.empresa_id) || 0) + 1)
+    return m
+  }, [state.contactos])
+
+  const contactoPrincipalMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of state.contactos) if (!m.has(c.empresa_id)) m.set(c.empresa_id, c.nombre)
+    return m
+  }, [state.contactos])
+
   function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    } else {
-      setSortKey(key)
-      setSortDir('desc')
-    }
+    if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortKey(key); setSortDir('desc') }
   }
 
   function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <ChevronDown size={10} className="opacity-30" />
+    if (sortKey !== col) return <ChevronDown size={9} style={{ opacity: 0.3 }} />
     return sortDir === 'desc'
-      ? <ChevronDown size={10} className="text-[var(--color-primary)]" />
-      : <ChevronUp size={10} className="text-[var(--color-primary)]" />
+      ? <ChevronDown size={9} style={{ color: 'var(--color-primary)' }} />
+      : <ChevronUp size={9} style={{ color: 'var(--color-primary)' }} />
   }
 
   const filtered = useMemo(() => {
     let result = state.empresas.filter(e => {
-      const matchSearch = !search || e.nombre.toLowerCase().includes(search.toLowerCase()) || e.nit.includes(search)
+      const matchSearch = !search || e.nombre.toLowerCase().includes(search.toLowerCase()) || (e.nit || '').includes(search)
       const matchSector = !filtroSector || e.sector === filtroSector
       return matchSearch && matchSector
     })
 
-    // Sort
     result = [...result].sort((a, b) => {
-      const statsA = empresaStats.get(a.id)
-      const statsB = empresaStats.get(b.id)
+      const sA = empresaStats.get(a.id)
+      const sB = empresaStats.get(b.id)
       let cmp = 0
       switch (sortKey) {
-        case 'nombre':
-          cmp = a.nombre.localeCompare(b.nombre)
-          break
-        case 'opCount':
-          cmp = (statsA?.opCount ?? 0) - (statsB?.opCount ?? 0)
-          break
-        case 'valorCotizado':
-          cmp = (statsA?.valorCotizado ?? 0) - (statsB?.valorCotizado ?? 0)
-          break
-        case 'valorAdjudicado':
-          cmp = (statsA?.valorAdjudicado ?? 0) - (statsB?.valorAdjudicado ?? 0)
-          break
+        case 'nombre': cmp = a.nombre.localeCompare(b.nombre); break
+        case 'opCount': cmp = (sA?.opCount ?? 0) - (sB?.opCount ?? 0); break
+        case 'adjCount': cmp = (sA?.adjCount ?? 0) - (sB?.adjCount ?? 0); break
+        case 'valorCotizado': cmp = (sA?.valorCotizado ?? 0) - (sB?.valorCotizado ?? 0); break
+        case 'ultContacto': cmp = (sA?.ultContacto || '').localeCompare(sB?.ultContacto || ''); break
       }
       return sortDir === 'desc' ? -cmp : cmp
     })
@@ -91,8 +104,8 @@ export default function Empresas() {
   }, [state.empresas, search, filtroSector, sortKey, sortDir, empresaStats])
 
   const visible = filtered.slice(0, visibleCount)
+  const totalOpps = state.oportunidades.length
 
-  // Delete modal data
   const deleteEmpresa = deleteModal ? state.empresas.find(e => e.id === deleteModal) : null
   const deleteContactos = deleteModal ? state.contactos.filter(c => c.empresa_id === deleteModal).length : 0
   const deleteOportunidades = deleteModal ? state.oportunidades.filter(o => o.empresa_id === deleteModal).length : 0
@@ -107,144 +120,181 @@ export default function Empresas() {
     setDeleteModal(null)
   }
 
-  const thBtn = 'flex items-center gap-1 cursor-pointer select-none hover:text-[var(--color-primary)] transition-colors'
-
   return (
-    <div className="px-8 py-8 space-y-5 animate-fade-in">
-      <PageHeader
-        title="Empresas"
-        subtitle={`${state.empresas.length} empresas registradas`}
-      />
+    <div className="list-page">
+      <div className="list-head">
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          <div>
+            <div className="title">Empresas</div>
+            <div className="sub">{state.empresas.length.toLocaleString('es-CO')} empresas · {totalOpps.toLocaleString('es-CO')} oportunidades históricas</div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <button className="btn-d primary sm"><Plus size={13} /> Nueva empresa</button>
+        </div>
+      </div>
 
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+      <div className="list-toolbar">
+        <div className="search-input" style={{ flex: '0 0 300px' }}>
+          <Search />
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setVisibleCount(PAGE_SIZE) }}
-            placeholder="Buscar por nombre o NIT..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg text-xs border border-[var(--color-border)] bg-white"
+            placeholder="Buscar por nombre o NIT…"
           />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-label)', minHeight: 0, padding: 2 }}>
+              <X size={12} />
+            </button>
+          )}
         </div>
+
         <select
+          className="chip chip-select"
           value={filtroSector}
           onChange={e => { setFiltroSector(e.target.value); setVisibleCount(PAGE_SIZE) }}
-          className="px-3 py-2 rounded-lg text-xs min-w-[160px] border border-[var(--color-border)] bg-white"
+          style={{ minWidth: 140 }}
         >
-          <option value="">Todos los sectores</option>
+          <option value="">Sector: Todos</option>
           {sectoresDisponibles.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+
+        {(search || filtroSector) && (
+          <button
+            className="chip"
+            onClick={() => { setSearch(''); setFiltroSector('') }}
+            style={{ color: 'var(--color-accent-red)' }}
+          >
+            <X />Limpiar
+          </button>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        <button className="btn-d ghost sm"><Download size={12} /> Exportar</button>
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="list-scroll">
+        <table className="list-tbl">
           <thead>
-            <tr className="border-b-2 border-[#f1f5f9] text-left">
-              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8]">
-                <button onClick={() => toggleSort('nombre')} className={thBtn}>
-                  Empresa <SortIcon col="nombre" />
-                </button>
+            <tr>
+              <th className="sortable" style={{ width: '30%' }} onClick={() => toggleSort('nombre')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Empresa <SortIcon col="nombre" /></span>
               </th>
-              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8]">Sector</th>
-              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-center">
-                <button onClick={() => toggleSort('opCount')} className={`${thBtn} justify-center`}>
-                  Oportunidades <SortIcon col="opCount" />
-                </button>
+              <th>Sector</th>
+              <th>Contacto principal</th>
+              <th className="num sortable" onClick={() => toggleSort('opCount')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Oport. <SortIcon col="opCount" /></span>
               </th>
-              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-right">
-                <button onClick={() => toggleSort('valorCotizado')} className={`${thBtn} justify-end ml-auto`}>
-                  Valor cotizado <SortIcon col="valorCotizado" />
-                </button>
+              <th className="num sortable" onClick={() => toggleSort('adjCount')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Adj. <SortIcon col="adjCount" /></span>
               </th>
-              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-right">
-                <button onClick={() => toggleSort('valorAdjudicado')} className={`${thBtn} justify-end ml-auto`}>
-                  Valor adjudicado <SortIcon col="valorAdjudicado" />
-                </button>
+              <th className="num sortable" onClick={() => toggleSort('valorCotizado')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Histórico <SortIcon col="valorCotizado" /></span>
               </th>
-              <th className="px-5 py-3.5 font-semibold text-xs uppercase tracking-[0.06em] text-[#94a3b8] text-center w-12"></th>
+              <th className="num sortable" onClick={() => toggleSort('ultContacto')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Últ. contacto <SortIcon col="ultContacto" /></span>
+              </th>
+              <th style={{ width: 32 }}></th>
             </tr>
           </thead>
           <tbody>
             {visible.map((e) => {
               const stats = empresaStats.get(e.id)
+              const contactoPrincipal = contactoPrincipalMap.get(e.id)
+              const contactosCount = contactosCountMap.get(e.id) || 0
+              const ultContacto = formatDays(stats?.ultContacto)
               return (
-                <tr
-                  key={e.id}
-                  className={`border-b border-[#f8fafc] hover:bg-[#fafbfc] transition-colors`}
-                >
-                  <td className="px-5 py-4 cursor-pointer" onClick={() => navigate(`/empresas/${e.id}`)}>
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
-                        style={{ background: getAvatarColor(e.nombre) }}
-                      >
-                        {getInitials(e.nombre)}
-                      </div>
-                      <div>
-                        <span className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]">{e.nombre}</span>
-                        <div className="text-[10px] text-[var(--color-text-muted)]">{e.nit}</div>
-                      </div>
-                    </div>
+                <tr key={e.id} onClick={() => navigate(`/empresas/${e.id}`)}>
+                  <td>
+                    <div className="primary-cell">{e.nombre}</div>
+                    <div className="sub-cell">NIT {e.nit || '—'}</div>
                   </td>
-                  <td className="px-5 py-4">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-surface)] text-[var(--color-text-muted)] font-medium">{e.sector}</span>
+                  <td>
+                    {e.sector ? (
+                      <span className="stage-pill">
+                        <span className="stage-dot" style={{ background: 'var(--color-text-label)' }} />
+                        {e.sector}
+                      </span>
+                    ) : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                   </td>
-                  <td className="px-5 py-4 text-center font-medium text-[var(--color-text)]">{stats?.opCount ?? 0}</td>
-                  <td className="px-5 py-4 text-right text-[var(--color-text)] font-mono">{formatCOP(stats?.valorCotizado ?? 0)}</td>
-                  <td className="px-5 py-4 text-right font-bold text-[var(--color-accent-green)] font-mono">{formatCOP(stats?.valorAdjudicado ?? 0)}</td>
-                  <td className="px-5 py-4 text-center">
+                  <td>
+                    {contactoPrincipal ? (
+                      <>
+                        <div>{contactoPrincipal}</div>
+                        {contactosCount > 1 && <div className="sub-cell" style={{ fontFamily: 'inherit' }}>{contactosCount} contactos</div>}
+                      </>
+                    ) : <span style={{ color: 'var(--color-text-faint)' }}>Sin contacto</span>}
+                  </td>
+                  <td className="num">{stats?.opCount ?? 0}</td>
+                  <td className="num">
+                    <span style={{ color: (stats?.adjCount ?? 0) > 0 ? 'var(--color-accent-green)' : 'var(--color-text-label)' }}>
+                      {stats?.adjCount ?? 0}
+                    </span>
+                  </td>
+                  <td className="num">{formatCOP(stats?.valorCotizado ?? 0, { short: true })}</td>
+                  <td className="num">
+                    <span style={{ color: ultContacto.days !== null && ultContacto.days > 60 ? 'var(--color-accent-red)' : ultContacto.days !== null && ultContacto.days > 14 ? 'var(--color-accent-yellow)' : 'var(--color-text-label)' }}>
+                      {ultContacto.str}
+                    </span>
+                  </td>
+                  <td>
                     <button
                       onClick={(ev) => { ev.stopPropagation(); setDeleteModal(e.id) }}
-                      className="p-1 rounded text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      className="btn-d ghost icon sm"
+                      style={{ color: 'var(--color-accent-red)' }}
                       title="Eliminar empresa"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    ><Trash2 size={12} /></button>
                   </td>
                 </tr>
               )
             })}
+            {visible.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-label)' }}>
+                  Sin empresas para los filtros aplicados
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
-        <div className="px-5 py-4 border-t border-[var(--color-border)] flex items-center justify-between bg-[var(--color-surface)]">
-          <span className="text-[10px] text-[var(--color-text-muted)]">
-            Mostrando {visible.length} de {filtered.length} empresas
-          </span>
-          {visibleCount < filtered.length && (
-            <button
-              onClick={() => setVisibleCount(v => v + PAGE_SIZE)}
-              className="text-[10px] font-medium text-[var(--color-primary)] hover:underline"
-            >
-              Cargar más ({filtered.length - visibleCount} restantes)
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Fix 13: Delete confirmation modal */}
+      <div className="list-foot">
+        <span>Mostrando {visible.length.toLocaleString('es-CO')} de {filtered.length.toLocaleString('es-CO')} empresas</span>
+        {visibleCount < filtered.length && (
+          <button
+            onClick={() => setVisibleCount(v => v + PAGE_SIZE)}
+            className="btn-d sm"
+          >
+            Cargar más ({(filtered.length - visibleCount).toLocaleString('es-CO')} restantes)
+          </button>
+        )}
+      </div>
+
+      {/* Delete confirmation modal */}
       {deleteModal && deleteEmpresa && (
         <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-white modal-card w-full max-w-md">
+          <div className="bg-[var(--color-surface)] modal-card w-full max-w-md" style={{ padding: 24 }}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-                <AlertTriangle size={20} className="text-red-500" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--color-surface-3)' }}>
+                <AlertTriangle size={18} style={{ color: 'var(--color-accent-red)' }} />
               </div>
               <div>
-                <h3 className="font-semibold text-sm text-[var(--color-text)]">Eliminar {deleteEmpresa.nombre}?</h3>
-                <p className="text-xs text-[var(--color-text-muted)]">Esta acción no se puede deshacer.</p>
+                <h3 className="font-semibold text-[15px] text-[var(--color-text)]">¿Eliminar {deleteEmpresa.nombre}?</h3>
+                <p className="text-xs text-[var(--color-text-label)]">Esta acción no se puede deshacer.</p>
               </div>
             </div>
-            <div className="bg-red-50 rounded-md p-3 mb-4 text-xs text-red-700 space-y-1">
-              <p>Se eliminarán también:</p>
-              <ul className="list-disc list-inside ml-2">
+            <div className="rounded-md p-3 mb-4 text-xs space-y-1" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+              <p style={{ color: 'var(--color-text)', fontWeight: 500 }}>Se eliminarán también:</p>
+              <ul className="list-disc list-inside ml-2" style={{ color: 'var(--color-text-muted)' }}>
                 <li>{deleteContactos} contacto{deleteContactos !== 1 ? 's' : ''}</li>
                 <li>{deleteOportunidades} oportunidad{deleteOportunidades !== 1 ? 'es' : ''}</li>
                 <li>{deleteCotizaciones} cotizaci{deleteCotizaciones !== 1 ? 'ones' : 'ón'}</li>
               </ul>
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteModal(null)} className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] rounded-md">Cancelar</button>
-              <button onClick={confirmDelete} className="px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-md hover:bg-red-600 transition-colors">Eliminar</button>
+              <button onClick={() => setDeleteModal(null)} className="btn-d">Cancelar</button>
+              <button onClick={confirmDelete} className="btn-d" style={{ background: 'var(--color-accent-red)', color: '#fff', borderColor: 'var(--color-accent-red)' }}>Eliminar</button>
             </div>
           </div>
         </div>
