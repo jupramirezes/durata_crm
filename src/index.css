@@ -670,3 +670,179 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .delta.pos { color: var(--color-accent-green); }
 .delta.neg { color: var(--color-accent-red); }
 .delta.flat { color: var(--color-text-label); }
+
+/* ── PIPELINE / KANBAN ────────────────────────── */
+.pipeline-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 48px);
+  min-height: 0;
+}
+.pipeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 26px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  min-height: 0;
+  white-space: nowrap;
+  transition: background-color 120ms, border-color 120ms, color 120ms;
+}
+.chip:hover { background: var(--color-surface-2); color: var(--color-text); }
+.chip.on {
+  background: var(--color-text);
+  color: var(--color-surface);
+  border-color: var(--color-text);
+}
+.chip svg { width: 12px; height: 12px; }
+.chip-select {
+  padding: 0 22px 0 10px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.kanban {
+  flex: 1;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 16px 16px 24px;
+  gap: 10px;
+  background: var(--color-bg);
+}
+.col {
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  min-height: 0;
+}
+.col.drop-active {
+  outline: 2px dashed var(--color-primary-line);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-weak);
+}
+.col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.col-head .name {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--color-text);
+}
+.col-head .cnt {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-label);
+  background: var(--color-surface-2);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+.col-head .sum {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-label);
+}
+.col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding: 0 2px 8px;
+}
+
+.opp-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+  position: relative;
+  min-height: 0;
+}
+.opp-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.opp-card.dragging { opacity: 0.4; transform: scale(0.97); }
+.opp-card.urgent-hot { border-left: 2px solid var(--color-accent-red); }
+.opp-card.urgent-warn { border-left: 2px solid var(--color-accent-yellow); }
+.opp-card .row1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.opp-card .company {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+.opp-card .num {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+}
+.opp-card .contact {
+  font-size: 11.5px;
+  color: var(--color-text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 8px;
+}
+.opp-card .row2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.opp-card .val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+}
+.opp-card .age {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-label);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.opp-card .age.warn { color: var(--color-accent-yellow); }
+.opp-card .age.hot { color: var(--color-accent-red); }
