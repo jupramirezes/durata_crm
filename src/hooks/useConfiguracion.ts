@@ -166,6 +166,23 @@ async function saveKeyToSupabase(clave: string, valor: unknown): Promise<boolean
 
 // ── Public API ───────────────────────────────────────────────
 
+/** Detecta si defaults_cotizacion es la versión vieja (labels cortos) y
+ * la migra al texto completo del handoff. Heurística: una condición que
+ * NO contiene dos puntos (:) es probablemente un label corto.
+ * Así si el usuario editó manualmente los textos, no se sobrescriben. */
+function migrateDefaultsIfNeeded(d: DefaultsCotizacion | undefined | null): DefaultsCotizacion {
+  if (!d) return CONFIG_DEFAULTS.defaults_cotizacion
+  const hasLegalText = d.condiciones.some(c => c.includes(':') && c.length > 100)
+  if (hasLegalText) return d
+  // Todos cortos → defaults del usuario están desactualizados, migrar
+  return {
+    tiempo_entrega: d.tiempo_entrega || CONFIG_DEFAULTS.defaults_cotizacion.tiempo_entrega,
+    validez_oferta: d.validez_oferta || CONFIG_DEFAULTS.defaults_cotizacion.validez_oferta,
+    condiciones: CONFIG_DEFAULTS.defaults_cotizacion.condiciones,
+    no_incluye: CONFIG_DEFAULTS.defaults_cotizacion.no_incluye,
+  }
+}
+
 export async function loadConfig(): Promise<ConfigSistema> {
   const local = loadFromLS()
   const remote = await loadFromSupabase()
@@ -174,7 +191,9 @@ export async function loadConfig(): Promise<ConfigSistema> {
   const merged: ConfigSistema = {
     datos_empresa: (remote.datos_empresa as DatosEmpresa) ?? local.datos_empresa,
     cotizadores: (remote.cotizadores as Cotizador[]) ?? local.cotizadores,
-    defaults_cotizacion: (remote.defaults_cotizacion as DefaultsCotizacion) ?? local.defaults_cotizacion,
+    defaults_cotizacion: migrateDefaultsIfNeeded(
+      (remote.defaults_cotizacion as DefaultsCotizacion) ?? local.defaults_cotizacion
+    ),
     fuentes_lead: (remote.fuentes_lead as string[]) ?? local.fuentes_lead,
     sectores: (remote.sectores as string[]) ?? local.sectores,
     etapas_custom: (remote.etapas_custom as Record<string, EtapaCustom>) ?? local.etapas_custom ?? {},

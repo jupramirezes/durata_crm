@@ -864,7 +864,7 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   border-left: 1px solid var(--color-border);
   background: var(--color-surface);
   position: sticky;
-  top: 48px;
+  top: 0;
   align-self: flex-start;
   max-height: calc(100vh - 48px);
   overflow-y: auto;
@@ -1253,7 +1253,7 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 }
 .cotedit-header {
   position: sticky;
-  top: 48px;
+  top: 0;
   z-index: 15;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -1287,9 +1287,9 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   border-left: 1px solid var(--color-border);
   background: var(--color-surface);
   position: sticky;
-  top: 158px;
+  top: 110px;
   align-self: flex-start;
-  max-height: calc(100vh - 158px);
+  max-height: calc(100vh - 110px);
   overflow-y: auto;
 }
 

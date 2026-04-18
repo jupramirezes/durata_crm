@@ -833,65 +833,100 @@ export default function CotizacionEditor() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Condiciones comerciales</h3>
-            <div className="space-y-2">
-              {condicionesText.split('\n').map((line, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <input
-                    type="text"
-                    value={line}
-                    onChange={e => {
-                      const lines = condicionesText.split('\n')
-                      lines[i] = e.target.value
-                      setCondicionesText(lines.join('\n'))
-                    }}
-                    className="flex-1 text-xs px-3 py-2.5 rounded-lg bg-slate-50 border border-[var(--color-border)] focus:bg-white focus:border-[var(--color-primary)] transition-colors"
-                  />
-                  <button
-                    onClick={() => {
-                      const lines = condicionesText.split('\n').filter((_, idx) => idx !== i)
-                      setCondicionesText(lines.join('\n'))
-                    }}
-                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 mt-0.5"
-                  ><X size={12} /></button>
-                </div>
-              ))}
+          <div className="section" style={{ marginTop: 0 }}>
+            <div className="section-head">
+              <h2>Condiciones comerciales</h2>
+              <span className="sub">· {condicionesText.split('\n').filter(l => l.trim()).length} cláusulas</span>
+              <div className="spacer" />
               <button
                 onClick={() => setCondicionesText(prev => prev + (prev ? '\n' : '') + '')}
-                className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium mt-1"
-              ><Plus size={12} /> Agregar condición</button>
+                className="btn-d sm"
+              ><Plus size={12} /> Agregar</button>
+            </div>
+            <div className="section-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {condicionesText.split('\n').map((line, i) => {
+                // Aprox altura por caracteres — mínimo 2 líneas, hasta 10 según longitud
+                const estRows = Math.min(10, Math.max(2, Math.ceil((line.length || 1) / 80)))
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <textarea
+                      value={line}
+                      onChange={e => {
+                        const lines = condicionesText.split('\n')
+                        lines[i] = e.target.value
+                        setCondicionesText(lines.join('\n'))
+                      }}
+                      rows={estRows}
+                      style={{
+                        flex: 1,
+                        fontSize: 12.5,
+                        padding: '8px 10px',
+                        lineHeight: 1.5,
+                        resize: 'vertical',
+                        fontFamily: 'inherit',
+                      }}
+                      placeholder="Nueva cláusula…"
+                    />
+                    <button
+                      onClick={() => {
+                        const lines = condicionesText.split('\n').filter((_, idx) => idx !== i)
+                        setCondicionesText(lines.join('\n'))
+                      }}
+                      className="btn-d ghost icon sm"
+                      style={{ color: 'var(--color-accent-red)', marginTop: 4 }}
+                      title="Eliminar cláusula"
+                    ><X size={12} /></button>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-3">No incluye</h3>
-            <div className="space-y-2">
-              {noIncluyeText.split('\n').map((line, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <input
-                    type="text"
-                    value={line}
-                    onChange={e => {
-                      const lines = noIncluyeText.split('\n')
-                      lines[i] = e.target.value
-                      setNoIncluyeText(lines.join('\n'))
-                    }}
-                    className="flex-1 text-xs px-3 py-2.5 rounded-lg bg-slate-50 border border-[var(--color-border)] focus:bg-white focus:border-[var(--color-primary)] transition-colors"
-                  />
-                  <button
-                    onClick={() => {
-                      const lines = noIncluyeText.split('\n').filter((_, idx) => idx !== i)
-                      setNoIncluyeText(lines.join('\n'))
-                    }}
-                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 mt-0.5"
-                  ><X size={12} /></button>
-                </div>
-              ))}
+          <div className="section" style={{ marginTop: 0 }}>
+            <div className="section-head">
+              <h2>No incluye</h2>
+              <span className="sub">· {noIncluyeText.split('\n').filter(l => l.trim()).length} ítems</span>
+              <div className="spacer" />
               <button
                 onClick={() => setNoIncluyeText(prev => prev + (prev ? '\n' : '') + '')}
-                className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium mt-1"
-              ><Plus size={12} /> Agregar ítem</button>
+                className="btn-d sm"
+              ><Plus size={12} /> Agregar</button>
+            </div>
+            <div className="section-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {noIncluyeText.split('\n').map((line, i) => {
+                const estRows = Math.min(10, Math.max(2, Math.ceil((line.length || 1) / 80)))
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <textarea
+                      value={line}
+                      onChange={e => {
+                        const lines = noIncluyeText.split('\n')
+                        lines[i] = e.target.value
+                        setNoIncluyeText(lines.join('\n'))
+                      }}
+                      rows={estRows}
+                      style={{
+                        flex: 1,
+                        fontSize: 12.5,
+                        padding: '8px 10px',
+                        lineHeight: 1.5,
+                        resize: 'vertical',
+                        fontFamily: 'inherit',
+                      }}
+                      placeholder="Nuevo ítem…"
+                    />
+                    <button
+                      onClick={() => {
+                        const lines = noIncluyeText.split('\n').filter((_, idx) => idx !== i)
+                        setNoIncluyeText(lines.join('\n'))
+                      }}
+                      className="btn-d ghost icon sm"
+                      style={{ color: 'var(--color-accent-red)', marginTop: 4 }}
+                      title="Eliminar ítem"
+                    ><X size={12} /></button>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

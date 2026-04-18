@@ -116,7 +116,8 @@ export default function ConfiguradorGenerico() {
   const editProductoId = searchParams.get('editar')
   const navigate = useNavigate()
   const { state, dispatch } = useStore()
-  const empresa = state.empresas.find(e => state.oportunidades.find(o => o.id === id)?.empresa_id === e.id)
+  const oportunidad = state.oportunidades.find(o => o.id === id)
+  const empresa = state.empresas.find(e => oportunidad?.empresa_id === e.id)
   const productoId = paramPid || 'mesa'
 
   // If editing, load existing product
