@@ -1245,6 +1245,126 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .state-pill.rechazada  { color: #9a2a2a; background: #fbeeee; border-color: #f0d4d4; }
 .state-pill.descartada { color: #7a7f86; background: #f3f4f5; border-color: #e5e7eb; text-decoration: line-through; }
 
+/* ── COTIZACION EDITOR (handoff pattern) ─────── */
+.cotedit-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 48px);
+}
+.cotedit-header {
+  position: sticky;
+  top: 48px;
+  z-index: 15;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.cotedit-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+.cotedit-inforow {
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.cotedit-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  flex: 1;
+  min-height: 0;
+}
+.cotedit-body > .main-col {
+  padding: 22px 24px 48px;
+  min-width: 0;
+}
+.cotedit-body > .side-col {
+  padding: 22px 20px;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+  position: sticky;
+  top: 158px;
+  align-self: flex-start;
+  max-height: calc(100vh - 158px);
+  overflow-y: auto;
+}
+
+/* Totales card inside aside */
+.cotedit-totales {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  margin-bottom: 14px;
+  background: var(--color-surface-2);
+}
+.cotedit-totales .l {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+.cotedit-totales .row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  margin-bottom: 6px;
+}
+.cotedit-totales .row .k { color: var(--color-text-label); }
+.cotedit-totales .row .v {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.cotedit-totales .grand {
+  border-top: 1px solid var(--color-border);
+  padding-top: 10px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.cotedit-totales .grand .k {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.cotedit-totales .grand .v {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.cotedit-totales .sub-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-light);
+}
+.cotedit-totales .sub-stats .stat .l {
+  font-size: 10px;
+  color: var(--color-text-label);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.cotedit-totales .sub-stats .stat .v {
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
 /* ── TABS ─────────────────────────────────────── */
 .tabs {
   display: flex;

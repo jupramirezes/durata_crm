@@ -202,7 +202,7 @@ export default function Cotizaciones() {
               <th className="sortable" onClick={() => toggleSort('cotizador')}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Cotizador<SortIcon col="cotizador" /></span>
               </th>
-              <th className="num">Prod.</th>
+              <th className="num" title="Número de productos/líneas en la cotización">Productos</th>
               <th className="num sortable" onClick={() => toggleSort('total')}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Total<SortIcon col="total" /></span>
               </th>

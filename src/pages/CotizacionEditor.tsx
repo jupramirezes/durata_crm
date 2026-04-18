@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { CotizacionProducto, CONFIG_MESA_DEFAULT } from '../types'
-import { formatCOP, formatDate, downloadBlob } from '../lib/utils'
+import { CotizacionProducto, CONFIG_MESA_DEFAULT, findCotizador } from '../types'
+import { formatCOP, formatDate, downloadBlob, getAvatarColor } from '../lib/utils'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
 import { exportApuExcel, exportApuConsolidado } from '../lib/exportar-apu'
 import { uploadCotizacionFile } from '../hooks/useStorage'
@@ -37,6 +37,7 @@ export default function CotizacionEditor() {
   const oportunidad = cotizacion ? state.oportunidades.find(o => o.id === cotizacion.oportunidad_id) : null
   const empresa = oportunidad ? state.empresas.find(e => e.id === oportunidad.empresa_id) : null
   const contacto = oportunidad ? state.contactos.find(ct => ct.id === oportunidad.contacto_id) : null
+  const cotizadorInfo = oportunidad ? findCotizador(oportunidad.cotizador_asignado) : null
   const productosOportunidad = cotizacion ? state.productos.filter(p => p.oportunidad_id === cotizacion.oportunidad_id) : []
 
   // Editor line = CotizacionProducto + optional link back to productos_oportunidad.
@@ -446,35 +447,35 @@ export default function CotizacionEditor() {
     return n.toFixed(2).replace(/\.?0+$/, '')
   }
 
+  // Calcula cotizaciones-hermanas (mismo número base, variantes A/B/C) → versiones
+  const numeroBase = cotizacion.numero.replace(/[A-Z]$/, '')
+  const versiones = state.cotizaciones
+    .filter(c => c.oportunidad_id === oportunidad.id && c.numero.replace(/[A-Z]$/, '') === numeroBase)
+    .sort((a, b) => a.numero.localeCompare(b.numero))
+
   return (
-    <div className="p-6 max-w-5xl animate-fade-in">
+    <div className="cotedit-page">
       {saved && (
-        <div className="fixed top-4 right-4 z-50 bg-emerald-500 text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in">
-          <Check size={16} strokeWidth={3} />
-          <span className="text-xs font-semibold">Borrador guardado</span>
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-md animate-fade-in" style={{ background: 'var(--color-accent-green)', color: '#fff', boxShadow: 'var(--shadow-pop)' }}>
+          <Check size={14} strokeWidth={3} />
+          <span style={{ fontSize: 12, fontWeight: 600 }}>Borrador guardado</span>
         </div>
       )}
 
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-4 transition-colors">
-        <ArrowLeft size={14} /> Volver
-      </button>
-
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-            <FileText size={20} className="text-[var(--color-accent-green)]" />
+      {/* Sticky header (crumbs + actions + info row) */}
+      <div className="cotedit-header">
+        <div className="cotedit-topbar">
+          <button onClick={() => navigate(-1)} className="btn-d ghost sm" style={{ padding: '0 8px' }}>
+            <ArrowLeft size={13} /> Volver
+          </button>
+          <div className="crumb">
+            <span>Cotizaciones</span>
+            <span className="sep">/</span>
+            <span className="cur mono">{cotizacion.numero}</span>
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">Editar Cotizacion <span className="font-mono text-[var(--color-primary)]">{cotizacion.numero}</span></h2>
-            <p className="text-xs text-[var(--color-text-muted)]">Fecha: {formatDate(cotizacion.fecha)} &bull; Estado: {cotizacion.estado}</p>
-            {/[A-Z]$/.test(cotizacion.numero) && (
-              <p className="text-[10px] text-amber-600 mt-0.5">Recotización de COT-{cotizacion.numero.replace(/[A-Z]$/, '')}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={saveDraft} className="flex items-center gap-1.5 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] h-11 px-6 rounded-[10px] text-sm font-semibold transition-all">
-            <Save size={14} /> Guardar borrador
+          <div style={{ flex: 1 }} />
+          <button onClick={saveDraft} className="btn-d sm">
+            <Save size={12} /> Guardar borrador
           </button>
           {(() => {
             const prodsConApu = productosOportunidad.filter(pp => pp.apu_resultado)
@@ -494,47 +495,98 @@ export default function CotizacionEditor() {
                     contactoNombre: contacto?.nombre,
                   })
                   downloadBlob(blob, filename)
-
-                  // Fire-and-forget: upload consolidated APU to Supabase Storage
                   if (oportunidad && cotizacion) {
                     const apuFile = new File([blob], filename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
                     uploadCotizacionFile(oportunidad.id, cotizacion.id, apuFile, 'apu').then(res => {
-                      if ('error' in res) {
-                        console.warn('[APU Consolidado upload] Error:', res.error)
-                        return
-                      }
-                      dispatch({
-                        type: 'UPDATE_COTIZACION',
-                        payload: {
-                          id: cotizacion.id,
-                          archivo_apu_url: res.url,
-                          archivo_apu_nombre: res.nombre,
-                        },
-                      })
-                      svcCotizaciones.updateCotizacion({
-                        id: cotizacion.id,
-                        archivo_apu_url: res.url,
-                        archivo_apu_nombre: res.nombre,
-                      } as any)
+                      if ('error' in res) { console.warn('[APU Consolidado upload] Error:', res.error); return }
+                      dispatch({ type: 'UPDATE_COTIZACION', payload: { id: cotizacion.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } })
+                      svcCotizaciones.updateCotizacion({ id: cotizacion.id, archivo_apu_url: res.url, archivo_apu_nombre: res.nombre } as any)
                     })
                   }
                 }}
-                className="flex items-center gap-1.5 bg-white border border-green-300 hover:border-green-400 text-green-700 h-11 px-6 rounded-[10px] text-sm font-semibold transition-all"
+                className="btn-d sm"
+                style={{ color: 'var(--color-accent-green)' }}
                 title="Genera un solo Excel con una hoja por producto"
               >
-                <FileSpreadsheet size={14} /> Descargar APU Consolidado
+                <FileSpreadsheet size={12} /> APU consolidado
               </button>
             )
           })()}
-          <button onClick={() => { if (subtotal <= 0) { alert('No se puede generar PDF con total $0'); return } setShowPdfModal(true) }} className="flex items-center gap-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white h-11 px-6 rounded-[10px] text-sm font-bold transition-all disabled:opacity-40" disabled={subtotal <= 0}>
-            <Download size={14} /> Descargar PDF
+          <button
+            onClick={() => { if (subtotal <= 0) { alert('No se puede generar PDF con total $0'); return } setShowPdfModal(true) }}
+            className="btn-d accent sm"
+            disabled={subtotal <= 0}
+            style={{ opacity: subtotal <= 0 ? 0.4 : 1 }}
+          >
+            <Download size={12} /> Descargar PDF
           </button>
+        </div>
+
+        {/* Cotización info row */}
+        <div className="cotedit-inforow">
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--color-text-label)' }}>{cotizacion.numero}</span>
+              <span className={`state-pill ${cotizacion.estado}`}>{cotizacion.estado}</span>
+              {versiones.length > 1 && (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {versiones.map(v => {
+                    const letter = v.numero.match(/([A-Z])$/)?.[1] || 'A'
+                    const active = v.id === cotizacion.id
+                    return (
+                      <span
+                        key={v.id}
+                        onClick={() => !active && navigate(`/cotizaciones/${v.id}/editar`)}
+                        style={{
+                          display: 'inline-block', padding: '2px 7px', borderRadius: 4,
+                          fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 600,
+                          background: active ? 'var(--color-text)' : 'var(--color-surface-2)',
+                          color: active ? 'var(--color-surface)' : 'var(--color-text-label)',
+                          border: '1px solid ' + (active ? 'var(--color-text)' : 'var(--color-border)'),
+                          letterSpacing: '0.04em',
+                          cursor: active ? 'default' : 'pointer',
+                        }}
+                        title={active ? 'Versión actual' : `Cambiar a versión ${letter}`}
+                      >v{letter}</span>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--color-text)' }}>{empresa.nombre}</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-label)', marginTop: 2 }}>
+              {contacto?.nombre || 'Sin contacto'}
+              {oportunidad.ubicacion && ` · ${oportunidad.ubicacion}`}
+            </div>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14, fontSize: 11.5 }}>
+            {cotizadorInfo && (
+              <div>
+                <div className="mono" style={{ fontSize: 9.5, color: 'var(--color-text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Cotizador</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                  <span className="avatar sm" style={{ background: getAvatarColor(cotizadorInfo.nombre), color: '#fff', border: 'none' }}>{cotizadorInfo.iniciales}</span>
+                  <span style={{ color: 'var(--color-text)' }}>{cotizadorInfo.nombre}</span>
+                </div>
+              </div>
+            )}
+            <div>
+              <div className="mono" style={{ fontSize: 9.5, color: 'var(--color-text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Creada</div>
+              <div className="mono" style={{ marginTop: 3, color: 'var(--color-text)' }}>{formatDate(cotizacion.fecha)}</div>
+            </div>
+            {/[A-Z]$/.test(cotizacion.numero) && (
+              <div>
+                <div className="mono" style={{ fontSize: 9.5, color: 'var(--color-text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Recotización</div>
+                <div className="mono" style={{ marginTop: 3, color: 'var(--color-accent-yellow)' }}>de {numeroBase}</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_300px] gap-5">
+      {/* Body grid: main + aside */}
+      <div className="cotedit-body">
         {/* Main content */}
-        <div className="space-y-4">
+        <div className="main-col space-y-4">
           {/* Client info */}
           <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
             <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5">Datos del cliente</h3>
@@ -844,47 +896,114 @@ export default function CotizacionEditor() {
           </div>
         </div>
 
-        {/* Sidebar - Totals */}
-        <div className="space-y-3 sticky top-4 self-start">
-          {/* Total card */}
-          <div className="relative overflow-hidden rounded-lg border border-emerald-500/30" style={{ background: 'linear-gradient(135deg, #059669 0%, #34d399 100%)' }}>
-            <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-white/10 -translate-y-5 translate-x-5" />
-            <div className="p-4 text-center relative">
-              <div className="text-[9px] text-white/70 uppercase tracking-widest font-semibold mb-0.5">Total con IVA</div>
-              <div className="text-2xl font-black text-white font-mono">{formatCOP(total)}</div>
+        {/* ─── ASIDE (handoff pattern: Totales + Actions + Versiones) ─── */}
+        <aside className="side-col">
+          {/* Totales card */}
+          <div className="cotedit-totales">
+            <div className="l">Totales</div>
+            <div className="row">
+              <span className="k">Subtotal</span>
+              <span className="v">{formatCOP(subtotal)}</span>
+            </div>
+            <div className="row">
+              <span className="k">IVA (19%)</span>
+              <span className="v">{formatCOP(iva)}</span>
+            </div>
+            <div className="grand">
+              <span className="k">Total</span>
+              <span className="v">{formatCOP(total)}</span>
+            </div>
+            <div className="sub-stats">
+              <div className="stat">
+                <div className="l">Productos</div>
+                <div className="v">{productos.length}</div>
+              </div>
+              <div className="stat">
+                <div className="l">Líneas</div>
+                <div className="v">{productos.length}</div>
+              </div>
             </div>
           </div>
 
-          {/* Breakdown */}
-          <div className="bg-white rounded-lg border border-[var(--color-border)] p-4 space-y-2.5">
-            <h4 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Resumen</h4>
-
-            <div className="space-y-1.5">
-              {productos.map((p, i) => (
-                <div key={i} className="flex justify-between text-[10px]">
-                  <span className="text-[var(--color-text-muted)] truncate max-w-36">{fmtQty(p.cantidad)} {p.unidad || 'UND'} - {p.descripcion}</span>
-                  <span className="font-medium whitespace-nowrap ml-2 font-mono">{formatCOP(p.precio_unitario * p.cantidad)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-[var(--color-border)] pt-2.5 space-y-1.5 text-xs">
-              <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">Subtotal</span><span className="font-medium font-mono">{formatCOP(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-[var(--color-text-muted)]">IVA (19%)</span><span className="font-medium font-mono">{formatCOP(iva)}</span></div>
-              <div className="flex justify-between font-bold text-sm border-t border-[var(--color-border)] pt-2"><span>Total</span><span className="text-[var(--color-accent-green)] font-mono">{formatCOP(total)}</span></div>
-            </div>
+          {/* Actions stack */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+            <button
+              onClick={() => setShowPdfModal(true)}
+              disabled={total <= 0}
+              className="btn-d accent"
+              style={{ justifyContent: 'center', height: 36, opacity: total <= 0 ? 0.4 : 1 }}
+            >
+              <Download size={13} /> Descargar PDF
+            </button>
+            <button
+              onClick={saveDraft}
+              className="btn-d"
+              style={{ justifyContent: 'flex-start' }}
+            >
+              <Save size={12} /> Guardar borrador
+            </button>
+            {oportunidad && (
+              <button
+                onClick={() => navigate(`/oportunidades/${oportunidad.id}`)}
+                className="btn-d"
+                style={{ justifyContent: 'flex-start' }}
+              >
+                <ArrowLeft size={12} /> Volver a oportunidad
+              </button>
+            )}
           </div>
 
-          <button onClick={saveDraft} className="w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] hover:border-gray-300 text-[var(--color-text)] h-12 px-7 rounded-xl text-sm font-semibold transition-all">
-            <Save size={16} /> Guardar borrador
-          </button>
           {total <= 0 && (
-            <p className="text-xs text-red-500 text-center">No se puede generar PDF con total $0</p>
+            <p style={{ fontSize: 11, color: 'var(--color-accent-red)', textAlign: 'center', marginBottom: 12 }}>
+              No se puede generar PDF con total $0
+            </p>
           )}
-          <button onClick={() => setShowPdfModal(true)} disabled={total <= 0} className={`w-full flex items-center justify-center gap-2 h-12 px-7 rounded-xl text-sm font-bold transition-all ${total <= 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white'}`}>
-            <Download size={16} /> Descargar PDF
-          </button>
-        </div>
+
+          {/* Versiones card (cotizaciones hermanas) */}
+          {versiones.length > 1 && (
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', padding: 14 }}>
+              <div className="mono" style={{ fontSize: 10, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                Versiones ({versiones.length})
+              </div>
+              {versiones.map(v => {
+                const letter = v.numero.match(/([A-Z])$/)?.[1] || 'A'
+                const active = v.id === cotizacion.id
+                return (
+                  <div
+                    key={v.id}
+                    onClick={() => !active && navigate(`/cotizaciones/${v.id}/editar`)}
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      padding: '8px 0',
+                      borderBottom: '1px solid var(--color-border-light)',
+                      alignItems: 'flex-start',
+                      cursor: active ? 'default' : 'pointer',
+                    }}
+                  >
+                    <span style={{
+                      display: 'inline-block', padding: '2px 7px', borderRadius: 4,
+                      fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 600,
+                      background: active ? 'var(--color-text)' : 'var(--color-surface-2)',
+                      color: active ? 'var(--color-surface)' : 'var(--color-text-label)',
+                      border: '1px solid ' + (active ? 'var(--color-text)' : 'var(--color-border)'),
+                      letterSpacing: '0.04em', flexShrink: 0,
+                    }}>v{letter}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11.5, color: 'var(--color-text-muted)', lineHeight: 1.35 }}>
+                        <span className={`state-pill ${v.estado}`} style={{ fontSize: 9 }}>{v.estado}</span>
+                      </div>
+                      <div className="mono" style={{ fontSize: 10, color: 'var(--color-text-faint)', marginTop: 2 }}>{formatDate(v.fecha)}</div>
+                    </div>
+                    <div className="mono" style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--color-text-label)' }}>
+                      {v.total ? formatCOP(v.total, { short: true }) : '—'}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </aside>
       </div>
 
       {showPdfModal && (
