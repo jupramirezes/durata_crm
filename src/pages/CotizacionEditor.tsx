@@ -586,44 +586,42 @@ export default function CotizacionEditor() {
       {/* Body grid: main + aside */}
       <div className="cotedit-body">
         {/* Main content */}
-        <div className="main-col space-y-4">
-          {/* Client info */}
-          <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5">Datos del cliente</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-1.5 text-xs">
-                <Building2 size={12} className="text-[var(--color-text-muted)]" />
-                <span className="font-medium">{empresa.nombre}</span>
+        <div className="main-col" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Client info strip (compact, bordered hairline — info ya está en header) */}
+          <div className="meta-grid" style={{ marginBottom: 0 }}>
+            <div className="meta-cell">
+              <div className="l">NIT</div>
+              <div className="v mono" style={{ fontSize: 13 }}>{empresa.nit || '—'}</div>
+            </div>
+            <div className="meta-cell">
+              <div className="l">Correo</div>
+              <div className="v" style={{ fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={contacto?.correo || ''}>
+                {contacto?.correo || '—'}
               </div>
-              <div className="flex items-center gap-1.5 text-xs">
-                <Mail size={12} className="text-[var(--color-text-muted)]" />
-                <span>{contacto?.correo || '—'}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs">
-                <Phone size={12} className="text-[var(--color-text-muted)]" />
-                <span>{contacto?.whatsapp || '—'}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs">
-                <MapPin size={12} className="text-[var(--color-text-muted)]" />
-                <span>{oportunidad.ubicacion || empresa.direccion || '—'}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs">
-                <Hash size={12} className="text-[var(--color-text-muted)]" />
-                <span>NIT: {empresa.nit || '—'}</span>
+            </div>
+            <div className="meta-cell">
+              <div className="l">WhatsApp</div>
+              <div className="v mono" style={{ fontSize: 13 }}>{contacto?.whatsapp || '—'}</div>
+            </div>
+            <div className="meta-cell">
+              <div className="l">Ubicación</div>
+              <div className="v" style={{ fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={oportunidad.ubicacion || empresa.direccion || ''}>
+                {oportunidad.ubicacion || empresa.direccion || '—'}
               </div>
             </div>
           </div>
 
-          {/* Products table */}
-          <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Lineas de cotizacion</h3>
-              <button onClick={addProducto} className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] font-medium">
-                <Plus size={12} /> Agregar linea
+          {/* Products table (handoff: section + tbl) */}
+          <div className="section" style={{ marginTop: 0 }}>
+            <div className="section-head">
+              <h2>Líneas de cotización</h2>
+              <span className="sub">· {productos.length} {productos.length === 1 ? 'producto' : 'productos'}</span>
+              <div className="spacer" />
+              <button onClick={addProducto} className="btn-d sm">
+                <Plus size={12} /> Agregar línea
               </button>
             </div>
-
-            <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <div style={{ overflowX: 'auto' }}>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-[var(--color-surface)] text-left text-[var(--color-text-muted)]">
@@ -813,23 +811,38 @@ export default function CotizacionEditor() {
             </div>
           </div>
 
-          {/* Conditions */}
-          <div className="bg-white rounded-lg border border-[var(--color-border)] p-4">
-            <h3 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5">Datos generales</h3>
-            <div className="space-y-3">
+          {/* Datos generales */}
+          <div className="section" style={{ marginTop: 0 }}>
+            <div className="section-head">
+              <h2>Datos generales</h2>
+              <span className="sub">tiempo de entrega · transporte</span>
+            </div>
+            <div className="section-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div>
-                <label className="text-[10px] font-medium text-[var(--color-text-muted)] mb-1 block">Tiempo de entrega</label>
+                <label className="mono" style={{ fontSize: 10, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>
+                  Tiempo de entrega
+                </label>
                 <input
                   type="text"
                   value={tiempoEntrega}
                   onChange={e => setTiempoEntrega(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-md text-xs border border-[var(--color-border)]"
+                  style={{ width: '100%', fontSize: 12.5, padding: '7px 10px' }}
                 />
               </div>
-              <label className="flex items-center gap-2 text-xs cursor-pointer rounded-md p-2.5 bg-[var(--color-surface)] border border-[var(--color-border)]">
-                <input type="checkbox" checked={incluyeTransporte} onChange={e => setIncluyeTransporte(e.target.checked)} className="rounded shrink-0" />
-                <span>Incluye transporte</span>
-              </label>
+              <div>
+                <label className="mono" style={{ fontSize: 10, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>
+                  Transporte
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: incluyeTransporte ? 'var(--color-primary-weak)' : 'var(--color-surface)', cursor: 'pointer', fontSize: 12.5 }}>
+                  <input
+                    type="checkbox"
+                    checked={incluyeTransporte}
+                    onChange={e => setIncluyeTransporte(e.target.checked)}
+                    style={{ accentColor: 'var(--color-primary)' }}
+                  />
+                  <span style={{ fontWeight: 500 }}>Incluye transporte</span>
+                </label>
+              </div>
             </div>
           </div>
 
