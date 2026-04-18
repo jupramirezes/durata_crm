@@ -129,17 +129,15 @@
       );
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      // Wait until Babel has finished transforming the other src scripts.
-      // All our Object.assign(window, …) exports should now exist.
-      const boot = () => {
-        if (!window.MaterialMaster || !window.Comparador || !window.OrdenCompra || !window.Bandeja || !window.APUPane || !window.CotizacionEditor || !window.AdjudicarModal) {
-          setTimeout(boot, 60); return;
-        }
-        ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-      };
-      boot();
-    });
+    // Babel runs AFTER DOMContentLoaded, so we skip the listener and just poll
+    // until all component exports are on window, then render.
+    const boot = () => {
+      if (!window.MaterialMaster || !window.Comparador || !window.OrdenCompra || !window.Bandeja || !window.APUPane || !window.CotizacionEditor || !window.AdjudicarModal || !window.Sidebar || !window.ICONS) {
+        setTimeout(boot, 60); return;
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+    };
+    boot();
   </script>
 </body>
 </html>
