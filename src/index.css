@@ -784,10 +784,10 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   cursor: pointer;
   transition: border-color 120ms, box-shadow 120ms, transform 120ms;
   position: relative;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  min-height: 70px;
 }
 .opp-card:hover {
   border-color: var(--color-border-strong);
@@ -800,6 +800,7 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   display: flex;
   align-items: baseline;
   gap: 8px;
+  min-height: 16px;
 }
 .opp-card .company {
   font-size: 12.5px;
@@ -825,12 +826,13 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   text-overflow: ellipsis;
   white-space: nowrap;
   min-height: 14px;
+  line-height: 14px;
 }
-.opp-card .contact:empty::before { content: '\00a0'; }
 .opp-card .row2 {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 18px;
 }
 .opp-card .val {
   font-family: var(--font-mono);
@@ -961,4 +963,67 @@ table td, table th { padding-top: 0.75rem; padding-bottom: 0.75rem; }
   letter-spacing: 0.06em;
   color: var(--color-text-label);
   margin: 18px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.prop-list {
+  border-top: 1px solid var(--color-border);
+}
+.prop-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border-light);
+  align-items: center;
+  font-size: 12.5px;
+}
+.prop-row .k { color: var(--color-text-label); font-size: 12px; }
+.prop-row .v {
+  color: var(--color-text);
+  font-weight: 500;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.aside-card {
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+/* ── TABS ─────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 18px;
+}
+.tab {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-text-label);
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  background: none;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  min-height: 0;
+}
+.tab:hover { color: var(--color-text); }
+.tab.active { color: var(--color-text); border-bottom-color: var(--color-text); }
+.tab .n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-faint);
+  margin-left: 4px;
+}
+.tab.active .n { color: var(--color-text-label); }

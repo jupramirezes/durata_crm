@@ -51,6 +51,7 @@ export default function OportunidadDetalle() {
 
   const [showCotModal, setShowCotModal] = useState(false)
   const [notaTexto, setNotaTexto] = useState('')
+  const [tab, setTab] = useState<'actividad' | 'productos' | 'cotizaciones' | 'adjuntos'>('actividad')
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [showManualForm, setShowManualForm] = useState(false)
   const [showEtapaDropdown, setShowEtapaDropdown] = useState(false)
@@ -677,13 +678,12 @@ export default function OportunidadDetalle() {
               </span>
               <EtapaBadge etapa={opp.etapa} size="sm" />
             </div>
-            <div className="opp-title">{emp.nombre}</div>
+            <div className="opp-title">{opp.nombre || 'Sin proyecto asignado'}</div>
             <div className="opp-company-line">
+              <strong>{emp.nombre}</strong>
+              <span className="sep">·</span>
               {contacto ? (
-                <>
-                  <strong>{contacto.nombre}</strong>
-                  {contacto.cargo && (<><span className="sep">·</span><span>{contacto.cargo}</span></>)}
-                </>
+                <span>{contacto.nombre}{contacto.cargo && ` — ${contacto.cargo}`}</span>
               ) : (
                 <button
                   onClick={() => { setShowAssignContacto(true); document.getElementById('contacto-card')?.scrollIntoView({ behavior: 'smooth' }) }}
@@ -805,6 +805,23 @@ export default function OportunidadDetalle() {
         {/* ─── LEFT COLUMN (70%) ─── */}
         <div className="flex-[7] min-w-0 space-y-7">
 
+          {/* ═══ TABS ═══ */}
+          <div className="tabs">
+            <button className={`tab ${tab === 'actividad' ? 'active' : ''}`} onClick={() => setTab('actividad')}>
+              Actividad<span className="n">{timelineEvents.length}</span>
+            </button>
+            <button className={`tab ${tab === 'productos' ? 'active' : ''}`} onClick={() => setTab('productos')}>
+              Productos<span className="n">{productos.length}</span>
+            </button>
+            <button className={`tab ${tab === 'cotizaciones' ? 'active' : ''}`} onClick={() => setTab('cotizaciones')}>
+              Cotizaciones<span className="n">{cotizaciones.filter(c => c.oportunidad_id === opp.id).length}</span>
+            </button>
+            <button className={`tab ${tab === 'adjuntos' ? 'active' : ''}`} onClick={() => setTab('adjuntos')}>
+              Adjuntos<span className="n">{archivos.length}</span>
+            </button>
+          </div>
+
+          {tab === 'actividad' && (<>
           {/* ═══ CAMBIO 3: TIMELINE UNIFICADO ═══ */}
           <div className="card p-7 mb-8">
             <div className="flex items-center gap-2.5 mb-2 pb-4 border-b border-[#e2e8f0]">
@@ -898,6 +915,9 @@ export default function OportunidadDetalle() {
             )}
           </div>
 
+          </>)}
+
+          {tab === 'productos' && (<>
           {/* ═══ CAMBIO 4: PRODUCTOS MEJORADOS ═══ */}
           <div className="card p-7 mb-8">
             <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
@@ -1152,6 +1172,9 @@ export default function OportunidadDetalle() {
             )}
           </div>
 
+          </>)}
+
+          {tab === 'adjuntos' && (<>
           {/* ═══ ARCHIVOS ADJUNTOS ═══ */}
           <div className="card p-7 mb-8">
             <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
@@ -1194,6 +1217,9 @@ export default function OportunidadDetalle() {
             )}
           </div>
 
+          </>)}
+
+          {tab === 'cotizaciones' && (<>
           {/* ═══ CAMBIO 5: COTIZACIONES MEJORADAS ═══ */}
           <div className="card p-7">
             <div className="flex justify-between items-center mb-2 pb-4 border-b border-[#e2e8f0]">
@@ -1372,6 +1398,7 @@ export default function OportunidadDetalle() {
               )
             })()}
           </div>
+          </>)}
         </div>
 
         {/* ─── RIGHT COLUMN - SIDEBAR (30%) ─── */}

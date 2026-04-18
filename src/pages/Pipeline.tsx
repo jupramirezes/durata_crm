@@ -400,7 +400,7 @@ export default function Pipeline() {
                         {cotNumero && <span className="num">{cotNumero}</span>}
                       </div>
                       <div className="contact">
-                        {contactoNombre && contactoNombre !== '—' ? contactoNombre : ''}
+                        {contactoNombre && contactoNombre !== '—' ? contactoNombre : '\u00A0'}
                       </div>
                       <div className="row2">
                         <span className="val">{o.valor_cotizado === 0 ? '—' : formatCOP(o.valor_cotizado, { short: true })}</span>
