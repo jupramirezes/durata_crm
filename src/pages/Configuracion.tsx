@@ -141,25 +141,33 @@ export default function Configuracion() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-4xl animate-fade-in">
-      <PageHeader title="Configuración" subtitle="Parámetros del sistema" />
+    <div className="page animate-fade-in">
+      <div className="page-head">
+        <div>
+          <div className="page-title">Configuración</div>
+          <div className="page-sub">Parámetros del sistema · DURATA S.A.S.</div>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--color-text-label)' }}>
+          <Database size={12} />
+          {isSupabaseReady ? (
+            <><CheckCircle size={11} style={{ color: 'var(--color-accent-green)' }} /> Supabase conectado</>
+          ) : (
+            <><AlertCircle size={11} style={{ color: 'var(--color-accent-yellow)' }} /> localStorage offline</>
+          )}
+        </div>
+      </div>
 
       {/* ─── TABS ──────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-[var(--color-border)] mt-5 mb-6 overflow-x-auto">
+      <div className="tabs">
         {TABS.map(t => {
-          const Icon = t.icon
           const active = tab === t.key
           return (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 h-11 px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                active
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-gray-300'
-              }`}
+              className={`tab ${active ? 'active' : ''}`}
             >
-              <Icon size={13} />
               {t.label}
             </button>
           )
@@ -180,28 +188,10 @@ export default function Configuracion() {
       {tab === 'fuentes' && <TabListaEditable items={config.fuentes_lead} onSave={v => handleSave('fuentes_lead', v)} saving={saving} label="Fuentes de lead" placeholder="Nueva fuente…" />}
       {tab === 'sectores' && <TabListaEditable items={config.sectores} onSave={v => handleSave('sectores', v)} saving={saving} label="Sectores" placeholder="Nuevo sector…" />}
 
-      {/* ─── DB STATUS (bottom) ────────────────────────────── */}
-      <div className="mt-6 card p-4">
-        <div className="flex items-center gap-2.5">
-          <Database size={14} className="text-[var(--color-text-muted)]" />
-          {isSupabaseReady ? (
-            <div className="flex items-center gap-2">
-              <CheckCircle size={13} className="text-[var(--color-accent-green)]" />
-              <span className="text-[11px] text-[var(--color-text)]">Supabase conectado — datos sincronizados</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <AlertCircle size={13} className="text-[var(--color-accent-yellow)]" />
-              <span className="text-[11px] text-[var(--color-text)]">localStorage — modo offline</span>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* ─── TOAST ─────────────────────────────────────────── */}
       {toast && (
-        <div className="fixed bottom-5 right-5 bg-[var(--color-text)] text-white px-4 py-2.5 rounded-lg text-xs font-medium shadow-lg animate-fade-in flex items-center gap-2 z-50">
-          <CheckCircle size={14} />
+        <div className="fixed bottom-5 right-5 flex items-center gap-2 px-4 py-2 rounded-md animate-fade-in z-50" style={{ background: 'var(--color-text)', color: 'var(--color-surface)', boxShadow: 'var(--shadow-pop)', fontSize: 12 }}>
+          <CheckCircle size={13} />
           {toast}
         </div>
       )}
