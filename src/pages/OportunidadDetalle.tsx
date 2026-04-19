@@ -1548,10 +1548,10 @@ export default function OportunidadDetalle() {
                     key={item.name}
                     onClick={item.action}
                     disabled={!item.active}
-                    className={`text-left p-5 rounded-xl border transition-all ${
+                    className={`text-left p-5 rounded-[var(--radius-lg)] border transition-all ${
                       item.active
-                        ? 'border-[var(--color-border)] bg-white hover:shadow-md hover:border-[var(--color-primary)] cursor-pointer'
-                        : 'border-[var(--color-border)] bg-gray-50 opacity-50 cursor-not-allowed'
+                        ? 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)] cursor-pointer'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface-2)] opacity-50 cursor-not-allowed'
                     }`}
                   >
                     <div className="text-2xl mb-2">{item.icon}</div>
@@ -1561,7 +1561,7 @@ export default function OportunidadDetalle() {
                       {item.active ? (
                         <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">ACTIVO</span>
                       ) : (
-                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">🔒 PRÓXIMO</span>
+                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--color-surface-2)] text-[var(--color-text-label)]">🔒 PRÓXIMO</span>
                       )}
                     </div>
                   </button>
@@ -1585,7 +1585,7 @@ export default function OportunidadDetalle() {
       {/* Adjudicada modal */}
       {showAdjudicadaModal && (
         <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50" onClick={() => setShowAdjudicadaModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] w-full max-w-sm mx-4" style={{ boxShadow: 'var(--shadow-modal)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Marcar como Adjudicada</h3>
               <button onClick={() => setShowAdjudicadaModal(false)} className="p-1 rounded hover:bg-[var(--color-surface)]"><X size={16} /></button>
@@ -1630,7 +1630,7 @@ export default function OportunidadDetalle() {
       {/* Perdida modal */}
       {showPerdidaModal && (
         <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50" onClick={() => setShowPerdidaModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] w-full max-w-sm mx-4" style={{ boxShadow: 'var(--shadow-modal)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Marcar como Perdida</h3>
               <button onClick={() => setShowPerdidaModal(false)} className="p-1 rounded hover:bg-[var(--color-surface)]"><X size={16} /></button>
@@ -1666,7 +1666,7 @@ export default function OportunidadDetalle() {
       {/* Manual product modal */}
       {showManualForm && (
         <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50" onClick={() => setShowManualForm(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] overflow-y-auto" style={{ boxShadow: 'var(--shadow-modal)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-sm text-[var(--color-text)]">Producto manual</h3>
               <button onClick={() => setShowManualForm(false)} className="p-1 rounded hover:bg-[var(--color-surface)]"><X size={16} /></button>
@@ -1825,10 +1825,10 @@ export default function OportunidadDetalle() {
       {/* Duplicate to other client modal */}
       {dupCotId && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setDupCotId(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--color-surface)] rounded-[var(--radius-xl)] w-full max-w-md mx-4 overflow-hidden animate-scale-in" style={{ boxShadow: 'var(--shadow-modal)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-bold text-base text-[var(--color-text)]">Duplicar para otro cliente</h3>
-              <button onClick={() => setDupCotId(null)} className="p-1 rounded hover:bg-slate-100"><X size={16} /></button>
+              <button onClick={() => setDupCotId(null)} className="p-1 rounded hover:bg-[var(--color-surface-hover)]"><X size={16} /></button>
             </div>
             <div className="p-6 space-y-4">
               <p className="text-xs text-[var(--color-text-muted)]">
@@ -1846,7 +1846,7 @@ export default function OportunidadDetalle() {
                 {dupSearch.length >= 2 && !dupSelectedEmpId && (
                   <div className="mt-2 max-h-32 overflow-y-auto border border-[var(--color-border)] rounded-lg">
                     {state.empresas.filter(e => e.nombre.toLowerCase().includes(dupSearch.toLowerCase())).slice(0, 8).map(e => (
-                      <button key={e.id} onClick={() => { setDupSelectedEmpId(e.id); setDupSearch(e.nombre) }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 truncate">
+                      <button key={e.id} onClick={() => { setDupSelectedEmpId(e.id); setDupSearch(e.nombre) }} className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--color-surface-hover)] truncate">
                         {e.nombre}
                       </button>
                     ))}
@@ -1866,7 +1866,7 @@ export default function OportunidadDetalle() {
                         <button
                           key={o.id}
                           onClick={() => setDupSelectedOppId(o.id)}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${dupSelectedOppId === o.id ? 'bg-blue-50 border border-[var(--color-primary)] text-[var(--color-primary)]' : 'border border-[var(--color-border)] hover:bg-slate-50'}`}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${dupSelectedOppId === o.id ? 'bg-blue-50 border border-[var(--color-primary)] text-[var(--color-primary)]' : 'border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)]'}`}
                         >
                           {o.ubicacion || o.etapa} — {formatCOP(o.valor_cotizado)}
                         </button>

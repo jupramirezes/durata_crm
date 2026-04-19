@@ -674,7 +674,7 @@ export default function CotizacionEditor() {
                                 <img
                                   src={effectiveImage}
                                   alt={hasUserImage ? 'Imagen producto' : 'Render 3D'}
-                                  className="w-[100px] h-[75px] object-contain rounded-lg border border-[var(--color-border)] cursor-pointer hover:shadow-lg transition-shadow"
+                                  className="w-[100px] h-[75px] object-contain rounded-[var(--radius-md)] border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-border-strong)] transition-colors"
                                   onClick={() => setImagenModal(effectiveImage)}
                                 />
                                 <div className="flex justify-center gap-1 mt-1">
@@ -1069,7 +1069,7 @@ export default function CotizacionEditor() {
           <div className="relative bg-white modal-card p-4 max-w-2xl" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setImagenModal(null)}
-              className="absolute top-3 right-3 p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+              className="absolute top-3 right-3 p-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-text-muted)] transition-colors"
             >
               <X size={16} />
             </button>

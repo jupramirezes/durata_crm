@@ -48,7 +48,7 @@ function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean 
     <button
       onClick={onClick}
       disabled={saving}
-      className="flex items-center gap-1.5 h-12 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[15px] font-semibold rounded-xl transition-colors shadow-[0_4px_12px_rgba(59,130,246,0.3)] disabled:opacity-50"
+      className="flex items-center gap-1.5 h-12 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[15px] font-semibold rounded-[var(--radius-lg)] transition-colors disabled:opacity-50"
     >
       <Save size={15} />
       {saving ? 'Guardando…' : 'Guardar cambios'}
@@ -269,7 +269,7 @@ function TabEquipo({ data, onSave, saving }: { data: Cotizador[]; onSave: (v: Co
         <div className="flex items-center gap-2">
           <button
             onClick={() => setAdding(!adding)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-medium rounded-md hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-medium rounded-md hover:bg-[var(--color-surface-hover)] transition-colors"
           >
             <Plus size={13} /> Agregar
           </button>
@@ -313,7 +313,7 @@ function TabEquipo({ data, onSave, saving }: { data: Cotizador[]; onSave: (v: Co
               <td className="py-2.5 text-center">
                 <button
                   onClick={() => toggleActivo(i)}
-                  className={`w-8 h-4 rounded-full relative transition-colors ${c.activo ? 'bg-[var(--color-accent-green)]' : 'bg-gray-300'}`}
+                  className={`w-8 h-4 rounded-full relative transition-colors ${c.activo ? 'bg-[var(--color-accent-green)]' : 'bg-[var(--color-border-strong)]'}`}
                 >
                   <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${c.activo ? 'left-4' : 'left-0.5'}`} />
                 </button>

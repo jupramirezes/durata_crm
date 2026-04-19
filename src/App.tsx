@@ -106,7 +106,7 @@ export default function App() {
               <Route
                 path="/oportunidades/:id/spreadsheet/:productoId"
                 element={
-                  <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando spreadsheet...</div>}>
+                  <Suspense fallback={<div className="p-6 text-center text-[var(--color-text-label)]">Cargando spreadsheet...</div>}>
                     <SpreadsheetPrototype />
                   </Suspense>
                 }

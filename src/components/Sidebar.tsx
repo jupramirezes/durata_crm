@@ -126,7 +126,7 @@ export default function Sidebar({ user }: { user: User | null }) {
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-50 p-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] md:hidden shadow-sm"
+        className="fixed top-3 left-3 z-50 p-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] md:hidden"
         style={{ minHeight: 0 }}
         aria-label="Abrir menú"
       >
