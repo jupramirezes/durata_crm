@@ -186,15 +186,16 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const colUnd = mL + 14
   const colImg = anyHasImage ? mL + 28 : 0 // only used when anyHasImage
   const colDesc = anyHasImage ? mL + 28 + IMG_CELL_W : mL + 28
-  // Feedback JP 2026-04-19 v2: layout cuadrado — columnas precio tienen ancho fijo
-  // y gap generoso antes de DESCRIPCION. Precios alineados al CENTRO vertical de la
-  // fila (no al top) para que no se monten sobre la primera línea de descripción.
-  const PRICE_COL_W = 32   // ancho de cada columna de precio
+  // Feedback JP 2026-04-19 round 5: fix definitivo del overlap desc↔precio.
+  // colVUnit es la coordenada DONDE TERMINA el texto VR UNIT (right-aligned).
+  // El texto del precio ocupa PRICE_COL_W mm a la IZQUIERDA de esa coordenada.
+  // Por eso la descripción DEBE terminar ANTES de (colVUnit - PRICE_COL_W).
+  const PRICE_COL_W = 28   // ancho reservado para cada columna de precio (max $999,999,999)
   const PRICE_GAP = 2      // separación entre VR UNIT y VR TOTAL
-  const DESC_PRICE_GAP = 6 // padding entre fin de descripción y columna de precios
-  const colVUnit = pageW - mR - (PRICE_COL_W * 2 + PRICE_GAP)
+  const DESC_PRICE_GAP = 4 // padding entre fin de descripción y inicio del precio
+  const colVUnit = pageW - mR - (PRICE_COL_W + PRICE_GAP)
   const colVTotal = pageW - mR
-  const descW = colVUnit - colDesc - DESC_PRICE_GAP
+  const descW = colVUnit - PRICE_COL_W - colDesc - DESC_PRICE_GAP
 
   // Table header
   const thH = 7
@@ -272,15 +273,14 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
       doc.text(descLines[li], colDesc + 2, topY + li * 3.5)
     }
 
-    // Prices centered vertically within the row — avoids pricing stacking on top of
-    // the first line of the description. Falls back to topY for single-line rows.
-    const priceY = descLines.length > 1 || anyHasImage ? y + rowH / 2 + 1 : topY
+    // Prices right-aligned en topY. Con descW ya angosto (termina PRICE_COL_W + GAP
+    // mm antes de colVUnit), la descripción NO entra en el rango del precio.
     doc.setFontSize(7.5)
     doc.setTextColor(40, 40, 40)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatCOP(precioUnit), colVUnit, priceY, { align: 'right' })
+    doc.text(formatCOP(precioUnit), colVUnit, topY, { align: 'right' })
     doc.setFont('helvetica', 'bold')
-    doc.text(formatCOP(totalLinea), colVTotal - 2, priceY, { align: 'right' })
+    doc.text(formatCOP(totalLinea), colVTotal - 2, topY, { align: 'right' })
 
     y += rowH
   }

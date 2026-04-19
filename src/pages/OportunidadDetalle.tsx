@@ -164,8 +164,29 @@ export default function OportunidadDetalle() {
 
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
     const events: TimelineEvent[] = []
+    // Helper: parse "YYYY-MM-DD" en zona local (Bogotá) — evita off-by-one por UTC-5
+    function parseLocal(s: string | null | undefined, extraMs = 0): number {
+      if (!s) return 0
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
+      if (!m) return 0
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime() + extraMs
+    }
+    const actor = cotizador ? `${cotizador.iniciales} — ${cotizador.nombre}` : undefined
 
-    // a) Cambios de etapa
+    // a) Oportunidad creada — siempre el PRIMER evento de la narrativa
+    const createdDate = opp.fecha_ingreso || (opp as any).created_at
+    events.push({
+      id: 'opp-created',
+      type: 'etapa',
+      timestamp: createdDate || '',
+      sortDate: parseLocal(createdDate) || 1, // mínimo 1 para ir arriba si todo fallara
+      title: `Oportunidad creada${opp.fuente_lead ? ` desde ${opp.fuente_lead}` : ''}`,
+      detail: actor ? `Asignada a ${actor}` : undefined,
+      color: 'var(--color-accent-green)',
+      icon: Plus,
+    })
+
+    // b) Cambios de etapa (historial)
     for (const h of historial) {
       const etapaAnterior = ETAPAS.find(e => e.key === h.etapa_anterior)
       const etapaNueva = ETAPAS.find(e => e.key === h.etapa_nueva)
@@ -174,24 +195,24 @@ export default function OportunidadDetalle() {
         type: 'etapa',
         timestamp: h.created_at,
         sortDate: new Date(h.created_at).getTime(),
-        title: `Movida de ${etapaAnterior?.label || h.etapa_anterior} \u2192 ${etapaNueva?.label || h.etapa_nueva}`,
+        title: `Etapa: ${etapaAnterior?.label || h.etapa_anterior} \u2192 ${etapaNueva?.label || h.etapa_nueva}`,
+        detail: actor,
         color: etapaNueva?.color || '#6b7280',
         icon: ArrowRightLeft,
       })
     }
 
-    // b) Notas
+    // c) Notas del usuario
     if (opp.notas) {
       const lines = opp.notas.split('\n').filter(l => l.trim())
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
         const match = line.match(/^\[(.+?)\]\s*(.*)$/)
         if (match) {
-          // Parse date from "[DD/MM/YYYY HH:MM]" format
           const tsParts = match[1].match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
           const sortDate = tsParts
             ? new Date(Number(tsParts[3]), Number(tsParts[2]) - 1, Number(tsParts[1]), Number(tsParts[4]), Number(tsParts[5])).getTime()
-            : 0 // sin fecha parseable → al final, sin mostrar hora inventada
+            : 0
           events.push({
             id: `nota-${i}`,
             type: 'nota',
@@ -206,7 +227,7 @@ export default function OportunidadDetalle() {
             id: `nota-${i}`,
             type: 'nota',
             timestamp: '',
-            sortDate: Date.now() - (lines.length - i) * 1000,
+            sortDate: 0,
             title: line,
             color: '#f59e0b',
             icon: MessageSquare,
@@ -215,42 +236,54 @@ export default function OportunidadDetalle() {
       }
     }
 
-    // c) Productos agregados
-    for (const p of productos) {
+    // d) Productos configurados — ordenados después de la creación de la opp
+    // usando el índice para preservar el orden de agregado
+    productos.forEach((p, idx) => {
+      const baseDate = parseLocal(createdDate) || 1
       events.push({
         id: `prod-${p.id}`,
         type: 'producto',
         timestamp: '',
-        sortDate: 0,
-        title: `Producto: ${p.subtipo}`,
-        detail: p.precio_calculado ? `${formatCOP(p.precio_calculado)} x ${p.cantidad}` : undefined,
+        sortDate: baseDate + 60_000 + idx * 1000, // 1 min después de la opp + orden
+        title: `Producto configurado: ${p.subtipo}${p.cantidad > 1 ? ` × ${p.cantidad}` : ''}`,
+        detail: actor,
         color: '#8b5cf6',
         icon: Box,
       })
-    }
+    })
 
-    // d) Cotizaciones generadas
-    // Parse en zona local (Bogotá) — evita que "2026-04-19" caiga el 18 en UTC-5.
-    // Desempate por número de cot para que recotización A quede DESPUÉS de la original.
+    // e) Cotizaciones — evento separado para GENERADA (fecha) y ENVIADA (fecha_envio)
     for (const c of cotizaciones) {
-      const fechaRef = c.fecha_envio || c.fecha
-      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fechaRef || '')
-      let sortDate = 0
-      if (m) {
-        const numSuffix = c.numero.match(/([A-Z])$/)?.[1] ?? ''
-        const suffixWeight = numSuffix ? numSuffix.charCodeAt(0) - 64 : 0 // A=1, B=2…
-        sortDate = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, suffixWeight).getTime()
+      const numSuffix = c.numero.match(/([A-Z])$/)?.[1] ?? ''
+      const suffixWeight = numSuffix ? numSuffix.charCodeAt(0) - 64 : 0 // A=1, B=2, desempate
+
+      // GENERADA (siempre que tenga fecha)
+      if (c.fecha) {
+        const prodCount = c.productos_snapshot?.length ?? 0
+        events.push({
+          id: `cot-gen-${c.id}`,
+          type: 'cotizacion',
+          timestamp: c.fecha,
+          sortDate: parseLocal(c.fecha, 60_000 + suffixWeight), // +1min+suffix
+          title: `Cotización ${c.numero} generada`,
+          detail: prodCount > 0 ? `${prodCount} producto${prodCount !== 1 ? 's' : ''} · ${formatCOP(c.total)}` : formatCOP(c.total),
+          color: '#3b82f6',
+          icon: FileText,
+        })
       }
-      events.push({
-        id: `cot-${c.id}`,
-        type: 'cotizacion',
-        timestamp: fechaRef,
-        sortDate,
-        title: `Cotizacion ${c.numero} generada`,
-        detail: formatCOP(c.total),
-        color: '#3b82f6',
-        icon: FileText,
-      })
+      // ENVIADA (solo si fecha_envio y diferente a generada)
+      if (c.fecha_envio && c.estado !== 'descartada') {
+        events.push({
+          id: `cot-env-${c.id}`,
+          type: 'cotizacion',
+          timestamp: c.fecha_envio,
+          sortDate: parseLocal(c.fecha_envio, 120_000 + suffixWeight), // +2min+suffix
+          title: `Cotización ${c.numero} enviada`,
+          detail: contacto?.correo ? `PDF enviado a ${contacto.correo} · ${formatCOP(c.total)}` : `PDF enviado · ${formatCOP(c.total)}`,
+          color: 'var(--color-stage-enviada)',
+          icon: FileText,
+        })
+      }
     }
 
     // Feedback JP 2026-04-19 round 4: orden cronológico NATURAL (ASC) — más antiguo

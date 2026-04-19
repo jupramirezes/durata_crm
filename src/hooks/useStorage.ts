@@ -97,8 +97,13 @@ export async function uploadCotizacionFile(
     }
   }
 
+  // Feedback JP 2026-04-19 round 5: versionar con timestamp para evitar
+  // el problema de CDN cache al regenerar (usuario regeneraba PDF con imagen
+  // pero al descargar bajaba el viejo sin imagen). Cada upload queda en path
+  // único; el BD siempre apunta al más reciente. Storage retiene histórico.
   const safeName = sanitizeFileName(file.name)
-  const path = `${oportunidadId}/cotizaciones/${cotizacionId}/${kind}_${safeName}`
+  const ts = Date.now()
+  const path = `${oportunidadId}/cotizaciones/${cotizacionId}/${kind}_${ts}_${safeName}`
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,

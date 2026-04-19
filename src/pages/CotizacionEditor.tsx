@@ -10,7 +10,7 @@ import { supabase, isSupabaseReady } from '../hooks/useSupabase'
 import * as svcCotizaciones from '../hooks/useCotizaciones'
 import PdfNameModal from '../components/PdfNameModal'
 import {
-  ArrowLeft, Save, Download, Plus, Trash2, Check,
+  ArrowLeft, Save, FileText, Plus, Trash2, Check,
   X, FileSpreadsheet, Image as ImageIcon
 } from 'lucide-react'
 
@@ -523,12 +523,13 @@ export default function CotizacionEditor() {
             )
           })()}
           <button
-            onClick={() => { if (subtotal <= 0) { alert('No se puede generar PDF con total $0'); return } setShowPdfModal(true) }}
+            onClick={() => { if (subtotal <= 0) { alert('No se puede enviar una cotización con total $0'); return } setShowPdfModal(true) }}
             className="btn-d accent sm"
             disabled={subtotal <= 0}
             style={{ opacity: subtotal <= 0 ? 0.4 : 1 }}
+            title="Genera el PDF, lo guarda en la oportunidad y marca la cotización como enviada"
           >
-            <Download size={12} /> Descargar PDF
+            <FileText size={12} /> {cotizacion.estado === 'borrador' ? 'Generar y enviar' : 'Regenerar PDF'}
           </button>
         </div>
 
@@ -992,8 +993,9 @@ export default function CotizacionEditor() {
               disabled={total <= 0}
               className="btn-d accent"
               style={{ justifyContent: 'center', height: 36, opacity: total <= 0 ? 0.4 : 1 }}
+              title="Genera el PDF, lo guarda en la oportunidad y marca la cotización como enviada"
             >
-              <Download size={13} /> Descargar PDF
+              <FileText size={13} /> {cotizacion.estado === 'borrador' ? 'Generar y enviar' : 'Regenerar PDF'}
             </button>
             <button
               onClick={saveDraft}
