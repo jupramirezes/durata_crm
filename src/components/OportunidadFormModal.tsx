@@ -11,7 +11,8 @@ const EMAIL_TO_COTIZADOR: Record<string, string> = {
   'saguirre@durata.co': 'SA',
   'presupuestos@durata.co': 'OC',
   'presupuestos2@durata.co': 'JPR',
-  'caraque@durata.co': 'CA',
+  'araque@durata.co': 'CA',
+  'caraque@durata.co': 'CA', // legacy — mantener hasta que todos los clientes viejos hayan migrado
   'dgalindo@durata.co': 'DG',
 }
 

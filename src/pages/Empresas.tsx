@@ -32,6 +32,10 @@ export default function Empresas() {
   const [sortKey, setSortKey] = useState<SortKey>('valorCotizado')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [deleteModal, setDeleteModal] = useState<string | null>(null)
+  const [showNuevaModal, setShowNuevaModal] = useState(false)
+  const [nuevaNombre, setNuevaNombre] = useState('')
+  const [nuevaNit, setNuevaNit] = useState('')
+  const [nuevaSector, setNuevaSector] = useState('')
 
   const sectoresDisponibles = useMemo(() => {
     const fromData = [...new Set(state.empresas.map(e => e.sector).filter(Boolean))]
@@ -120,6 +124,37 @@ export default function Empresas() {
     setDeleteModal(null)
   }
 
+  function confirmNueva() {
+    const nombre = nuevaNombre.trim()
+    if (!nombre) return
+    dispatch({ type: 'ADD_EMPRESA', payload: { nombre, nit: nuevaNit.trim() || null, sector: nuevaSector.trim() || null } as any })
+    setShowNuevaModal(false)
+    setNuevaNombre('')
+    setNuevaNit('')
+    setNuevaSector('')
+  }
+
+  function handleExport() {
+    const header = ['Nombre', 'NIT', 'Sector', 'Oportunidades', 'Adjudicadas', 'Valor cotizado', 'Ultimo contacto']
+    const rows = filtered.map(e => [
+      JSON.stringify(e.nombre || ''),
+      JSON.stringify(e.nit || ''),
+      JSON.stringify(e.sector || ''),
+      empresaStats.get(e.id)?.opCount || 0,
+      empresaStats.get(e.id)?.adjCount || 0,
+      empresaStats.get(e.id)?.valorCotizado || 0,
+      JSON.stringify(formatDays(empresaStats.get(e.id)?.ultContacto).str),
+    ])
+    const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `empresas-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="list-page">
       <div className="list-head">
@@ -129,7 +164,7 @@ export default function Empresas() {
             <div className="sub">{state.empresas.length.toLocaleString('es-CO')} empresas · {totalOpps.toLocaleString('es-CO')} oportunidades históricas</div>
           </div>
           <div style={{ flex: 1 }} />
-          <button className="btn-d primary sm"><Plus size={13} /> Nueva empresa</button>
+          <button className="btn-d primary sm" onClick={() => setShowNuevaModal(true)}><Plus size={13} /> Nueva empresa</button>
         </div>
       </div>
 
@@ -170,7 +205,7 @@ export default function Empresas() {
 
         <div style={{ flex: 1 }} />
 
-        <button className="btn-d ghost sm"><Download size={12} /> Exportar</button>
+        <button className="btn-d ghost sm" onClick={handleExport}><Download size={12} /> Exportar</button>
       </div>
 
       <div className="list-scroll">
@@ -270,6 +305,36 @@ export default function Empresas() {
           </button>
         )}
       </div>
+
+      {/* Nueva empresa modal */}
+      {showNuevaModal && (
+        <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowNuevaModal(false)}>
+          <div className="bg-[var(--color-surface)] modal-card w-full max-w-md" style={{ padding: 24 }} onClick={e => e.stopPropagation()}>
+            <h3 className="font-semibold text-[15px] text-[var(--color-text)] mb-4">Nueva empresa</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-[var(--color-text-label)] mb-1 block">Nombre *</label>
+                <input autoFocus value={nuevaNombre} onChange={e => setNuevaNombre(e.target.value)} className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md" placeholder="Razón social" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--color-text-label)] mb-1 block">NIT</label>
+                <input value={nuevaNit} onChange={e => setNuevaNit(e.target.value)} className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md" placeholder="Opcional" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-[var(--color-text-label)] mb-1 block">Sector</label>
+                <select value={nuevaSector} onChange={e => setNuevaSector(e.target.value)} className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md">
+                  <option value="">—</option>
+                  {sectoresDisponibles.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setShowNuevaModal(false)} className="btn-d">Cancelar</button>
+              <button onClick={confirmNueva} disabled={!nuevaNombre.trim()} className="btn-d primary">Crear</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {deleteModal && deleteEmpresa && (

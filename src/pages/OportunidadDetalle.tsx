@@ -234,12 +234,22 @@ export default function OportunidadDetalle() {
     }
 
     // d) Cotizaciones generadas
+    // Parse en zona local (Bogotá) — evita que "2026-04-19" caiga el 18 en UTC-5.
+    // Desempate por número de cot para que recotización A quede DESPUÉS de la original.
     for (const c of cotizaciones) {
+      const fechaRef = c.fecha_envio || c.fecha
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fechaRef || '')
+      let sortDate = 0
+      if (m) {
+        const numSuffix = c.numero.match(/([A-Z])$/)?.[1] ?? ''
+        const suffixWeight = numSuffix ? numSuffix.charCodeAt(0) - 64 : 0 // A=1, B=2…
+        sortDate = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, suffixWeight).getTime()
+      }
       events.push({
         id: `cot-${c.id}`,
         type: 'cotizacion',
-        timestamp: c.fecha,
-        sortDate: new Date(c.fecha).getTime(),
+        timestamp: fechaRef,
+        sortDate,
         title: `Cotizacion ${c.numero} generada`,
         detail: formatCOP(c.total),
         color: '#3b82f6',
@@ -472,6 +482,25 @@ export default function OportunidadDetalle() {
     if (!cot) return
     const nuevoNumero = getDefaultNumero()  // fresh consecutive, not letter version — it's a new opp
     const newCotId = crypto.randomUUID()
+    // Feedback JP 2026-04-19: duplicar debe copiar TAMBIÉN los productos_oportunidad
+    // con su APU + configuración + imágenes. Antes solo copiaba el snapshot (lectura).
+    const srcProductos = state.productos.filter(p => p.oportunidad_id === cot.oportunidad_id)
+    for (const p of srcProductos) {
+      dispatch({
+        type: 'ADD_PRODUCTO',
+        payload: {
+          oportunidad_id: dupSelectedOppId,
+          categoria: p.categoria,
+          subtipo: p.subtipo,
+          configuracion: p.configuracion,
+          apu_resultado: p.apu_resultado,
+          precio_calculado: p.precio_calculado,
+          descripcion_comercial: p.descripcion_comercial,
+          cantidad: p.cantidad,
+          imagen_render: p.imagen_render,
+        } as Omit<typeof p, 'id'>,
+      })
+    }
     dispatch({
       type: 'ADD_COTIZACION',
       payload: {
@@ -491,7 +520,7 @@ export default function OportunidadDetalle() {
       dispatch({ type: 'MOVE_ETAPA', payload: { oportunidadId: dupSelectedOppId, nuevaEtapa: 'en_cotizacion' } })
     }
     setDupCotId(null)
-    showToast('success', `Cotizacion ${nuevoNumero} duplicada en otra oportunidad`)
+    showToast('success', `Cotizacion ${nuevoNumero} duplicada en otra oportunidad (${srcProductos.length} productos)`)
     setTimeout(() => navigate(`/oportunidades/${dupSelectedOppId}`), 100)
   }
 
@@ -523,7 +552,25 @@ export default function OportunidadDetalle() {
         notas: `COT: ${nuevoNumero} | Duplicada de ${cot.numero}`,
       } as any,
     })
-    // 2) Create cotización copy on new oportunidad
+    // 2) Copy productos_oportunidad (not just the snapshot — the real products with APU)
+    const srcProductos = state.productos.filter(p => p.oportunidad_id === cot.oportunidad_id)
+    for (const p of srcProductos) {
+      dispatch({
+        type: 'ADD_PRODUCTO',
+        payload: {
+          oportunidad_id: newOppId,
+          categoria: p.categoria,
+          subtipo: p.subtipo,
+          configuracion: p.configuracion,
+          apu_resultado: p.apu_resultado,
+          precio_calculado: p.precio_calculado,
+          descripcion_comercial: p.descripcion_comercial,
+          cantidad: p.cantidad,
+          imagen_render: p.imagen_render,
+        } as Omit<typeof p, 'id'>,
+      })
+    }
+    // 3) Create cotización copy on new oportunidad
     dispatch({
       type: 'ADD_COTIZACION',
       payload: {
@@ -1157,7 +1204,16 @@ export default function OportunidadDetalle() {
               }
 
               function renderQuoteRow(c: typeof oppCots[0], isDiscarded: boolean) {
-                const prodCount = c.productos_snapshot?.length || 0
+                // Si la cot no tiene snapshot aún (ej. borrador reci\u00e9n creado por RECOTIZAR
+                // que hereda los productos de la oportunidad), mostrar conteo/total derivados
+                // de productos_oportunidad — evita que aparezca "0 productos · $0".
+                const hasSnapshot = (c.productos_snapshot?.length ?? 0) > 0
+                const prodCount = hasSnapshot
+                  ? c.productos_snapshot!.length
+                  : (c.estado === 'borrador' ? productos.length : 0)
+                const displayTotal = hasSnapshot || c.estado !== 'borrador' || c.total > 0
+                  ? c.total
+                  : productos.reduce((s, p) => s + (p.precio_calculado || 0) * (p.cantidad || 1), 0)
                 const filesCount = (c.archivo_apu_nombre ? 1 : 0) + (c.archivo_pdf_nombre ? 1 : 0)
                 return (
                   <div key={c.id}>
@@ -1167,7 +1223,7 @@ export default function OportunidadDetalle() {
                         <span className="title">{prodCount} producto{prodCount !== 1 ? 's' : ''} · Cotización {c.estado}</span>
                         {formatDate(c.fecha)} · <span className={`state-pill ${c.estado}`} style={{ marginLeft: 2 }}>{c.estado}</span>{filesCount > 0 && ` · ${filesCount} archivo${filesCount !== 1 ? 's' : ''}`}
                       </div>
-                      <div className="total">{formatCOP(c.total, { short: true })}</div>
+                      <div className="total">{formatCOP(displayTotal, { short: true })}</div>
                       <div className="actions">
                         {!isDiscarded && (c.estado === 'enviada' || c.estado === 'borrador') && (
                           <button onClick={() => handleRecotizar(c.id)} className="btn-d ghost icon sm" style={{ color: 'var(--color-accent-yellow)' }} title="Recotizar"><ArrowRightLeft size={12} /></button>

@@ -43,7 +43,7 @@ function emailToCotizadorId(email: string | undefined): string | null {
   const local = email.split('@')[0].toLowerCase()
   const MAP: Record<string, string> = {
     presupuestos: 'OC', presupuestos2: 'JPR',
-    saguirre: 'SA', caraque: 'CA', dgalindo: 'DG',
+    saguirre: 'SA', araque: 'CA', caraque: 'CA', dgalindo: 'DG',
   }
   if (MAP[local]) return MAP[local]
   for (const c of COTIZADORES) {

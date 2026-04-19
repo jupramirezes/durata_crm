@@ -74,9 +74,7 @@ Desde el detalle de la oportunidad, pestaña **Productos**:
 4. Click **"Guardar producto"**
 
 **Si el producto NO está en el catálogo** (pasamanos, estructuras, BBQ especiales):
-- Usá **"+ Producto manual"** — escribís el APU a mano (como Excel)
-- Detallás insumos + MO + transporte
-- El sistema calcula el total
+- Usá **"+ Producto manual"** — escribís el producto a mano y adjuntas archivos generados en excel
 
 ### Paso 3 · Generar la cotización
 
@@ -167,7 +165,9 @@ Cuando dos clientes piden cotizaciones muy similares:
 
 ### Cotización con productos mixtos (catálogo + manual)
 
-Podés combinar: agregás Mesa (del catálogo), Cárcamo (del catálogo) y un Pasamano (manual). Al generar PDF, los 3 aparecen. El APU consolidado tendrá 3 hojas.
+Podés combinar: agregás Mesa (del catálogo), Cárcamo (del catálogo) y un Pasamano (manual). Al generar PDF, los 3 aparecen. El APU consolidado tendrá **2 hojas** (solo los del catálogo generan APU automático).
+
+> **Nota importante:** Los productos **manuales no calculan APU automáticamente** — solo permiten ingresar descripción, cantidad, unidad y valor. Si necesitás el APU del producto manual, lo haces aparte en Excel y adjuntás el archivo a la cotización.
 
 ---
 

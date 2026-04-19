@@ -410,24 +410,16 @@ export function reducer(state: State, action: Action): State {
       }
       const allCots = [...updatedCots, newCot]
       const valor = getActiveCotizacionValor(allCots, original.oportunidad_id)
-      // D-11: move the oportunidad to 'recotizada' so the pipeline refleja visualmente
-      // que tiene cotizaciones descartadas pero sigue activa. No se registra en historial
-      // si la etapa anterior ya era 'recotizada' (re-recotización sobre la misma).
-      const opp = state.oportunidades.find(o => o.id === original.oportunidad_id)
-      const etapaAnterior = opp?.etapa
-      // Only move if not in a final stage (adjudicada/perdida) — no downgrade
-      const finalStates: Etapa[] = ['adjudicada', 'perdida']
-      const shouldMoveEtapa = opp && etapaAnterior !== 'recotizada' && !finalStates.includes(etapaAnterior as Etapa)
-      const newHistorial = shouldMoveEtapa
-        ? [...state.historial, { id: newId(), oportunidad_id: original.oportunidad_id, etapa_anterior: etapaAnterior || '', etapa_nueva: 'recotizada', created_at: new Date().toISOString() }]
-        : state.historial
+      // Feedback JP 2026-04-19: la opp NO debe moverse a 'recotizada' automáticamente.
+      // La original queda 'descartada' (metadato en la cot, no en la opp). La opp
+      // mantiene su etapa actual (cotizacion_enviada / en_cotizacion / etc.) para
+      // que siga contando en el pipeline. fecha_ultimo_contacto sí se actualiza.
       return {
         ...state,
         cotizaciones: allCots,
         oportunidades: state.oportunidades.map(o => o.id === original.oportunidad_id
-          ? { ...o, valor_cotizado: valor, ...(shouldMoveEtapa ? { etapa: 'recotizada' as const, fecha_ultimo_contacto: todayLocalISO() } : {}) }
+          ? { ...o, valor_cotizado: valor, fecha_ultimo_contacto: todayLocalISO() }
           : o),
-        historial: newHistorial,
       }
     }
     // D-12: Reactivar — swap a descartada cotización back to active, discard the current active one
@@ -753,27 +745,13 @@ function syncToSupabase(action: Action, stateBefore: State, rawDispatch: React.D
           .map(c => c.id === origCot.id ? { ...c, estado: 'descartada' as const } : c)
           .concat([{ ...origCot, id: newCotId, numero: action.payload.nuevoNumero, estado: 'borrador' as const, fecha: todayLocalISO(), total: 0 }])
         const valor = getActiveCotizacionValor(simulatedCots, origCot.oportunidad_id)
-        // D-11: mirror reducer — mover la oportunidad a 'recotizada' si no está en etapa final ni ya en recotizada
-        const opp = stateBefore.oportunidades.find(o => o.id === origCot.oportunidad_id)
-        const finalStates: Etapa[] = ['adjudicada', 'perdida']
-        const shouldMoveEtapa = opp && opp.etapa !== 'recotizada' && !finalStates.includes(opp.etapa)
-        if (shouldMoveEtapa && opp) {
-          svcOportunidades.updateOportunidad({
-            id: origCot.oportunidad_id,
-            valor_cotizado: valor,
-            etapa: 'recotizada',
-            fecha_ultimo_contacto: todayLocalISO(),
-          } as Partial<Oportunidad> & { id: string }).then(r => log('RECOTIZAR opp', r))
-          svcOportunidades.createHistorial({
-            oportunidad_id: origCot.oportunidad_id,
-            etapa_anterior: opp.etapa,
-            etapa_nueva: 'recotizada',
-            created_at: new Date().toISOString(),
-          }).then(r => log('RECOTIZAR historial', r))
-        } else {
-          svcOportunidades.updateOportunidad({ id: origCot.oportunidad_id, valor_cotizado: valor })
-            .then(r => log('RECOTIZAR opp', r))
-        }
+        // Feedback JP 2026-04-19: la opp NO se mueve a 'recotizada'. Mantiene su etapa actual
+        // (cotizacion_enviada / en_cotizacion / etc.) para que siga en el pipeline.
+        svcOportunidades.updateOportunidad({
+          id: origCot.oportunidad_id,
+          valor_cotizado: valor,
+          fecha_ultimo_contacto: todayLocalISO(),
+        } as Partial<Oportunidad> & { id: string }).then(r => log('RECOTIZAR opp', r))
       }
       break
     }
