@@ -10,8 +10,8 @@ import { supabase, isSupabaseReady } from '../hooks/useSupabase'
 import * as svcCotizaciones from '../hooks/useCotizaciones'
 import PdfNameModal from '../components/PdfNameModal'
 import {
-  ArrowLeft, FileText, Save, Download, Plus, Trash2, Check,
-  Mail, Phone, MapPin, Hash, Building2, X, FileSpreadsheet, Image as ImageIcon
+  ArrowLeft, Save, Download, Plus, Trash2, Check,
+  X, FileSpreadsheet, Image as ImageIcon
 } from 'lucide-react'
 
 /**
@@ -441,11 +441,6 @@ export default function CotizacionEditor() {
   }
   // NOTE: `contacto` may be null for historical cotizaciones that never had a
   // contacto_id assigned. All usages below are guarded with `?.` accessor.
-
-  function fmtQty(n: number): string {
-    if (Number.isInteger(n)) return String(n)
-    return n.toFixed(2).replace(/\.?0+$/, '')
-  }
 
   // Calcula cotizaciones-hermanas (mismo número base, variantes A/B/C) → versiones
   const numeroBase = cotizacion.numero.replace(/[A-Z]$/, '')

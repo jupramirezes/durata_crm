@@ -41,7 +41,7 @@ export default function GlobalSearch() {
       .map(e => ({ type: 'empresa' as const, id: e.id, title: e.nombre, subtitle: `NIT ${e.nit || '—'} · ${e.sector || 'Sin sector'}`, navigateTo: `/empresas/${e.id}` }))
 
     const contactos = state.contactos
-      .filter(c => c.nombre.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+      .filter(c => c.nombre.toLowerCase().includes(q) || (c.correo || '').toLowerCase().includes(q))
       .slice(0, 5)
       .map(c => {
         const emp = state.empresas.find(e => e.id === c.empresa_id)

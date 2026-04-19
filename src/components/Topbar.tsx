@@ -46,7 +46,8 @@ function useCrumbs(): string[] {
   // /oportunidades/:id...
   if (pathname.startsWith('/oportunidades/') && params.id) {
     const o = state.oportunidades.find(x => x.id === params.id)
-    const crumb: string[] = ['Pipeline', o?.nombre || params.id]
+    const emp = o ? state.empresas.find(e => e.id === o.empresa_id) : undefined
+    const crumb: string[] = ['Pipeline', emp?.nombre || params.id]
     if (pathname.includes('/configurar-producto/')) crumb.push('Configurar producto')
     else if (pathname.endsWith('/configurar')) crumb.push('Configurar mesa')
     else if (pathname.includes('/spreadsheet/')) crumb.push('Spreadsheet')

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Building2, Users, Settings, GitBranch, FileText, Tag, Plus, Trash2, Save, Database, CheckCircle, AlertCircle } from 'lucide-react'
-import { PageHeader } from '../components/ui'
 import { isSupabaseReady } from '../lib/supabase'
 import { ETAPAS } from '../types'
 import {

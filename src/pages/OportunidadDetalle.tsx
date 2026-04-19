@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore, todayLocalISO } from '../lib/store'
 import { ETAPAS, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
 import { formatDate, formatCOP, daysSince, downloadBlob, getAvatarColor } from '../lib/utils'
-import { EtapaBadge, EstadoBadge } from '../components/ui'
+import { EtapaBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
 import { uploadProductFile, getSignedUrl, acceptString, uploadOppFile, listOppFiles, deleteProductFile, uploadCotizacionFile } from '../hooks/useStorage'
@@ -12,8 +12,8 @@ import { showToast } from '../components/Toast'
 import { exportApuExcel, exportApuConsolidado } from '../lib/exportar-apu'
 import * as svcOportunidades from '../hooks/useOportunidades'
 import {
-  ArrowLeft, FileText, Package, Trash2, Building2, User, Edit3,
-  StickyNote, Send, Wrench, X, ChevronDown, Copy, Download, Clock,
+  ArrowLeft, FileText, Package, Trash2, User, Edit3,
+  StickyNote, Send, Wrench, X, ChevronDown, Copy, Download,
   ArrowRightLeft, MessageSquare, Box, Phone, Mail, AlertCircle,
   Paperclip, FileSpreadsheet, File as FileIcon, RotateCcw, Plus,
 } from 'lucide-react'
@@ -635,20 +635,6 @@ export default function OportunidadDetalle() {
   }
 
   // Extract spec badges from description
-  function extractSpecs(desc: string | undefined): string[] {
-    if (!desc) return []
-    const specs: string[] = []
-    const acero = desc.match(/\b(304|430)\b/)
-    if (acero) specs.push(acero[0])
-    const acabado = desc.match(/\b(mate|satinado|brillante)\b/i)
-    if (acabado) specs.push(acabado[0])
-    const calibre = desc.match(/\b(cal(?:ibre)?\s*\d+)\b/i)
-    if (calibre) specs.push(calibre[0])
-    const dims = desc.match(/(\d+[.,]\d+)\s*x\s*(\d+[.,]\d+)/i)
-    if (dims) specs.push(`${dims[1]}x${dims[2]}m`)
-    return specs
-  }
-
   // ══════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════
