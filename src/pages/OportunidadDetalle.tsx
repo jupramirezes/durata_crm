@@ -1058,57 +1058,10 @@ export default function OportunidadDetalle() {
                         </div>
                       </div>
 
-                      {/* Adjuntos del producto (APU/PDF) como chips .att */}
-                      {(p.archivo_apu_nombre || p.archivo_pdf_nombre) && (
-                        <div style={{ marginLeft: 16, marginTop: 6, marginBottom: 6 }}>
-                          {p.archivo_apu_nombre && (
-                            <div className="att" onClick={async () => {
-                              if (!p.archivo_apu_url) return
-                              const url = await getSignedUrl(p.archivo_apu_url)
-                              if (url) window.open(url, '_blank')
-                            }}>
-                              <span className="ext xlsx">XLSX</span>
-                              <span className="name">{p.archivo_apu_nombre}</span>
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation()
-                                  if (!window.confirm(`¿Eliminar "${p.archivo_apu_nombre}"?`)) return
-                                  if (p.archivo_apu_url) await deleteProductFile(p.archivo_apu_url).catch(() => {})
-                                  await svcOportunidades.updateProducto({ id: p.id, archivo_apu_url: null, archivo_apu_nombre: null } as any)
-                                  dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_apu_url: null, archivo_apu_nombre: null } as any })
-                                  showToast('success', 'APU eliminado')
-                                }}
-                                className="btn-d ghost icon sm"
-                                style={{ color: 'var(--color-accent-red)' }}
-                                title="Eliminar APU"
-                              ><X size={11} /></button>
-                            </div>
-                          )}
-                          {p.archivo_pdf_nombre && (
-                            <div className="att" onClick={async () => {
-                              if (!p.archivo_pdf_url) return
-                              const url = await getSignedUrl(p.archivo_pdf_url)
-                              if (url) window.open(url, '_blank')
-                            }}>
-                              <span className="ext pdf">PDF</span>
-                              <span className="name">{p.archivo_pdf_nombre}</span>
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation()
-                                  if (!window.confirm(`¿Eliminar "${p.archivo_pdf_nombre}"?`)) return
-                                  if (p.archivo_pdf_url) await deleteProductFile(p.archivo_pdf_url).catch(() => {})
-                                  await svcOportunidades.updateProducto({ id: p.id, archivo_pdf_url: null, archivo_pdf_nombre: null } as any)
-                                  dispatch({ type: 'UPDATE_PRODUCTO', payload: { id: p.id, archivo_pdf_url: null, archivo_pdf_nombre: null } as any })
-                                  showToast('success', 'PDF eliminado')
-                                }}
-                                className="btn-d ghost icon sm"
-                                style={{ color: 'var(--color-accent-red)' }}
-                                title="Eliminar PDF"
-                              ><X size={11} /></button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {/* Feedback JP 2026-04-19 v2: archivos APU/PDF del producto ya no se
+                          muestran inline en el tab Productos. Los archivos viven en el tab
+                          Adjuntos (que lista todo el storage de la oportunidad). El botón
+                          Paperclip sigue disponible arriba para adjuntar sobre la marcha. */}
 
                       {/* Inline attach area */}
                       {attachingProduct === p.id && (
@@ -1555,16 +1508,17 @@ export default function OportunidadDetalle() {
       {/* Product selection modal */}
       {showProductModal && (
         <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 animate-fade-in" onMouseDown={e => { if (e.target === e.currentTarget) setShowProductModal(false) }}>
-          <div className="bg-white modal-card w-full max-w-2xl mx-4" onMouseDown={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-6 py-5 border-b border-[var(--color-border)]">
+          <div className="bg-[var(--color-surface)] w-full max-w-3xl mx-4 overflow-hidden" style={{ borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-modal)' }} onMouseDown={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start px-6 py-5" style={{ borderBottom: '1px solid var(--color-border)' }}>
               <div>
-                <h3 className="font-bold text-lg">Agregar producto</h3>
-                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Selecciona el tipo de producto a configurar</p>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Configurar</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--color-text)' }}>Agregar producto</h3>
+                <p style={{ fontSize: 12, color: 'var(--color-text-label)', marginTop: 2 }}>Elegí una familia para configurar o usá "Producto manual" para uno libre</p>
               </div>
-              <button onClick={() => setShowProductModal(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"><X size={20} /></button>
+              <button onClick={() => setShowProductModal(false)} className="p-1.5 rounded-md hover:bg-[var(--color-surface-hover)] transition-colors"><X size={18} className="text-[var(--color-text-muted)]" /></button>
             </div>
-            <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
-            <div className="grid grid-cols-3 gap-4 p-6">
+            <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+            <div className="grid grid-cols-3 gap-2 p-5">
               {(() => {
                 // Build product list: Mesa (always, uses legacy configurator), catalog products, manual
                 // Iconos por familia — mejora limitada hasta que se clasifique el catálogo completo
@@ -1639,22 +1593,30 @@ export default function OportunidadDetalle() {
                     key={item.name}
                     onClick={item.action}
                     disabled={!item.active}
-                    className={`text-left p-5 rounded-[var(--radius-lg)] border transition-all ${
-                      item.active
-                        ? 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)] cursor-pointer'
-                        : 'border-[var(--color-border)] bg-[var(--color-surface-2)] opacity-50 cursor-not-allowed'
-                    }`}
+                    className="text-left transition-all group"
+                    style={{
+                      padding: '14px 14px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border)',
+                      background: item.active ? 'var(--color-surface)' : 'var(--color-surface-2)',
+                      opacity: item.active ? 1 : 0.5,
+                      cursor: item.active ? 'pointer' : 'not-allowed',
+                      minHeight: 110,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                    }}
+                    onMouseEnter={(e) => { if (item.active) { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.background = 'var(--color-surface-hover)' } }}
+                    onMouseLeave={(e) => { if (item.active) { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'var(--color-surface)' } }}
                   >
-                    <div className="text-2xl mb-2">{item.icon}</div>
-                    <div className="font-semibold text-sm text-[var(--color-text)]">{item.name}</div>
-                    <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{item.desc}</div>
-                    <div className="mt-2">
-                      {item.active ? (
-                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">ACTIVO</span>
-                      ) : (
-                        <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--color-surface-2)] text-[var(--color-text-label)]">🔒 PRÓXIMO</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <span style={{ fontSize: 22, lineHeight: 1 }}>{item.icon}</span>
+                      {!item.active && (
+                        <span className="mono" style={{ fontSize: 8.5, color: 'var(--color-text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Próximo</span>
                       )}
                     </div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text)', lineHeight: 1.2 }}>{item.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-label)', lineHeight: 1.4, marginTop: 'auto' }}>{item.desc}</div>
                   </button>
                 ))
               })()}
@@ -1871,12 +1833,19 @@ export default function OportunidadDetalle() {
                     prodPayload.archivo_pdf_nombre = res.nombre
                   }
 
-                  // Feedback JP 2026-04-19: usar primera línea de descripción como subtipo
-                  // (antes quedaba "Otro (manual)" — feo e incomprensible). Fallback a categoría.
-                  const firstLine = (manualForm.descripcion || '').split('\n')[0].trim()
-                  const niceSubtipo = firstLine
-                    ? (firstLine.length > 40 ? firstLine.slice(0, 40) + '…' : firstLine)
-                    : manualForm.categoria
+                  // Feedback JP 2026-04-19 v2: extraer resumen corto de la descripción
+                  // (primeras 6 palabras significativas, o primera frase hasta punto/coma).
+                  function extractSummary(desc: string, fallback: string): string {
+                    const clean = (desc || '').trim().replace(/\s+/g, ' ')
+                    if (!clean) return fallback
+                    // Cortar en primer punto, coma, dos puntos, o salto de línea (primera frase).
+                    const firstSentence = clean.split(/[.,:\n]/)[0].trim()
+                    const words = firstSentence.split(' ').filter(Boolean)
+                    const summary = words.slice(0, 6).join(' ')
+                    if (!summary) return fallback
+                    return summary.length > 45 ? summary.slice(0, 45).trim() + '…' : summary
+                  }
+                  const niceSubtipo = extractSummary(manualForm.descripcion, manualForm.categoria)
                   dispatch({
                     type: 'ADD_PRODUCTO',
                     payload: {

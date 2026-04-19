@@ -427,3 +427,89 @@ npm test -- --run                       # debe dar 854/854
 * Uno de los backups del sistema como tal más relevantes (Bueno varios), es poder migrar mejor la información al sistema de las cotizaciones históricas, porque todas tiene un PDF con los datos de los productos cotizados, su o sus APUs, información de contactos, muy relevante para la base de datos de durata pero a hoy solo se migran las columnas de excel. Además de que se pierde la información de los APUs y PDFs hay que estandarizar sectores de las empresas y contactos, a hoy fue muy manual y hay contactos redundantes, muchas empresas mal sectorizadas, y cosas a corregir muchas
 * La guía de usuario debe estar actualizada y para gente no técnica en el sistema sino en el flujo de cotización y comercial
 * La guia a hoy dice que al agregar un producto manual se calcula el APU y esto es mentira, a hoy solo se pide descripción, valor cantidad y unidad, no se calcula el APU, solo se agrega el producto.
+
+---
+
+## 6.8 Tracking de anotaciones QA Manual JP — estado por ítem (2026-04-19)
+
+> **Nota**: las anotaciones originales del QA manual (§6.5 anterior) se dejan intactas arriba. Esta sección mapea cada ítem a su estado actual tras las 2 rondas de fixes (Fase A bloqueantes + Fase B importantes).
+
+### Leyenda
+- ✅ **OK** — arreglado y verificado (por mí o el usuario en humo visual)
+- 🟡 **PARCIAL** — arreglado pero el usuario reportó que no quedó 100% — necesita otra iteración
+- 🔄 **OK round 2** — reabierto en humo visual round 2, re-arreglado (pendiente re-verificar)
+- ⚠️ **PENDING** — no arreglado, queda para próximo sprint
+- 📝 **BACKLOG** — feature/mejora mayor, va a ROADMAP
+
+### Items del QA Manual JP
+
+| Ref | Ítem original (resumen) | Estado | SHA / Notas |
+|---|---|---|---|
+| Q1 | Modal Actividad: formato hora/fecha estandar corto | 🔄 OK round 2 | `formatShortDateTime` en utils, aplicado al timeline — JP validar |
+| Q1b | Modales Cotizaciones/Productos/Adjuntos no matchean durata-redesign | ⚠️ PENDING | Tab Productos ahora muestra descripción completa. Resto queda para sprint siguiente (requiere adjuntar el handoff visual de esos modales) |
+| Q1c | Modal Productos: descripción completa | ✅ OK | `src/pages/OportunidadDetalle.tsx` L976-999 — sin truncar |
+| Q2 | Toolbar oportunidad: falta botón Adjunto | ✅ OK | Botón "Adjunto" agregado junto a Nota/Producto, navega al tab Adjuntos |
+| Q2b | Código raro encima del nombre en oportunidad | ✅ OK | Ahora muestra `COT 2026-XXX` (última cot activa) en vez de UUID slice |
+| Q2c | Mostrar Año-numero_op en header | ✅ OK | Mismo fix que Q2b — muestra número de cotización |
+| Q3 | Modal "Agregar producto": estilo viejo, formato redesign | 🔄 OK round 2 | Re-diseñado con tokens v2, cards con más jerarquía, shadow-modal, radius-xl. Pendiente validar visualmente |
+| Q3b | Iconos por familia de productos | 🟡 PARCIAL (limitado) | 25+ emojis mapeados. La clasificación completa por familias con imágenes dedicadas queda en ROADMAP M4 |
+| Q4 | Configurador genérico: mejoras proactivas de UX | 🔄 OK round 2 | Header enriquecido con COT + empresa + contacto + ubicación + contador "N productos en la opp". Mejoras visuales profundas quedan en sprint siguiente (requiere handoff de diseño) |
+| Q5 | PDF: header "IMAGEN ALUSIVA" | ✅ OK | `src/lib/generar-pdf.ts` L206 |
+| Q5b | PDF: valor unitario montado sobre descripción | 🔄 OK round 2 | Layout rehecho: columnas de precio con ancho fijo 32mm, gap de 6mm descripción↔precio, **precio alineado al centro vertical de la fila** cuando la descripción tiene múltiples líneas o hay imagen |
+| Q6 | Búsqueda APU/PDF por nombre (como carpeta física) | 📝 BACKLOG | Feature mayor — buscador global sobre storage por nombre de archivo. Va a ROADMAP |
+| Q7 | Recotizar: número de oportunidad no visible | ✅ OK | Q2b/Q2c lo cubre — muestra COT activa en header |
+| Q7b | Recotización nueva muestra 0 productos / $0 en aside | ✅ OK | Ahora deriva de productos_oportunidad cuando no hay snapshot (B1 fix) |
+| Q7c | Versiones: original como v0, recotizaciones como vA/vB | ✅ OK | `CotizacionEditor.tsx` L529/L1014 |
+| Q8 | Producto manual: nombre "Otro (Manual)" debería ser otra cosa | 🔄 OK round 2 | Ahora extrae resumen inteligente: primeras 6 palabras de la primera frase (hasta `.`, `,`, `:` o salto de línea), max 45 chars |
+| Q9 | Modal Actividad se desordena en recotizaciones + timezone Bogotá | ✅ OK | Parse en zona local + desempate por sufijo de número (A=1, B=2) |
+| Q10 | Recotizar: la etapa "Recotizada/Consolidada" aplica al objeto equivocado | ✅ OK | La opp ya NO se mueve a "recotizada" automáticamente. Mantiene su etapa actual (cotizacion_enviada/en_cotizacion) |
+| Q11 | Duplicar cotización: no duplica productos, debería pedir empresa/contacto | ✅ OK parcial | Ahora duplica todos los productos_oportunidad junto con la cotización. El flujo "pedir empresa/contacto desde cero" ya existe en "Crear nueva oportunidad con esta cotización" |
+| Q12 | Panel Empresas: botones Crear + Exportar no funcionan | ✅ OK | Modal de Nueva empresa (nombre/NIT/sector) + Exportar CSV de empresas filtradas |
+| Q13 | Notas de proyecto de cotizaciones 2026 no aparecen en la opp | 📝 BACKLOG | Requiere migrar el campo "notas" del Excel al `notas` de oportunidades. Dejar para sprint histórico |
+| Q14 | Importar CSV precios funciona? | 📝 BACKLOG | Queda en revisión cuando arranque módulo CPQ/Compras |
+| Q15 | APU: cómo queda guardado y buscable | 📝 BACKLOG | Ver Q6 — mismo tema de buscador |
+| Q16 | Correo Camilo Araque: araque@durata.co | ✅ OK | UPDATE en auth.users + mapping frontend (alias legacy `caraque` mantenido) |
+| Q17 | Video de Guía Usuario | ⚠️ PENDING + propuesta | Ver §6.9 abajo con propuesta concreta |
+| Q18 | Migración histórica enriquecida (PDFs/APUs/contactos de cada cot) | 📝 BACKLOG | Feature muy grande. Ver ROADMAP: parser de PDFs históricos + OCR + extracción estructurada |
+| Q19 | Guía Usuario: menos técnica, más flujo comercial | ⚠️ PENDING | Rewrite completo del doc para público no técnico. Ver §6.9 |
+| Q20 | Guía: "producto manual calcula APU" es mentira | ✅ OK | `docs/GUIA_USUARIO.md` corregido — aclara que el manual NO calcula APU |
+
+### Items del QA Manual JP v2 (round 2, tras verificar Fase A y B)
+
+| Ref | Ítem round 2 | Estado |
+|---|---|---|
+| R1 | PDF: valor unitario SIGUE montado sobre descripción | 🔄 Re-arreglado — layout completamente rehecho, precio al centro vertical |
+| R2 | Modales actividad/cotización/productos aún no 100% fieles al redesign | ⚠️ PENDING — requiere adjuntar el handoff específico de esos modales |
+| R3 | En tab Productos aparecen PDF/APU que deberían estar en Cotización | ✅ OK round 2 — ocultado inline en tab Productos. Los archivos siguen accesibles desde tab Adjuntos |
+| R4 | Nombre producto manual: descripción completa en lugar de resumen | 🔄 Re-arreglado — ahora extrae primeras 6 palabras de primera frase, máx 45 chars |
+| R5 | Modal "Agregar producto" aún tiene formato anterior | 🔄 Re-arreglado — cards re-diseñados con tokens v2, tipografía mejorada, badge "Próximo" minimal |
+| R6 | Configurador: no mejoré nada en diseño ni features | 🔄 Parcial — header enriquecido con contexto completo. Mejoras profundas de layout + features avanzadas quedan en sprint siguiente |
+| R7 | Modal Actividad: diseño no estético ni útil (con imagen adjunta) | ⚠️ PENDING — necesito que compartas la imagen del handoff para replicar el diseño específico |
+
+### 6.9 Propuesta para video-guía de usuario + guía no técnica
+
+**Video-guía (Q17)** — opciones concretas:
+
+1. **Loom / QuickTime** (más rápido, sin edición) — grabás la pantalla mientras hacés 1 cotización end-to-end. 10-15 min. Compartís el link.
+2. **Screen Studio** ($20/mes) — graba con zoom automático a clicks y curso suave. Profesional sin editar.
+3. **Apple + editor nativo** — si tenés Mac, QuickTime + iMovie. Gratis pero requiere edición.
+
+Recomendación: Loom (gratis hasta 5 min por video; Business $12.50/mes sin límite). Estructura sugerida del video:
+
+- 0:00 — Login con tu usuario
+- 0:30 — Crear nueva empresa desde Pipeline
+- 1:30 — Crear oportunidad, contacto
+- 3:00 — Agregar producto (ej. Cárcamo) + configurarlo
+- 5:00 — Generar cotización + PDF
+- 7:00 — Recotizar cuando el cliente pide cambios
+- 8:30 — Adjudicar y cerrar
+- 10:00 — Cierre + dónde están los archivos
+
+**Guía no técnica (Q19)** — reescribir `docs/GUIA_USUARIO.md` pensando en Omar/Sebastián/Daniela como audiencia:
+- Eliminar referencias técnicas (`src/`, dispatch, store, etc.)
+- Solo palabras del flujo comercial (cotización, adjudicación, recotización)
+- Screenshots reales de cada paso
+- Ejemplos con empresas reales del histórico
+- FAQ: "¿qué pasa si el cliente cambia?", "¿cómo recotizo?", "¿dónde está el PDF anterior?"
+
+Estimado: 1-2 horas de rewrite + 1-2 horas de video = **medio día total**. Lo podés hacer vos mismo con Loom + MS Word + screenshots. O te ayudo a armar el scaffold del rewrite si querés.

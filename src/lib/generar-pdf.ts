@@ -186,11 +186,15 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const colUnd = mL + 14
   const colImg = anyHasImage ? mL + 28 : 0 // only used when anyHasImage
   const colDesc = anyHasImage ? mL + 28 + IMG_CELL_W : mL + 28
-  const colVUnit = pageW - mR - 56
+  // Feedback JP 2026-04-19 v2: layout cuadrado — columnas precio tienen ancho fijo
+  // y gap generoso antes de DESCRIPCION. Precios alineados al CENTRO vertical de la
+  // fila (no al top) para que no se monten sobre la primera línea de descripción.
+  const PRICE_COL_W = 32   // ancho de cada columna de precio
+  const PRICE_GAP = 2      // separación entre VR UNIT y VR TOTAL
+  const DESC_PRICE_GAP = 6 // padding entre fin de descripción y columna de precios
+  const colVUnit = pageW - mR - (PRICE_COL_W * 2 + PRICE_GAP)
   const colVTotal = pageW - mR
-  // Feedback JP 2026-04-19: aumentar separación desc↔precio cuando hay imagen (antes -4 pegaba
-  // el valor unitario sobre la descripción). Ahora mantiene padding cómodo en ambos casos.
-  const descW = anyHasImage ? colVUnit - colDesc - 12 : colVUnit - colDesc - 18
+  const descW = colVUnit - colDesc - DESC_PRICE_GAP
 
   // Table header
   const thH = 7
@@ -268,13 +272,15 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
       doc.text(descLines[li], colDesc + 2, topY + li * 3.5)
     }
 
-    // Prices at top, right-aligned with clear separation from description
+    // Prices centered vertically within the row — avoids pricing stacking on top of
+    // the first line of the description. Falls back to topY for single-line rows.
+    const priceY = descLines.length > 1 || anyHasImage ? y + rowH / 2 + 1 : topY
     doc.setFontSize(7.5)
     doc.setTextColor(40, 40, 40)
     doc.setFont('helvetica', 'normal')
-    doc.text(formatCOP(precioUnit), colVUnit, topY, { align: 'right' })
+    doc.text(formatCOP(precioUnit), colVUnit, priceY, { align: 'right' })
     doc.setFont('helvetica', 'bold')
-    doc.text(formatCOP(totalLinea), colVTotal - 2, topY, { align: 'right' })
+    doc.text(formatCOP(totalLinea), colVTotal - 2, priceY, { align: 'right' })
 
     y += rowH
   }

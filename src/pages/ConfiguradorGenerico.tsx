@@ -380,24 +380,36 @@ export default function ConfiguradorGenerico() {
         <ArrowLeft size={13} /> Volver a oportunidad
       </button>
 
-      <div className="opp-header">
-        <div className="body">
-          <div className="mono" style={{ fontSize: 10.5, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-            {editProductoId ? 'Editar producto' : 'Configurar producto'}
+      {(() => {
+        // Feedback JP 2026-04-19 v2: header con contexto más completo para el configurador.
+        // Muestra: COT activa, empresa, contacto, ubicación, productos ya configurados en la opp.
+        const latestCot = oportunidad ? state.cotizaciones
+          .filter(c => c.oportunidad_id === oportunidad.id && !['descartada','rechazada'].includes(c.estado))
+          .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0] : null
+        const contacto = oportunidad ? state.contactos.find(c => c.id === oportunidad.contacto_id) : null
+        const otrosProductos = oportunidad ? state.productos.filter(p => p.oportunidad_id === oportunidad.id && p.id !== editProductoId) : []
+        return (
+          <div className="opp-header">
+            <div className="body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                {latestCot && (
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)' }}>COT {latestCot.numero}</span>
+                )}
+                <span className="mono" style={{ fontSize: 10.5, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  · {editProductoId ? 'EDITANDO' : 'NUEVO PRODUCTO'}
+                </span>
+              </div>
+              <div className="opp-title">{productoNombre}</div>
+              <div className="opp-company-line" style={{ flexWrap: 'wrap' }}>
+                <strong>{empresa?.nombre || '—'}</strong>
+                {contacto && (<><span className="sep">·</span><span>{contacto.nombre}</span></>)}
+                {oportunidad?.ubicacion && (<><span className="sep">·</span><span>{oportunidad.ubicacion}</span></>)}
+                {otrosProductos.length > 0 && (<><span className="sep">·</span><span className="mono" style={{ color: 'var(--color-text-muted)' }}>{otrosProductos.length} producto{otrosProductos.length !== 1 ? 's' : ''} en la opp</span></>)}
+              </div>
+            </div>
           </div>
-          <div className="opp-title">{productoNombre}</div>
-          <div className="opp-company-line">
-            <strong>{empresa?.nombre || '—'}</strong>
-            {oportunidad && (() => {
-              // Mostrar # cot activa más reciente (en lugar del UUID de la opp)
-              const latest = state.cotizaciones
-                .filter(c => c.oportunidad_id === oportunidad.id && !['descartada','rechazada'].includes(c.estado))
-                .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
-              return latest ? (<><span className="sep">·</span><span className="mono">COT {latest.numero}</span></>) : null
-            })()}
-          </div>
-        </div>
-      </div>
+        )
+      })()}
 
       <div className="flex gap-6 items-start">
         {/* LEFT: Controls */}
