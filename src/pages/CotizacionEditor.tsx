@@ -335,8 +335,23 @@ export default function CotizacionEditor() {
         incluyeTransporte,
         condicionesItems,
         noIncluyeItems,
+        // Feedback JP 2026-04-19 round 4: al generar PDF la cotización pasa a "enviada"
+        // y se fija fecha_envio. Solo si estaba en borrador — respeta flujos posteriores.
+        ...(cotizacion.estado === 'borrador' ? {
+          estado: 'enviada' as const,
+          fecha_envio: new Date().toISOString().split('T')[0],
+        } : {}),
       },
     })
+
+    // Auto-move opp → 'cotizacion_enviada' si está en una etapa previa
+    // (nuevo_lead / en_cotizacion). No toca adjudicada/perdida/en_seguimiento/etc.
+    if (oportunidad && (oportunidad.etapa === 'nuevo_lead' || oportunidad.etapa === 'en_cotizacion')) {
+      dispatch({
+        type: 'MOVE_ETAPA',
+        payload: { oportunidadId: oportunidad.id, nuevaEtapa: 'cotizacion_enviada' },
+      })
+    }
 
     // Fire-and-forget: upload PDF to Supabase Storage and persist URL
     if (oportunidad) {

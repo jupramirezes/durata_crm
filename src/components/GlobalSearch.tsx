@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { Search, Building2, User, FileText, X } from 'lucide-react'
+import { Search, Building2, User, FileText, Package, X } from 'lucide-react'
 
 interface SearchResult {
-  type: 'empresa' | 'contacto' | 'cotizacion'
+  type: 'empresa' | 'contacto' | 'cotizacion' | 'producto'
   id: string
   title: string
   subtitle: string
@@ -48,18 +48,69 @@ export default function GlobalSearch() {
         return { type: 'contacto' as const, id: c.id, title: c.nombre, subtitle: emp ? emp.nombre : 'Sin empresa', navigateTo: emp ? `/empresas/${emp.id}` : '/empresas' }
       })
 
+    // Feedback JP 2026-04-19 round 4: matching parcial de cotización —
+    // si el usuario escribe "341" debe encontrar "2026-341" del año actual
+    // primero, después de años previos. Soporta con y sin prefijo de año.
+    const currentYear = new Date().getFullYear()
     const cotizaciones = state.cotizaciones
-      .filter(c => c.numero?.toLowerCase().includes(q))
-      .slice(0, 5)
-      .map(c => ({ type: 'cotizacion' as const, id: c.id, title: c.numero || '—', subtitle: `${c.estado} · ${c.total ? '$' + c.total.toLocaleString('es-CO') : '—'}`, navigateTo: `/cotizaciones/${c.id}/editar` }))
+      .filter(c => {
+        if (!c.numero) return false
+        const numLower = c.numero.toLowerCase()
+        if (numLower.includes(q)) return true
+        // Match "341" contra "2026-341" o "2026-341A"
+        const afterDash = numLower.split('-').slice(1).join('-')
+        return afterDash.startsWith(q) || afterDash === q
+      })
+      .sort((a, b) => {
+        // Priorizar año actual (2026 primero, 2025 después, etc.)
+        const yA = Number(a.numero.slice(0, 4)) || 0
+        const yB = Number(b.numero.slice(0, 4)) || 0
+        if (yA !== yB) return yB - yA // descending
+        return b.numero.localeCompare(a.numero)
+      })
+      .slice(0, 6)
+      .map(c => {
+        const op = state.oportunidades.find(o => o.id === c.oportunidad_id)
+        const emp = op ? state.empresas.find(e => e.id === op.empresa_id) : null
+        const year = c.numero.slice(0, 4)
+        return {
+          type: 'cotizacion' as const,
+          id: c.id,
+          title: c.numero || '—',
+          subtitle: `${emp?.nombre || '—'} · ${c.estado}${year !== String(currentYear) ? ` · ${year}` : ''}`,
+          navigateTo: `/cotizaciones/${c.id}/editar`,
+        }
+      })
 
-    return [...empresas, ...contactos, ...cotizaciones]
+    // Productos — busca por subtipo, categoría o descripción. Deep-link a la opp.
+    const productos = state.productos
+      .filter(p =>
+        (p.subtipo || '').toLowerCase().includes(q) ||
+        (p.categoria || '').toLowerCase().includes(q) ||
+        (p.descripcion_comercial || '').toLowerCase().includes(q),
+      )
+      .slice(0, 5)
+      .map(p => {
+        const op = state.oportunidades.find(o => o.id === p.oportunidad_id)
+        const emp = op ? state.empresas.find(e => e.id === op.empresa_id) : null
+        const precio = p.precio_calculado || 0
+        return {
+          type: 'producto' as const,
+          id: p.id,
+          title: p.subtipo || p.categoria || 'Producto',
+          subtitle: `${emp?.nombre || '—'} · ${p.cantidad} × ${precio ? '$' + precio.toLocaleString('es-CO') : '—'}`,
+          navigateTo: op ? `/oportunidades/${op.id}` : '/pipeline',
+        }
+      })
+
+    return [...empresas, ...contactos, ...cotizaciones, ...productos]
   })()
 
   const grouped = {
     empresa: results.filter(r => r.type === 'empresa'),
     contacto: results.filter(r => r.type === 'contacto'),
     cotizacion: results.filter(r => r.type === 'cotizacion'),
+    producto: results.filter(r => r.type === 'producto'),
   }
 
   function handleSelect(r: SearchResult) {
@@ -70,8 +121,8 @@ export default function GlobalSearch() {
 
   if (!open) return null
 
-  const icons = { empresa: Building2, contacto: User, cotizacion: FileText }
-  const labels = { empresa: 'Empresas', contacto: 'Contactos', cotizacion: 'Cotizaciones' }
+  const icons = { empresa: Building2, contacto: User, cotizacion: FileText, producto: Package }
+  const labels = { empresa: 'Empresas', contacto: 'Contactos', cotizacion: 'Cotizaciones', producto: 'Productos' }
 
   return (
     <div
@@ -91,7 +142,7 @@ export default function GlobalSearch() {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Buscar empresa, contacto, cotización…"
+            placeholder="Buscar empresa, contacto, cotización, producto…"
             className="flex-1 bg-transparent border-none text-[var(--color-text)] text-[13.5px] placeholder:text-[var(--color-text-label)] focus:outline-none focus:ring-0"
             style={{ border: 'none', padding: 0 }}
           />
@@ -116,7 +167,7 @@ export default function GlobalSearch() {
           </div>
         ) : (
           <div className="max-h-[420px] overflow-y-auto">
-            {(['empresa', 'contacto', 'cotizacion'] as const).map(type => {
+            {(['cotizacion', 'empresa', 'contacto', 'producto'] as const).map(type => {
               const items = grouped[type]
               if (items.length === 0) return null
               const Icon = icons[type]

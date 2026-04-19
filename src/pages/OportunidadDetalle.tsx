@@ -253,8 +253,16 @@ export default function OportunidadDetalle() {
       })
     }
 
-    // Sort: newest first, items without date go to the bottom
-    events.sort((a, b) => b.sortDate - a.sortDate)
+    // Feedback JP 2026-04-19 round 4: orden cronológico NATURAL (ASC) — más antiguo
+    // arriba, más reciente abajo. Narrativa clara: opp creada → productos → cotización
+    // → envío → recotización A → recotización B. Los sin fecha quedan al final.
+    events.sort((a, b) => {
+      const aMissing = a.sortDate <= 0
+      const bMissing = b.sortDate <= 0
+      if (aMissing && !bMissing) return 1
+      if (!aMissing && bMissing) return -1
+      return a.sortDate - b.sortDate
+    })
     return events
   }, [historial, opp.notas, productos, cotizaciones])
 
@@ -1984,65 +1992,43 @@ function CotAdjuntos({ cot, oportunidadId }: { cot: Cotizacion; oportunidadId: s
     showToast('success', `${kind.toUpperCase()} eliminado`)
   }
 
+  // Feedback JP 2026-04-19 round 4: adjuntos con estilo .att del handoff
+  // (badge ext + nombre + size + botones) — mismo estilo que "Adjuntos de la oportunidad".
   return (
-    <div className="mt-3 pt-3 border-t border-dashed border-[var(--color-border)] flex flex-wrap gap-2">
-      {/* APU */}
-      {cot.archivo_apu_nombre && cot.archivo_apu_url ? (
-        <div className="inline-flex items-stretch rounded bg-green-50 border border-green-200 overflow-hidden">
-          <button
-            onClick={() => handleDownload(cot.archivo_apu_url!, cot.archivo_apu_nombre!)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-green-100 text-[10px] text-green-800"
-          >
-            <FileSpreadsheet size={12} /> {cot.archivo_apu_nombre} <Download size={10} />
-          </button>
-          <button
-            onClick={() => handleRemove('apu')}
-            className="px-1.5 border-l border-green-200 hover:bg-red-100 hover:text-red-600 text-green-700 text-[10px]"
-            title="Eliminar APU"
-          >
-            <X size={10} />
-          </button>
+    <div style={{ marginTop: 8 }}>
+      {cot.archivo_apu_nombre && cot.archivo_apu_url && (
+        <div className="att" onClick={() => handleDownload(cot.archivo_apu_url!, cot.archivo_apu_nombre!)}>
+          <span className="ext xlsx">XLSX</span>
+          <span className="name" title={cot.archivo_apu_nombre}>{cot.archivo_apu_nombre}</span>
+          <span className="size">—</span>
+          <button onClick={(e) => { e.stopPropagation(); handleDownload(cot.archivo_apu_url!, cot.archivo_apu_nombre!) }} className="btn-d ghost icon sm" title="Descargar"><Download size={12} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handleRemove('apu') }} className="btn-d ghost icon sm" style={{ color: 'var(--color-accent-red)' }} title="Eliminar"><X size={12} /></button>
         </div>
-      ) : (
-        <>
-          <input ref={apuRef} type="file" accept={acceptString('apu')} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f, 'apu') }} />
-          <button
-            onClick={() => apuRef.current?.click()}
-            disabled={uploading !== null}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-green-300 bg-white hover:bg-green-50 text-[10px] text-green-700 disabled:opacity-50"
-          >
-            <FileSpreadsheet size={12} /> {uploading === 'apu' ? 'Subiendo…' : '+ APU Excel'}
-          </button>
-        </>
       )}
-      {/* PDF */}
-      {cot.archivo_pdf_nombre && cot.archivo_pdf_url ? (
-        <div className="inline-flex items-stretch rounded bg-red-50 border border-red-200 overflow-hidden">
-          <button
-            onClick={() => handleDownload(cot.archivo_pdf_url!, cot.archivo_pdf_nombre!)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-red-100 text-[10px] text-red-700"
-          >
-            <FileIcon size={12} /> {cot.archivo_pdf_nombre} <Download size={10} />
-          </button>
-          <button
-            onClick={() => handleRemove('pdf')}
-            className="px-1.5 border-l border-red-200 hover:bg-red-100 hover:text-red-700 text-red-700 text-[10px]"
-            title="Eliminar PDF"
-          >
-            <X size={10} />
-          </button>
+      {cot.archivo_pdf_nombre && cot.archivo_pdf_url && (
+        <div className="att" onClick={() => handleDownload(cot.archivo_pdf_url!, cot.archivo_pdf_nombre!)}>
+          <span className="ext pdf">PDF</span>
+          <span className="name" title={cot.archivo_pdf_nombre}>{cot.archivo_pdf_nombre}</span>
+          <span className="size">—</span>
+          <button onClick={(e) => { e.stopPropagation(); handleDownload(cot.archivo_pdf_url!, cot.archivo_pdf_nombre!) }} className="btn-d ghost icon sm" title="Descargar"><Download size={12} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handleRemove('pdf') }} className="btn-d ghost icon sm" style={{ color: 'var(--color-accent-red)' }} title="Eliminar"><X size={12} /></button>
         </div>
-      ) : (
-        <>
-          <input ref={pdfRef} type="file" accept={acceptString('pdf')} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f, 'pdf') }} />
-          <button
-            onClick={() => pdfRef.current?.click()}
-            disabled={uploading !== null}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-red-300 bg-white hover:bg-red-50 text-[10px] text-red-600 disabled:opacity-50"
-          >
-            <FileIcon size={12} /> {uploading === 'pdf' ? 'Subiendo…' : '+ PDF'}
-          </button>
-        </>
+      )}
+      {(!cot.archivo_apu_nombre || !cot.archivo_pdf_nombre) && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          {!cot.archivo_apu_nombre && (<>
+            <input ref={apuRef} type="file" accept={acceptString('apu')} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f, 'apu') }} />
+            <button onClick={() => apuRef.current?.click()} disabled={uploading !== null} className="btn-d ghost sm" style={{ fontSize: 10.5 }}>
+              <FileSpreadsheet size={11} /> {uploading === 'apu' ? 'Subiendo…' : '+ APU'}
+            </button>
+          </>)}
+          {!cot.archivo_pdf_nombre && (<>
+            <input ref={pdfRef} type="file" accept={acceptString('pdf')} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f, 'pdf') }} />
+            <button onClick={() => pdfRef.current?.click()} disabled={uploading !== null} className="btn-d ghost sm" style={{ fontSize: 10.5 }}>
+              <FileIcon size={11} /> {uploading === 'pdf' ? 'Subiendo…' : '+ PDF'}
+            </button>
+          </>)}
+        </div>
       )}
     </div>
   )
