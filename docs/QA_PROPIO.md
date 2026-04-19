@@ -1,7 +1,7 @@
 # QA propio — DURATA CRM
 
-**Actualizado:** 2026-05-XX (cierre entrega v1)
-**Sesiones de QA:** QA-1 (antes de demo), QA-2 (post-demo 16-abr), QA-3 (cierre v1)
+**Actualizado:** 2026-04-18 (QA-4 pre-merge redesign v2)
+**Sesiones de QA:** QA-1 (antes de demo), QA-2 (post-demo 16-abr), QA-3 (cierre v1), **QA-4 (pre-merge redesign v2, 2026-04-18)**
 
 ---
 
@@ -185,3 +185,223 @@ EDGE CASES:
 
 Reporta: pasos, esperado, observado, severidad, query SQL evidencia.
 ```
+
+---
+
+## 6. QA-4 — pre-merge redesign v2 + alineación MAESTRO (2026-04-18)
+
+### ESTADO FINAL — RESUELTO ✓
+
+Tras el dispatch de 4 agentes QA se detectó `valor_desync=14` que destapó un problema mayor: **la BD tenía data legado que NO estaba en el MAESTRO**. Se ejecutó limpieza completa + alineación MAESTRO ↔ Supabase con paridad 100% para los 5 años de histórico.
+
+**Resultado tras 17 UPDATEs + 1 UNIQUE constraint + 1 trigger:**
+
+| Check | Antes | Final |
+|---|---|---|
+| `valor_desync` | 14 | **0 ✓** |
+| `adj_sin_aprobada` | 0 | **0 ✓** |
+| `perdida_con_aprobada` | 0 | **0 ✓** |
+| `cot_numero_duplicado` | 0 | **0 ✓** |
+| `cot_sin_estado` | 0 | **0 ✓** |
+| `ops_huerfanas` | 0 | **0 ✓** |
+| `ops_sin_empresa` | — | **0 ✓** |
+| `cot_asignado_0` | 0 | 13 (fiel a MAESTRO, NO es bug) |
+
+**Cross-check final MAESTRO ↔ Supabase (ver `scripts/_check-cots-maestro.mjs`):**
+
+| Año | MAESTRO cots | Supa cots | Δ cots | MAESTRO $ | Supa $ | Δ $ |
+|---|---|---|---|---|---|---|
+| 2021 | 152 | 152 | **0** | 9,260,368,893 | 9,260,368,893 | **$0** ✓ |
+| 2022 | 1,130 | 1,130 | **0** | 41,104,054,889.308 | 41,104,054,889.308 | **$0** ✓ |
+| 2023 | 1,209 | 1,209 | **0** | 25,230,330,410 | 25,230,330,410 | **$0** ✓ |
+| 2024 | 1,237 | 1,237 | **0** | 39,829,492,218 | 39,829,492,218 | **$0** ✓ |
+| 2025 | 1,035 | 1,035 | **0** | 28,911,682,688 | 28,911,682,688 | **$0** ✓ |
+| 2026 | 394 | 394 | **0** | 9,735,844,154 | 9,735,844,154 | **$0** ✓ |
+| **TOT** | **5,157** | **5,157** | **0** | **$154,071,773,252.308** | **$154,071,773,252.308** | **$0** ✓ |
+
+Dashboard 2026 mes por mes:
+
+| Mes | MAESTRO | Supa | Δ cots | MAESTRO $ | Supa $ | Δ $ |
+|---|---|---|---|---|---|---|
+| Ene | 97 | **97** | 0 | 1,620,173,712 | **1,620,173,712** | **$0** ✓ |
+| Feb | 132 | **132** | 0 | 2,780,599,549 | **2,780,599,549** | **$0** ✓ |
+| Mar | 126 | **126** | 0 | 4,553,893,496 | **4,553,893,496** | **$0** ✓ |
+| Abr | 39 | **39** | 0 | 781,177,397 | **781,177,397** | **$0** ✓ |
+
+*Nota: 24 filas con año=1900 en MAESTRO son filas con fecha corrupta en Excel — no se migran por diseño.*
+
+### 6.0.1 Acciones ejecutadas (en orden cronológico)
+
+1. **9 cots legado `-N`** (`2021-1208B-1..B-8`, `2021-1172A`) → `descartada`. NO estaban en MAESTRO.
+2. **1173B** → `enviada` (fiel a MAESTRO: COTIZADA — no rechazada)
+3. **2026-271A + 2026-427** → `aprobada` (MAESTRO: ADJUDICADA)
+4. **7 cots `-HIST*` + `2025-739A`** → `descartada` (legado no-MAESTRO)
+5. **3 cots 2021 rechazadas sin fecha** + **5 cots 2026 rechazadas vacías** → `descartada`
+6. **UNIQUE constraint** en `cotizaciones.numero`
+7. **Trigger `sync_oportunidad_valor_cotizado`** en AFTER INSERT/UPDATE/DELETE
+8. **Recalculo global** de `oportunidades.valor_cotizado` (4 opps actualizadas)
+9. **2 opps** `perdida → adjudicada` (efecto de corregir 271A/427)
+10. **7 opps legado** `adjudicada → perdida` (sus cots `-HIST` fueron descartadas)
+
+### 6.0.2 Defensas permanentes aplicadas
+
+| Capa | Qué hace | Previene |
+|---|---|---|
+| **UNIQUE** en `cotizaciones.numero` | Postgres rechaza duplicados por número | Dupes futuros |
+| **Trigger** `sync_oportunidad_valor_cotizado` | Recalcula `opp.valor_cotizado` en AFTER INSERT/UPDATE/DELETE cots | Desync silencioso |
+| **`upsert`** con `onConflict:'numero'` en `migrar-historico.ts` L686 | Idempotencia real del script | Re-corridas accidentales |
+| **WARN huérfanas** nuevo bloque en migrar-historico PASO 7.5 | Log de cots activas en BD ausentes de MAESTRO | Detecta deriva futura |
+
+### 6.0.3 Script de cross-check reutilizable
+
+`scripts/_check-cots-maestro.mjs` — compara MAESTRO.TOTAL vs Supabase. Reporta:
+- A: cots con total=0
+- B: conteos+sumas año por año
+- C: Dashboard 2026 mes por mes
+- D: cots en BD ausentes de MAESTRO
+- E: cots en MAESTRO ausentes de BD
+- F: mismatches de total/fecha en 2026
+
+Correrlo cuando:
+- Se corrija el MAESTRO
+- Se sospeche de deriva
+- Después de cualquier script de migración
+
+---
+
+## 6. QA-4 — pre-merge redesign v2 (reporte original del dispatch)
+
+**Branch:** `feat/redesign-v2` · **SHA base:** `761448b` (post cherry-pick fix 53 TS errors)
+
+Ejecutado con dispatch de 4 agentes en paralelo + humo visual manual. Objetivo: validar mergeable a `main` y enviable a los 5 cotizadores.
+
+### 6.1 Resultado global
+
+| Check | Status | Bloqueante entrega |
+|---|---|---|
+| `npm run build` | ✅ Limpio en 28s | — |
+| `npm test -- --run` | ✅ 854/854 pass (82 archivos) | — |
+| Smoke visual (console + network) | ✅ Zero errors, zero 4xx/5xx | — |
+| Invariantes BD (7/8) | ✅ PASS | — |
+| Invariante `valor_desync` | 🟡 14 ops afectadas | **Sí — fix antes de enviar** |
+| Sentry últimas 24h | ⚠️ Chequeo manual pendiente | No — revisar post-deploy |
+| Vercel runtime logs 24h | ✅ Zero errores 5xx | — |
+| Supabase errores Postgres | 🟡 2 errores (`numero_op`, `precios`) | No — NO es frontend (grep vacío en `src/`) |
+| Tokens v2 residuales | 🟡 ~95 violaciones cosméticas | No — backlog post-entrega |
+
+### 6.2 Hallazgo bloqueante — `valor_desync = 14`
+
+14 oportunidades con `valor_cotizado` desincronizado vs `SUM(cotizaciones.total WHERE estado NOT IN (descartada,rechazada))`.
+
+Patrones observados:
+- **3 ops** en etapa `cotizacion_enviada` con `valor_cotizado=0` pero cotizaciones activas por $7.3M–$29.4M → trigger de update no corrió al crear cots
+- **11 ops** en etapa `adjudicada` con `valor_op` exactamente la mitad de `suma_cots` → doble conteo: probable cot aprobada + cot extra activa sin marcar descartada
+
+IDs top: `cad0f425…`, `5c9d62b9…`, `c629584f…`.
+
+**Fix propuesto** (SQL, reversible vía backup Supabase):
+```sql
+UPDATE oportunidades o
+SET valor_cotizado = COALESCE((
+  SELECT SUM(c.total)
+  FROM cotizaciones c
+  WHERE c.oportunidad_id = o.id
+    AND c.estado NOT IN ('descartada','rechazada')
+), 0)
+WHERE o.etapa != 'perdida'
+  AND o.id IN (<14 ids>);
+```
+
+### 6.3 Hallazgos NO bloqueantes para entrega
+
+**Supabase Postgres logs (24h):**
+- `column o.numero_op does not exist` — query con columna inexistente. Grep en `src/`: **0 matches**. Origen probable: script admin o query manual en Supabase Studio. Investigar en Fase 2.
+- `relation "precios" does not exist` — código usa nombre viejo. Grep en `src/`: **0 matches** (el frontend usa `precios_maestro`). Mismo diagnóstico.
+
+**Nombres de tablas en HANDOFF.md (actualizar doc):**
+- HANDOFF dice "precios" → real: `precios_maestro`
+- HANDOFF dice "productos" → real: `productos_catalogo`
+
+**Drift natural dashboard 2026:**
+- Esperado (abr): 394 cots / $9.73B
+- Observado (hoy 18-abr): 408 cots / $9.73B → drift = +14 cots del mes en curso, total exacto
+
+### 6.4 Tokens v2 residuales — backlog cosmético post-entrega
+
+**Total violaciones:** ~95 hits en 20 archivos.
+
+**Distribución por categoría:**
+- Colores legacy (`bg-slate-*`, `bg-gray-*`, `text-slate-*`, hex hardcoded `#334155`/`#64748b`/`#e2e8f0`): **45+ hits**
+- Sombras residuales (`shadow-sm`, `shadow-lg`, `shadow-2xl`, `hover:shadow-*`, custom): **20 hits**
+- Border-radius off-spec (`rounded-xl`, `rounded-2xl`): **18 hits**
+- Padding excessive (`p-8`, `p-10`): **6 hits**
+- CSS inline gradients hardcoded: **2 hits**
+- Otros (rounded-full en spinners): **4 hits**
+
+**Top 3 archivos con más residuos:**
+1. `src/pages/ConfiguradorGenerico.tsx` — 35+ hits (colores slate/gray en toda la UI)
+2. `src/pages/OportunidadDetalle.tsx` — 12 hits (sombras modales + colores cards/badges)
+3. `src/pages/Mesa3DViewer.tsx` — 10 hits (hex hardcoded + sombras overlay)
+
+**5 quick-wins para sprint de pulido (cubren ~70%):**
+| # | Fix | Archivos | Cobertura |
+|---|---|---|---|
+| 1 | Replace `bg-slate-*`/`text-slate-*` → CSS vars | ConfiguradorGenerico, SpreadsheetPrototype, OportunidadDetalle | 37% |
+| 2 | Remove `shadow-*` → `var(--shadow-*)` o nada | Login, Toast, Mesa3DViewer, ConfiguradorGenerico, OportunidadDetalle | 21% |
+| 3 | Replace `rounded-xl/2xl` → `var(--radius-lg)` en cards | ConfiguradorGenerico, ConfiguradorMesa, OportunidadDetalle | 13% |
+| 4 | Replace hex hardcoded → CSS vars | Mesa3DViewer | 7% |
+| 5 | Reducir `p-8`/`p-10` → `p-5`/`p-6` | App, ConfiguradorGenerico, ConfiguradorMesa | 6% |
+
+**Decisión pendiente (no arreglar ciego):**
+- `rounded-full` en badges/pills: handoff lo permite en badges circulares → mantener
+- `rounded-full` en spinners: OK → mantener
+- Hex hardcoded en Mesa3DViewer canvas 3D: podrían ser intencionales por WebGL → validar con diseño
+
+### 6.5 Humo visual manual (JP, 2026-04-18)
+
+Login real con Omar + recorrido 1 cotización end-to-end.
+
+| Paso | Esperado | Observado | OK? |
+|---|---|---|---|
+| Login Omar | Dashboard carga | _pendiente de completar_ | ? |
+| Crear oportunidad | Form valida, guarda | _pendiente_ | ? |
+| Configurar Cárcamo | Editor abre, guarda | _pendiente_ | ? |
+| Generar PDF | Descarga + Supabase Storage | _pendiente_ | ? |
+| Adjudicar | Marca ganadora, cot estado limpio | _pendiente_ | ? |
+| RLS cross-user (JP ve opp de Omar) | Visible | _pendiente_ | ? |
+| Cronómetro cotización | <3 min | _pendiente_ | ? |
+
+_(Completar esta tabla después del humo visual)_
+
+### 6.6 Plan de cierre post-QA-4
+
+1. **Fase 2 — bloqueantes (15 min)**
+   - Ejecutar UPDATE `valor_desync=14`
+   - `grep -r "numero_op\|from.*['\"]precios['\"]" scripts/` → identificar script roto
+   - Actualizar HANDOFF.md con nombres correctos tablas
+
+2. **Fase 3 — quick-wins cosméticos (2h)**
+   - Top 30 violaciones de alta severidad (colores + sombras en 5 archivos top)
+   - Build + tests tras cada batch
+
+3. **Fase 4 — pulido final (2-3h, sprint siguiente)**
+   - 65 violaciones restantes (radius, padding, hex hardcoded)
+   - Validación visual pantalla por pantalla
+
+4. **Merge `feat/redesign-v2` → `main`**
+5. **Deploy Vercel automático**
+6. **Enviar guía + link + audio a los 5 cotizadores**
+
+### 6.7 Comandos de evidencia
+
+```bash
+# Reproducir QA-4 localmente
+git checkout feat/redesign-v2
+git log --oneline -1                    # debe mostrar 761448b
+npm run build                           # debe dar ✓ en ~28s
+npm test -- --run                       # debe dar 854/854
+
+# Verificar valor_desync post-fix
+# (vía Supabase MCP o psql directo)
+```
+

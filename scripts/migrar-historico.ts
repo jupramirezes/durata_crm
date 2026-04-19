@@ -683,7 +683,9 @@ async function main() {
 
   for (let i = 0; i < cotQueue.length; i += BATCH) {
     const chunk = cotQueue.slice(i, i + BATCH)
-    const { error } = await sb.from('cotizaciones').insert(chunk)
+    // upsert por `numero` — defensa en profundidad contra duplicados aunque falle el dedup previo.
+    // Requiere UNIQUE constraint en cotizaciones.numero (aplicado 2026-04-18 durante QA-4).
+    const { error } = await sb.from('cotizaciones').upsert(chunk, { onConflict: 'numero', ignoreDuplicates: true })
     if (error) {
       console.error(`  ERROR cotizaciones batch ${i}: ${error.message}`)
       stats.errors += chunk.length
@@ -693,6 +695,36 @@ async function main() {
     logProgress('Cotizaciones', Math.min(i + BATCH, cotQueue.length), cotQueue.length)
   }
   console.log(`  ✓ ${stats.cotizaciones_created} creadas, ${stats.cotizaciones_skipped} ya existían\n`)
+
+  // ================================================================
+  // PASO 7.5 — WARN: cots en BD que no aparecen en MAESTRO (legado)
+  // Reporta sin borrar. Post QA-4 (2026-04-18) la BD y el MAESTRO están
+  // 100% alineados. Esto atrapa futura deriva.
+  // ================================================================
+  const maestroNumSet = new Set<string>()
+  for (let i = 1; i < maestroRows.length; i++) {
+    const r = maestroRows[i]
+    if (!r) continue
+    const n = normalizeCot(toStr(r[6]))
+    if (n) maestroNumSet.add(n)
+  }
+  const orphans: string[] = []
+  for (const c of existingCotizacionesRaw) {
+    if (!c.numero) continue
+    const n = normalizeCot(c.numero)
+    // Solo reportar cots activas huérfanas (las descartadas/rechazadas son legado esperado)
+    if (!maestroNumSet.has(n) && !['descartada','rechazada'].includes(c.estado ?? '')) {
+      orphans.push(n)
+    }
+  }
+  if (orphans.length > 0) {
+    console.warn(`\n  ⚠ ${orphans.length} cotizaciones activas en BD NO están en MAESTRO (huérfanas):`)
+    for (const n of orphans.slice(0, 10)) console.warn(`    - ${n}`)
+    if (orphans.length > 10) console.warn(`    ... +${orphans.length - 10} más`)
+    console.warn(`  Revisar manualmente — podrían ser duplicados legado o entradas huérfanas.\n`)
+  } else {
+    console.log(`  ✓ 0 cotizaciones huérfanas en BD (paridad MAESTRO).\n`)
+  }
 
   // ================================================================
   // REPORTE FINAL
