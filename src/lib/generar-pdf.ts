@@ -188,10 +188,9 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   const colDesc = anyHasImage ? mL + 28 + IMG_CELL_W : mL + 28
   const colVUnit = pageW - mR - 56
   const colVTotal = pageW - mR
-  // Preserve the original (pre-image-column) description padding when no image column is shown,
-  // so layouts without images look identical to before. With image column, use a tighter padding
-  // since the image already provides visual separation.
-  const descW = anyHasImage ? colVUnit - colDesc - 4 : colVUnit - colDesc - 18
+  // Feedback JP 2026-04-19: aumentar separación desc↔precio cuando hay imagen (antes -4 pegaba
+  // el valor unitario sobre la descripción). Ahora mantiene padding cómodo en ambos casos.
+  const descW = anyHasImage ? colVUnit - colDesc - 12 : colVUnit - colDesc - 18
 
   // Table header
   const thH = 7
@@ -204,7 +203,7 @@ export function generarPdfCotizacion(data: PdfCotizacionData) {
   doc.text('CANT', colCant + 2, thY)
   doc.text('UND', colUnd + 2, thY)
   if (anyHasImage) {
-    doc.text('IMAGEN', colImg + 2, thY)
+    doc.text('IMAGEN ALUSIVA', colImg + 2, thY)
   }
   doc.text('DESCRIPCION', colDesc + 2, thY)
   doc.text('VR. UNIT', colVUnit, thY, { align: 'right' })

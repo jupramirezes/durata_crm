@@ -23,6 +23,16 @@ export function formatDate(date: string | null | undefined): string {
   return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+/** Timestamp corto para timelines — "19 abr · 14:30" (Bogotá). */
+export function formatShortDateTime(ts: number | string | null | undefined): string {
+  if (ts == null) return ''
+  const d = typeof ts === 'number' ? new Date(ts) : new Date(ts)
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000) return ''
+  const fecha = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }).replace('.', '')
+  const hora = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${fecha} · ${hora}`
+}
+
 const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#f97316']
 
 export function getAvatarColor(name: string): string {

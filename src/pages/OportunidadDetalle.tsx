@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore, todayLocalISO } from '../lib/store'
 import { ETAPAS, COTIZADORES, MOTIVOS_PERDIDA, findCotizador, CONFIG_MESA_DEFAULT, Etapa } from '../types'
-import { formatDate, formatCOP, daysSince, downloadBlob, getAvatarColor } from '../lib/utils'
+import { formatDate, formatCOP, formatShortDateTime, daysSince, downloadBlob, getAvatarColor } from '../lib/utils'
 import { EtapaBadge } from '../components/ui'
 import CotizacionModal from '../components/CotizacionModal'
 import { generarPdfCotizacion } from '../lib/generar-pdf'
@@ -189,13 +189,9 @@ export default function OportunidadDetalle() {
         if (match) {
           // Parse date from "[DD/MM/YYYY HH:MM]" format
           const tsParts = match[1].match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
-          let sortDate = Date.now() - (lines.length - i) * 1000 // fallback
-          if (tsParts) {
-            sortDate = new Date(
-              Number(tsParts[3]), Number(tsParts[2]) - 1, Number(tsParts[1]),
-              Number(tsParts[4]), Number(tsParts[5])
-            ).getTime()
-          }
+          const sortDate = tsParts
+            ? new Date(Number(tsParts[3]), Number(tsParts[2]) - 1, Number(tsParts[1]), Number(tsParts[4]), Number(tsParts[5])).getTime()
+            : 0 // sin fecha parseable → al final, sin mostrar hora inventada
           events.push({
             id: `nota-${i}`,
             type: 'nota',
@@ -706,9 +702,23 @@ export default function OportunidadDetalle() {
         <div className="opp-header">
           <div className="body">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <span className="mono" style={{ fontSize: 11, color: 'var(--color-text-label)' }}>
-                {opp.id.slice(0, 8).toUpperCase()}
-              </span>
+              {(() => {
+                // Feedback JP 2026-04-19: mostrar # cot activa más reciente (Año-numero),
+                // no los primeros 8 chars del UUID (era confuso para los cotizadores).
+                const activeCots = cotizaciones
+                  .filter(c => !['descartada', 'rechazada'].includes(c.estado))
+                  .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+                const latest = activeCots[0] || cotizaciones.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+                return latest ? (
+                  <span className="mono" style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 600 }}>
+                    COT {latest.numero}
+                  </span>
+                ) : (
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--color-text-label)' }}>
+                    Nueva oportunidad
+                  </span>
+                )
+              })()}
               <EtapaBadge etapa={opp.etapa} size="sm" />
             </div>
             <div className="opp-title">{emp.nombre}</div>
@@ -742,6 +752,11 @@ export default function OportunidadDetalle() {
               onClick={() => setShowProductModal(true)}
               className="btn-d sm"
             ><Package size={12} /> Producto</button>
+
+            <button
+              onClick={() => { setTab('adjuntos'); document.querySelector('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+              className="btn-d sm"
+            ><Paperclip size={12} /> Adjunto</button>
 
             {productos.length > 0 && (
               <button
@@ -907,8 +922,8 @@ export default function OportunidadDetalle() {
                             {ev.detail && (
                               <span className="mono" style={{ fontSize: 11, color: ev.color, fontWeight: 500 }}>{ev.detail}</span>
                             )}
-                            {ev.timestamp && (
-                              <span className="time">{ev.type === 'cotizacion' ? formatDate(ev.timestamp) : ev.timestamp}</span>
+                            {ev.sortDate > 0 && (
+                              <span className="time">{formatShortDateTime(ev.sortDate)}</span>
                             )}
                             {ev.type === 'nota' && !isEditingThis && (
                               <span style={{ display: 'inline-flex', gap: 2, marginLeft: 4 }}>
@@ -959,9 +974,8 @@ export default function OportunidadDetalle() {
             ) : (
               <div>
                 {productos.map(p => {
-                  const descShort = p.descripcion_comercial
-                    ? (p.descripcion_comercial.length > 140 ? p.descripcion_comercial.slice(0, 140) + '…' : p.descripcion_comercial)
-                    : ''
+                  // Feedback JP 2026-04-19: mostrar descripción completa, no truncar a 140 chars
+                  const descFull = p.descripcion_comercial || ''
                   const unitPrice = p.precio_calculado || 0
                   const qty = p.cantidad || 1
                   const total = unitPrice * qty
@@ -981,7 +995,7 @@ export default function OportunidadDetalle() {
                         <div style={{ minWidth: 0 }}>
                           <div className="name">{p.subtipo || '—'}</div>
                           <div className="spec">{p.categoria || '—'}</div>
-                          {descShort && <div className="desc">{descShort}</div>}
+                          {descFull && <div className="desc" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{descFull}</div>}
                         </div>
                         {/* Price + actions */}
                         <div className="price">
@@ -1553,19 +1567,40 @@ export default function OportunidadDetalle() {
             <div className="grid grid-cols-3 gap-4 p-6">
               {(() => {
                 // Build product list: Mesa (always, uses legacy configurator), catalog products, manual
+                // Iconos por familia — mejora limitada hasta que se clasifique el catálogo completo
                 const PRODUCT_ICONS: Record<string, string> = {
-                  mesa: '🍽️', mesas: '🍽️',
-                  carcamo: '🔧',
+                  // Superficies de trabajo
+                  mesa: '🍽️', mesas: '🍽️', meson: '🪵', mesones: '🪵',
+                  // Drenaje y caño
+                  carcamo: '🕳️', carcamos: '🕳️',
+                  caja_sifonada: '📥',
+                  lavaescobas: '🚿',
+                  pozuelo: '🚰', pozuelos: '🚰', pozuelo_corrido: '🚰', pozuelo_esferico: '🚰',
+                  vertedero: '💧',
+                  // Almacenamiento
                   estanteria_graduable: '📚', estanteria: '📚',
                   repisa: '📦',
+                  gabinete: '🗄️', gabinetes: '🗄️',
+                  mueble_inferior: '🪑', mueble_superior: '🗄️',
+                  // Ventilación / campanas
+                  campana: '🌪️', campanas: '🌪️',
                   ductos: '🔩',
+                  // Accesibilidad
                   barras_discapacitados: '♿',
-                  pozuelo: '🚰', pozuelos: '🚰',
-                  lavaescobas: '🧹',
-                  caja_sifonada: '📥',
+                  // Estructuras
                   pasamanos: '🛡️',
-                  autoservicios: '🍱',
-                  muebles: '🪑',
+                  divisiones_wc: '🚪',
+                  revestimiento: '🧱',
+                  // Equipos
+                  autoservicios: '🍱', autoservicio: '🍱',
+                  autoservicio_frio: '🧊', autoservicio_bano_maria: '♨️',
+                  bbq: '🔥', estufa_con_patas: '🔥',
+                  // Muebles
+                  muebles: '🪑', cubiertero: '🍴',
+                  // Público
+                  basurera_espacio_publico: '🗑️', basureros: '🗑️',
+                  // Especiales
+                  passthrough: '🚇',
                   manual: '✏️',
                 }
                 const getIcon = (id: string) => PRODUCT_ICONS[id.toLowerCase()] ?? '⚙️'
@@ -1836,13 +1871,19 @@ export default function OportunidadDetalle() {
                     prodPayload.archivo_pdf_nombre = res.nombre
                   }
 
+                  // Feedback JP 2026-04-19: usar primera línea de descripción como subtipo
+                  // (antes quedaba "Otro (manual)" — feo e incomprensible). Fallback a categoría.
+                  const firstLine = (manualForm.descripcion || '').split('\n')[0].trim()
+                  const niceSubtipo = firstLine
+                    ? (firstLine.length > 40 ? firstLine.slice(0, 40) + '…' : firstLine)
+                    : manualForm.categoria
                   dispatch({
                     type: 'ADD_PRODUCTO',
                     payload: {
                       id: prodId,
                       oportunidad_id: opp.id,
                       categoria: manualForm.categoria,
-                      subtipo: `${manualForm.categoria} (manual)`,
+                      subtipo: niceSubtipo,
                       configuracion: CONFIG_MESA_DEFAULT,
                       precio_calculado: manualForm.precio_unitario,
                       descripcion_comercial: descFull,

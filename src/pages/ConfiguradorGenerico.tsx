@@ -388,7 +388,13 @@ export default function ConfiguradorGenerico() {
           <div className="opp-title">{productoNombre}</div>
           <div className="opp-company-line">
             <strong>{empresa?.nombre || '—'}</strong>
-            {oportunidad && (<><span className="sep">·</span><span className="mono">{oportunidad.id.slice(0, 8).toUpperCase()}</span></>)}
+            {oportunidad && (() => {
+              // Mostrar # cot activa más reciente (en lugar del UUID de la opp)
+              const latest = state.cotizaciones
+                .filter(c => c.oportunidad_id === oportunidad.id && !['descartada','rechazada'].includes(c.estado))
+                .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0]
+              return latest ? (<><span className="sep">·</span><span className="mono">COT {latest.numero}</span></>) : null
+            })()}
           </div>
         </div>
       </div>

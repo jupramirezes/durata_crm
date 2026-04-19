@@ -526,7 +526,9 @@ export default function CotizacionEditor() {
               {versiones.length > 1 && (
                 <div style={{ display: 'flex', gap: 4 }}>
                   {versiones.map(v => {
-                    const letter = v.numero.match(/([A-Z])$/)?.[1] || 'A'
+                    // Feedback JP 2026-04-19: la original (sin sufijo letra) se muestra como v0.
+                    // Las recotizaciones (A, B, C…) mantienen su letra. Antes todas aparecian como vA.
+                    const letter = v.numero.match(/([A-Z])$/)?.[1] || '0'
                     const active = v.id === cotizacion.id
                     return (
                       <span
@@ -1009,7 +1011,8 @@ export default function CotizacionEditor() {
                 Versiones ({versiones.length})
               </div>
               {versiones.map(v => {
-                const letter = v.numero.match(/([A-Z])$/)?.[1] || 'A'
+                // Feedback JP 2026-04-19: v0 para original sin sufijo.
+                const letter = v.numero.match(/([A-Z])$/)?.[1] || '0'
                 const active = v.id === cotizacion.id
                 return (
                   <div
