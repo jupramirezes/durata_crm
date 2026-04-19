@@ -1,33 +1,9 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Kanban, Users, FileText, DollarSign, Settings, Menu, X, LogOut } from 'lucide-react'
+import { LayoutDashboard, Kanban, Building2, FileText, Banknote, Settings, Menu, X, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { User } from '@supabase/supabase-js'
-import GlobalSearch from './GlobalSearch'
-
-const navGroups = [
-  {
-    label: 'Principal',
-    items: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
-      { to: '/empresas', icon: Users, label: 'Empresas' },
-    ],
-  },
-  {
-    label: 'Comercial',
-    items: [
-      { to: '/cotizaciones', icon: FileText, label: 'Cotizaciones' },
-      { to: '/precios', icon: DollarSign, label: 'Precios' },
-    ],
-  },
-  {
-    label: 'Sistema',
-    items: [
-      { to: '/config', icon: Settings, label: 'Configuracion' },
-    ],
-  },
-]
+import { useStore } from '../lib/store'
 
 function displayName(user: User | null): string {
   if (!user?.email) return 'Usuario'
@@ -43,76 +19,100 @@ function getInitials(user: User | null): string {
   return name.replace('.', '').trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().slice(0, 2)
 }
 
+function fmtCount(n: number): string {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
+  return String(n)
+}
+
 function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | null }) {
+  const { state } = useStore()
+
+  const pipelineCount = state.oportunidades.filter(o => !['perdida', 'recotizada'].includes(o.etapa)).length
+  const empresasCount = state.empresas.length
+  const cotizacionesCount = state.cotizaciones.length
+
   async function handleLogout() { await supabase.auth.signOut() }
+
+  const groups: Array<{ label: string; items: Array<{ to: string; icon: typeof LayoutDashboard; label: string; count?: number; end?: boolean }> }> = [
+    {
+      label: 'Principal',
+      items: [
+        { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
+        { to: '/pipeline', icon: Kanban, label: 'Pipeline', count: pipelineCount },
+      ],
+    },
+    {
+      label: 'Comercial',
+      items: [
+        { to: '/empresas', icon: Building2, label: 'Empresas', count: empresasCount },
+        { to: '/cotizaciones', icon: FileText, label: 'Cotizaciones', count: cotizacionesCount },
+        { to: '/precios', icon: Banknote, label: 'Precios' },
+      ],
+    },
+    {
+      label: 'Sistema',
+      items: [
+        { to: '/config', icon: Settings, label: 'Configuración' },
+      ],
+    },
+  ]
 
   return (
     <>
-      {/* Logo */}
-      <div className="px-5 pt-8 pb-8 flex items-center justify-between">
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-[26px] font-extrabold text-white tracking-tight">DURATA</span>
-            <span className="text-[26px] font-extrabold text-[var(--color-primary)]">CRM</span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1 tracking-wider font-medium">Sistema de Cotizacion</p>
+      <div className="sb-brand">
+        <div className="sb-mark">D</div>
+        <div className="sb-brand-text flex-1">
+          <div className="n">Durata</div>
+          <div className="s">CRM · Cotizador</div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="text-slate-400 hover:text-white md:hidden p-1 rounded-md"><X size={18} /></button>
+          <button onClick={onClose} className="md:hidden text-[var(--color-text-label)]" aria-label="Cerrar menú">
+            <X size={16} />
+          </button>
         )}
       </div>
 
-      {/* Search */}
-      <div className="px-4 mb-7">
-        <GlobalSearch />
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-7 overflow-y-auto">
-        {navGroups.map(group => (
-          <div key={group.label}>
-            <p className="text-xs uppercase tracking-[0.1em] text-[#4b5563] px-5 mb-2.5 font-semibold">{group.label}</p>
-            <div className="space-y-1">
-              {group.items.map(l => (
-                <NavLink
-                  key={l.to}
-                  to={l.to}
-                  end={l.to === '/'}
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-5 h-12 rounded-lg text-[15px] font-medium transition-all duration-150 ${
-                      isActive
-                        ? 'bg-[var(--color-sidebar-active)] text-[var(--color-sidebar-text-active)] border-l-[3px] border-[var(--color-primary)] -ml-px'
-                        : 'text-[var(--color-sidebar-text)] hover:bg-[var(--color-sidebar-hover)] hover:text-white'
-                    }`
-                  }
-                >
-                  <l.icon size={22} className="shrink-0" />
-                  {l.label}
-                </NavLink>
-              ))}
-            </div>
+      <nav className="sb-nav">
+        {groups.map(group => (
+          <div key={group.label} className="sb-group">
+            <div className="sb-group-label">{group.label}</div>
+            {group.items.map(l => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end={l.end}
+                onClick={onClose}
+                className={({ isActive }) => `sb-item ${isActive ? 'active' : ''}`}
+              >
+                <l.icon />
+                <span>{l.label}</span>
+                {l.count != null && <span className="count">{fmtCount(l.count)}</span>}
+              </NavLink>
+            ))}
           </div>
         ))}
       </nav>
 
-      {/* User section */}
-      <div className="px-4 py-5 pb-5 border-t border-[var(--color-sidebar-border)]">
+      <div className="sb-foot">
         {user ? (
-          <div className="flex items-center gap-3">
-            <div className="w-[42px] h-[42px] rounded-full bg-[var(--color-primary)] flex items-center justify-center shrink-0">
-              <span className="text-sm font-bold text-white">{getInitials(user)}</span>
+          <>
+            <div className="avatar">{getInitials(user)}</div>
+            <div className="who">
+              <div className="n">{displayName(user)}</div>
+              <div className="r">{user.email}</div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-white font-medium truncate">{displayName(user)}</p>
-              <p className="text-xs text-[#64748b] truncate">{user.email}</p>
-            </div>
-            <button onClick={handleLogout} className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors shrink-0" title="Cerrar sesion">
-              <LogOut size={16} />
+            <button
+              onClick={handleLogout}
+              className="text-[var(--color-text-label)] hover:text-[var(--color-accent-red)] p-1 rounded-md"
+              style={{ minHeight: 0 }}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+            >
+              <LogOut size={14} />
             </button>
-          </div>
+          </>
         ) : (
-          <p className="text-xs text-slate-500 font-medium">v0.9 MVP</p>
+          <div className="who"><div className="r">v0.9 MVP</div></div>
         )}
       </div>
     </>
@@ -123,18 +123,30 @@ export default function Sidebar({ user }: { user: User | null }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   return (
     <>
-      <button onClick={() => setMobileOpen(true)} className="fixed top-3 left-3 z-50 p-2.5 rounded-lg bg-[var(--color-sidebar)] text-white md:hidden shadow-md">
-        <Menu size={18} />
+      {/* Mobile menu button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-3 left-3 z-50 p-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] md:hidden"
+        style={{ minHeight: 0 }}
+        aria-label="Abrir menú"
+      >
+        <Menu size={16} />
       </button>
+
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileOpen(false)}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <aside className="absolute left-0 top-0 bottom-0 w-[260px] bg-[var(--color-sidebar)] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px]" />
+          <aside
+            className="sb absolute left-0 top-0 bottom-0 w-[232px]"
+            onClick={e => e.stopPropagation()}
+            style={{ position: 'absolute', height: 'auto' }}
+          >
             <SidebarContent onClose={() => setMobileOpen(false)} user={user} />
           </aside>
         </div>
       )}
-      <aside className="hidden md:flex w-[260px] bg-[var(--color-sidebar)] flex-col h-screen sticky top-0 shrink-0">
+
+      <aside className="sb hidden md:flex">
         <SidebarContent user={user} />
       </aside>
     </>

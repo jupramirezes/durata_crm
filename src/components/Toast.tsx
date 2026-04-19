@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map(t => {
           const Icon = icons[t.type]
           return (
-            <div key={t.id} className={`flex items-start gap-2 px-4 py-3 rounded-lg border shadow-lg ${colors[t.type]} animate-[slideIn_0.2s_ease-out]`}>
+            <div key={t.id} className={`flex items-start gap-2 px-4 py-3 rounded-[var(--radius-md)] border shadow-card ${colors[t.type]} animate-[slideIn_0.2s_ease-out]`}>
               <Icon size={16} className="shrink-0 mt-0.5" />
               <span className="text-xs flex-1">{t.message}</span>
               <button onClick={() => remove(t.id)} className="shrink-0 opacity-60 hover:opacity-100"><X size={14} /></button>

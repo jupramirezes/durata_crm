@@ -5,6 +5,8 @@ import { supabase, isSupabaseReady } from './lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import Login from './components/Login'
 import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
+import GlobalSearch from './components/GlobalSearch'
 import Dashboard from './pages/Dashboard'
 import Pipeline from './pages/Pipeline'
 import Empresas from './pages/Empresas'
@@ -23,9 +25,13 @@ import { ToastProvider } from './components/Toast'
 
 function Layout({ children, user }: { children: React.ReactNode; user: User }) {
   return (
-    <div className="flex min-h-screen bg-[var(--color-bg)]">
+    <div className="app-shell">
       <Sidebar user={user} />
-      <main className="flex-1 overflow-y-auto min-w-0">{children}</main>
+      <div className="app-main">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto min-w-0">{children}</main>
+      </div>
+      <GlobalSearch />
     </div>
   )
 }
@@ -60,13 +66,13 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
         <div className="text-center">
-          <div className="flex items-baseline justify-center mb-2">
-            <span className="text-2xl font-extrabold text-white">DURATA</span>
-            <span className="text-2xl font-extrabold text-[#3b82f6] ml-1.5">CRM</span>
+          <div className="flex items-baseline justify-center mb-2 gap-1.5">
+            <span className="text-2xl font-extrabold text-[var(--color-text)]">Durata</span>
+            <span className="text-2xl font-extrabold text-[var(--color-primary)]">CRM</span>
           </div>
-          <p className="text-xs text-slate-500">Cargando...</p>
+          <p className="text-xs text-[var(--color-text-label)] font-mono">Cargando…</p>
         </div>
       </div>
     )
@@ -100,7 +106,7 @@ export default function App() {
               <Route
                 path="/oportunidades/:id/spreadsheet/:productoId"
                 element={
-                  <Suspense fallback={<div className="p-8 text-center text-slate-500">Cargando spreadsheet...</div>}>
+                  <Suspense fallback={<div className="p-6 text-center text-[var(--color-text-label)]">Cargando spreadsheet...</div>}>
                     <SpreadsheetPrototype />
                   </Suspense>
                 }

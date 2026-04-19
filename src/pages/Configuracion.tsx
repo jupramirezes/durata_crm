@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Building2, Users, Settings, GitBranch, FileText, Tag, Plus, Trash2, Save, Database, CheckCircle, AlertCircle } from 'lucide-react'
-import { PageHeader } from '../components/ui'
 import { isSupabaseReady } from '../lib/supabase'
 import { ETAPAS } from '../types'
 import {
@@ -49,7 +48,7 @@ function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean 
     <button
       onClick={onClick}
       disabled={saving}
-      className="flex items-center gap-1.5 h-12 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[15px] font-semibold rounded-xl transition-colors shadow-[0_4px_12px_rgba(59,130,246,0.3)] disabled:opacity-50"
+      className="flex items-center gap-1.5 h-12 px-6 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[15px] font-semibold rounded-[var(--radius-lg)] transition-colors disabled:opacity-50"
     >
       <Save size={15} />
       {saving ? 'Guardando…' : 'Guardar cambios'}
@@ -57,21 +56,32 @@ function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean 
   )
 }
 
-function EditableList({ items, onChange, placeholder }: { items: string[]; onChange: (items: string[]) => void; placeholder?: string }) {
+function EditableList({ items, onChange, placeholder, multiline }: { items: string[]; onChange: (items: string[]) => void; placeholder?: string; multiline?: boolean }) {
   const [newItem, setNewItem] = useState('')
   return (
     <div className="space-y-1.5">
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2 group">
-          <input
-            type="text"
-            value={item}
-            onChange={e => { const next = [...items]; next[i] = e.target.value; onChange(next) }}
-            className="flex-1 px-3 py-1.5 rounded-md border border-[var(--color-border)] text-xs bg-white focus:outline-none focus:border-[var(--color-primary)] transition-colors"
-          />
+        <div key={i} className="flex items-start gap-2 group">
+          {multiline ? (
+            <textarea
+              value={item}
+              onChange={e => { const next = [...items]; next[i] = e.target.value; onChange(next) }}
+              rows={Math.max(2, Math.ceil(item.length / 90))}
+              className="flex-1 px-3 py-2 rounded-md border border-[var(--color-border)] text-xs bg-white focus:outline-none focus:border-[var(--color-primary)] transition-colors resize-y"
+              style={{ fontFamily: 'inherit', lineHeight: 1.5 }}
+            />
+          ) : (
+            <input
+              type="text"
+              value={item}
+              onChange={e => { const next = [...items]; next[i] = e.target.value; onChange(next) }}
+              className="flex-1 px-3 py-1.5 rounded-md border border-[var(--color-border)] text-xs bg-white focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+            />
+          )}
           <button
             onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className="text-[var(--color-text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+            className="text-[var(--color-text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 mt-1"
+            title="Eliminar ítem"
           >
             <Trash2 size={12} />
           </button>
@@ -141,25 +151,33 @@ export default function Configuracion() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-4xl animate-fade-in">
-      <PageHeader title="Configuración" subtitle="Parámetros del sistema" />
+    <div className="page animate-fade-in">
+      <div className="page-head">
+        <div>
+          <div className="page-title">Configuración</div>
+          <div className="page-sub">Parámetros del sistema · DURATA S.A.S.</div>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--color-text-label)' }}>
+          <Database size={12} />
+          {isSupabaseReady ? (
+            <><CheckCircle size={11} style={{ color: 'var(--color-accent-green)' }} /> Supabase conectado</>
+          ) : (
+            <><AlertCircle size={11} style={{ color: 'var(--color-accent-yellow)' }} /> localStorage offline</>
+          )}
+        </div>
+      </div>
 
       {/* ─── TABS ──────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-[var(--color-border)] mt-5 mb-6 overflow-x-auto">
+      <div className="tabs">
         {TABS.map(t => {
-          const Icon = t.icon
           const active = tab === t.key
           return (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 h-11 px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                active
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-gray-300'
-              }`}
+              className={`tab ${active ? 'active' : ''}`}
             >
-              <Icon size={13} />
               {t.label}
             </button>
           )
@@ -180,28 +198,10 @@ export default function Configuracion() {
       {tab === 'fuentes' && <TabListaEditable items={config.fuentes_lead} onSave={v => handleSave('fuentes_lead', v)} saving={saving} label="Fuentes de lead" placeholder="Nueva fuente…" />}
       {tab === 'sectores' && <TabListaEditable items={config.sectores} onSave={v => handleSave('sectores', v)} saving={saving} label="Sectores" placeholder="Nuevo sector…" />}
 
-      {/* ─── DB STATUS (bottom) ────────────────────────────── */}
-      <div className="mt-6 card p-4">
-        <div className="flex items-center gap-2.5">
-          <Database size={14} className="text-[var(--color-text-muted)]" />
-          {isSupabaseReady ? (
-            <div className="flex items-center gap-2">
-              <CheckCircle size={13} className="text-[var(--color-accent-green)]" />
-              <span className="text-[11px] text-[var(--color-text)]">Supabase conectado — datos sincronizados</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <AlertCircle size={13} className="text-[var(--color-accent-yellow)]" />
-              <span className="text-[11px] text-[var(--color-text)]">localStorage — modo offline</span>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* ─── TOAST ─────────────────────────────────────────── */}
       {toast && (
-        <div className="fixed bottom-5 right-5 bg-[var(--color-text)] text-white px-4 py-2.5 rounded-lg text-xs font-medium shadow-lg animate-fade-in flex items-center gap-2 z-50">
-          <CheckCircle size={14} />
+        <div className="fixed bottom-5 right-5 flex items-center gap-2 px-4 py-2 rounded-md animate-fade-in z-50" style={{ background: 'var(--color-text)', color: 'var(--color-surface)', boxShadow: 'var(--shadow-pop)', fontSize: 12 }}>
+          <CheckCircle size={13} />
           {toast}
         </div>
       )}
@@ -269,7 +269,7 @@ function TabEquipo({ data, onSave, saving }: { data: Cotizador[]; onSave: (v: Co
         <div className="flex items-center gap-2">
           <button
             onClick={() => setAdding(!adding)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-medium rounded-md hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-xs font-medium rounded-md hover:bg-[var(--color-surface-hover)] transition-colors"
           >
             <Plus size={13} /> Agregar
           </button>
@@ -313,7 +313,7 @@ function TabEquipo({ data, onSave, saving }: { data: Cotizador[]; onSave: (v: Co
               <td className="py-2.5 text-center">
                 <button
                   onClick={() => toggleActivo(i)}
-                  className={`w-8 h-4 rounded-full relative transition-colors ${c.activo ? 'bg-[var(--color-accent-green)]' : 'bg-gray-300'}`}
+                  className={`w-8 h-4 rounded-full relative transition-colors ${c.activo ? 'bg-[var(--color-accent-green)]' : 'bg-[var(--color-border-strong)]'}`}
                 >
                   <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${c.activo ? 'left-4' : 'left-0.5'}`} />
                 </button>
@@ -460,12 +460,18 @@ function TabCotizacion({ data, onSave, saving }: { data: DefaultsCotizacion; onS
 
       <div>
         <FieldLabel>Condiciones comerciales</FieldLabel>
-        <EditableList items={form.condiciones} onChange={v => setForm({ ...form, condiciones: v })} placeholder="Nueva condición…" />
+        <p className="text-[10px] text-[var(--color-text-muted)] mb-1.5">
+          Texto completo que se inserta por defecto en cada cotización nueva. Usá <code className="mono px-1 bg-[var(--color-surface-2)] rounded" style={{ fontSize: 10 }}>__TIEMPO__</code> para interpolar el tiempo de entrega.
+        </p>
+        <EditableList multiline items={form.condiciones} onChange={v => setForm({ ...form, condiciones: v })} placeholder="Nueva condición…" />
       </div>
 
       <div>
         <FieldLabel>No incluye</FieldLabel>
-        <EditableList items={form.no_incluye} onChange={v => setForm({ ...form, no_incluye: v })} placeholder="Nuevo ítem…" />
+        <p className="text-[10px] text-[var(--color-text-muted)] mb-1.5">
+          Cláusulas "no incluye" que se agregan por defecto a cada cotización nueva.
+        </p>
+        <EditableList multiline items={form.no_incluye} onChange={v => setForm({ ...form, no_incluye: v })} placeholder="Nuevo ítem…" />
       </div>
     </div>
   )

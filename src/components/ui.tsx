@@ -57,11 +57,11 @@ export function PageHeader({ title, subtitle, actions }: {
 /* ── EstadoBadge (for cotizaciones) ─────────────────── */
 
 const ESTADO_STYLES: Record<string, string> = {
-  borrador: 'bg-slate-100 text-slate-600',
+  borrador: 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]',
   enviada: 'bg-blue-50 text-blue-700',
   aprobada: 'bg-emerald-50 text-emerald-700',
   rechazada: 'bg-red-50 text-red-700',
-  descartada: 'bg-gray-100 text-gray-400 line-through',
+  descartada: 'bg-[var(--color-surface-2)] text-[var(--color-text-faint)] line-through',
 }
 
 export function EstadoBadge({ estado }: { estado: string }) {

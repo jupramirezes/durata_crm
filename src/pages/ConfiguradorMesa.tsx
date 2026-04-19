@@ -484,26 +484,34 @@ export default function ConfiguradorMesa() {
   }
 
   return (
-    <div className="p-8 max-w-6xl animate-fade-in relative">
+    <div className="page">
       {/* Toast notification */}
       {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in">
-          <Check size={18} strokeWidth={3} />
-          <span className="text-sm font-semibold">{editProductoId ? 'Producto actualizado' : 'Producto agregado al pedido'}</span>
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-md animate-fade-in" style={{ background: 'var(--color-accent-green)', color: '#fff', boxShadow: 'var(--shadow-pop)', fontSize: 12 }}>
+          <Check size={14} strokeWidth={3} />
+          <span style={{ fontWeight: 600 }}>{editProductoId ? 'Producto actualizado' : 'Producto agregado al pedido'}</span>
         </div>
       )}
 
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] mb-5 transition-colors duration-200">
-        <ArrowLeft size={16} /> Volver a {empresa?.nombre || 'oportunidad'}
+      <button
+        onClick={() => navigate(-1)}
+        className="btn-d ghost sm"
+        style={{ marginBottom: 14, padding: '0 8px' }}
+      >
+        <ArrowLeft size={13} /> Volver a {empresa?.nombre || 'oportunidad'}
       </button>
 
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center shrink-0">
-          {editProductoId ? <Edit3 size={24} className="text-amber-600" /> : <Settings size={24} className="text-[var(--color-accent-purple)]" />}
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold">{editProductoId ? 'Editar: Mesa' : 'Configurar: Mesa'}</h2>
-          <p className="text-sm text-[var(--color-text-muted)] mt-0.5">Empresa: {empresa?.nombre}</p>
+      <div className="opp-header">
+        <div className="body">
+          <div className="mono" style={{ fontSize: 10.5, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+            {editProductoId ? 'Editar producto' : 'Configurar producto'}
+          </div>
+          <div className="opp-title">Mesa</div>
+          <div className="opp-company-line">
+            <strong>{empresa?.nombre || '—'}</strong>
+            <span className="sep">·</span>
+            <span>Vista 3D + APU en vivo</span>
+          </div>
         </div>
       </div>
 

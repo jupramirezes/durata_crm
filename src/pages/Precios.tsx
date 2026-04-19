@@ -2,24 +2,10 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { formatCOP } from '../lib/utils'
-import { PageHeader } from '../components/ui'
-import { Search, Save, Upload, ChevronLeft, ChevronRight, Filter, ChevronUp, ChevronDown } from 'lucide-react'
+import { Search, Save, Upload, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Plus } from 'lucide-react'
 
 type SortKey = 'grupo' | 'subgrupo' | 'nombre' | 'codigo' | 'unidad' | 'precio' | 'proveedor' | 'updated_at'
 type SortDir = 'asc' | 'desc'
-
-const GRUPO_COLORS: Record<string, string> = {
-  INOX: 'bg-[#f0fdf4] text-[#15803d] border-[#bbf7d0]',
-  HIERRO: 'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]',
-  ALUMINIO: 'bg-[#f0f9ff] text-[#0284c7] border-[#bae6fd]',
-  VIDRIO: 'bg-[#faf5ff] text-[#7c3aed] border-[#e9d5ff]',
-  OTROS: 'bg-gray-50 text-gray-600 border-gray-200',
-  'MANO DE OBRA': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-}
-
-function getGrupoColor(grupo: string) {
-  return GRUPO_COLORS[grupo.toUpperCase()] || 'bg-gray-50 text-gray-700 border-gray-200'
-}
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 0] as const
 
@@ -29,7 +15,6 @@ export default function Precios() {
 
   const [search, setSearch] = useState('')
   const [filtroGrupo, setFiltroGrupo] = useState('TODOS')
-  const [filtroSubgrupo, setFiltroSubgrupo] = useState('TODOS')
   const [filtroPrecio, setFiltroPrecio] = useState<'todos' | 'con_precio' | 'sin_precio'>('todos')
 
   const [page, setPage] = useState(1)
@@ -37,41 +22,46 @@ export default function Precios() {
   const [sortKey, setSortKey] = useState<SortKey>('grupo')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('asc') }
-    setPage(1)
-  }
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <ChevronDown size={10} className="opacity-30" />
-    return sortDir === 'desc' ? <ChevronDown size={10} className="text-[var(--color-primary)]" /> : <ChevronUp size={10} className="text-[var(--color-primary)]" />
-  }
-
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [editingProvId, setEditingProvId] = useState<string | null>(null)
   const [editProvValue, setEditProvValue] = useState('')
   const [lastEditedId, setLastEditedId] = useState<string | null>(null)
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+    setPage(1)
+  }
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronDown size={9} style={{ opacity: 0.3 }} />
+    return sortDir === 'desc'
+      ? <ChevronDown size={9} style={{ color: 'var(--color-primary)' }} />
+      : <ChevronUp size={9} style={{ color: 'var(--color-primary)' }} />
+  }
+
   const grupos = useMemo(() => {
-    const set = new Set(state.precios.map(p => p.grupo))
+    const set = new Set(state.precios.map(p => p.grupo).filter(Boolean))
     return Array.from(set).sort()
   }, [state.precios])
 
-  const subgrupos = useMemo(() => {
-    const base = filtroGrupo === 'TODOS' ? state.precios : state.precios.filter(p => p.grupo === filtroGrupo)
-    const set = new Set(base.map(p => p.subgrupo || '').filter(Boolean))
-    return Array.from(set).sort()
-  }, [state.precios, filtroGrupo])
+  const grupoCounts = useMemo(() => {
+    const m: Record<string, number> = { TODOS: state.precios.length }
+    for (const p of state.precios) m[p.grupo] = (m[p.grupo] || 0) + 1
+    return m
+  }, [state.precios])
 
   const filtered = useMemo(() => {
     const res = state.precios.filter(p => {
       const s = search.toLowerCase()
-      const matchSearch = !search || (p.nombre || '').toLowerCase().includes(s) || (p.codigo || '').toLowerCase().includes(s) || (p.proveedor || '').toLowerCase().includes(s)
+      const matchSearch = !search
+        || (p.nombre || '').toLowerCase().includes(s)
+        || (p.codigo || '').toLowerCase().includes(s)
+        || (p.proveedor || '').toLowerCase().includes(s)
       const matchGrupo = filtroGrupo === 'TODOS' || p.grupo === filtroGrupo
-      const matchSubgrupo = filtroSubgrupo === 'TODOS' || (p.subgrupo || '') === filtroSubgrupo
-      const matchPrecio = filtroPrecio === 'todos' || (filtroPrecio === 'con_precio' ? p.precio > 0 : p.precio === 0)
-      return matchSearch && matchGrupo && matchSubgrupo && matchPrecio
+      const matchPrecio = filtroPrecio === 'todos'
+        || (filtroPrecio === 'con_precio' ? p.precio > 0 : p.precio === 0)
+      return matchSearch && matchGrupo && matchPrecio
     })
     const mult = sortDir === 'asc' ? 1 : -1
     return [...res].sort((a, b) => {
@@ -80,13 +70,11 @@ export default function Precios() {
       if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * mult
       return String(av || '').localeCompare(String(bv || '')) * mult
     })
-  }, [state.precios, search, filtroGrupo, filtroSubgrupo, filtroPrecio, sortKey, sortDir])
+  }, [state.precios, search, filtroGrupo, filtroPrecio, sortKey, sortDir])
 
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const paginatedData = pageSize === 0 ? filtered : filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
-
-  function resetPage() { setPage(1) }
 
   function startEdit(id: string, precio: number) {
     setEditingId(id)
@@ -113,248 +101,252 @@ export default function Precios() {
   }
 
   const isRecent = (date: string) => (Date.now() - new Date(date).getTime()) < 7 * 86400000
-
-  const selectCls = 'px-2.5 py-1.5 text-[10px] rounded-md border border-[var(--color-border)] bg-white text-[var(--color-text)]'
+  const sinPrecioCount = state.precios.filter(p => p.precio === 0).length
+  const hasFilters = !!(search || filtroGrupo !== 'TODOS' || filtroPrecio !== 'todos')
 
   return (
-    <div className="px-8 py-8 space-y-5 animate-fade-in">
-      <PageHeader
-        title="Precios Maestro"
-        subtitle={`${filtered.length === state.precios.length ? state.precios.length : `${filtered.length} de ${state.precios.length}`} materiales. Clic en precio o proveedor para editar.`}
-        actions={
-          <button
-            onClick={() => navigate('/precios/importar')}
-            className="flex items-center gap-1.5 h-[42px] px-6 bg-[var(--color-primary)] text-white rounded-[10px] text-sm font-medium hover:opacity-90 transition-all"
-          >
-            <Upload size={14} /> Importar CSV
-          </button>
-        }
-      />
-
-      {/* Sin precio banner */}
-      {(() => {
-        const sinPrecio = state.precios.filter(p => p.precio === 0).length
-        const pct = state.precios.length > 0 ? ((sinPrecio / state.precios.length) * 100).toFixed(1) : '0'
-        return sinPrecio > 0 ? (
-          <div className="bg-[#fffbeb] border border-[#fef3c7] rounded-[10px] px-5 py-3 text-[#92400e] text-sm">
-            <strong>{sinPrecio}</strong> de {state.precios.length} materiales sin precio ({pct}%)
-          </div>
-        ) : null
-      })()}
-
-      {/* Filters bar */}
-      <div className="card p-4">
-        <div className="flex items-center gap-1.5 mb-2.5">
-          <Filter size={12} className="text-[var(--color-text-muted)]" />
-          <span className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Filtros</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+    <div className="list-page">
+      <div className="list-head">
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
           <div>
-            <label className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold mb-0.5 block">Grupo</label>
-            <select
-              value={filtroGrupo}
-              onChange={e => { setFiltroGrupo(e.target.value); setFiltroSubgrupo('TODOS'); resetPage() }}
-              className={selectCls + ' w-full'}
-            >
-              <option value="TODOS">Todos los grupos</option>
-              {grupos.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold mb-0.5 block">Subgrupo</label>
-            <select
-              value={filtroSubgrupo}
-              onChange={e => { setFiltroSubgrupo(e.target.value); resetPage() }}
-              className={selectCls + ' w-full'}
-              disabled={subgrupos.length === 0}
-            >
-              <option value="TODOS">Todos los subgrupos</option>
-              {subgrupos.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold mb-0.5 block">Nombre</label>
-            <div className="relative">
-              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
-              <input
-                value={search}
-                onChange={e => { setSearch(e.target.value); resetPage() }}
-                placeholder="Buscar por nombre o codigo..."
-                className={selectCls + ' w-full pl-7'}
-              />
+            <div className="title">Precios Maestros</div>
+            <div className="sub">
+              {state.precios.length.toLocaleString('es-CO')} materiales
+              {sinPrecioCount > 0 && ` · ${sinPrecioCount.toLocaleString('es-CO')} sin precio`}
+              {hasFilters && ` · ${filtered.length.toLocaleString('es-CO')} filtrados`}
             </div>
           </div>
-          <div>
-            <label className="text-[9px] uppercase tracking-wider text-[var(--color-text-muted)] font-semibold mb-0.5 block">Precio</label>
-            <select
-              value={filtroPrecio}
-              onChange={e => { setFiltroPrecio(e.target.value as typeof filtroPrecio); resetPage() }}
-              className={selectCls + ' w-full'}
-            >
-              <option value="todos">Todos</option>
-              <option value="con_precio">Con precio (&gt;0)</option>
-              <option value="sin_precio">Sin precio (=0)</option>
-            </select>
-          </div>
+          <div style={{ flex: 1 }} />
+          <button onClick={() => navigate('/precios/importar')} className="btn-d sm">
+            <Upload size={12} /> Importar CSV
+          </button>
+          <button className="btn-d primary sm" disabled title="Próximamente">
+            <Plus size={12} /> Nuevo ítem
+          </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[10px]">
-            <thead>
-              <tr className="bg-[var(--color-surface)] text-left text-[var(--color-text-muted)]">
-                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('grupo')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Grupo <SortIcon col="grupo" /></button></th>
-                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('subgrupo')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Subgrupo <SortIcon col="subgrupo" /></button></th>
-                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('nombre')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Nombre <SortIcon col="nombre" /></button></th>
-                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('codigo')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Codigo <SortIcon col="codigo" /></button></th>
-                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('unidad')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Und <SortIcon col="unidad" /></button></th>
-                <th className="px-3 py-2.5 font-medium text-right"><button onClick={() => toggleSort('precio')} className="flex items-center gap-1 hover:text-[var(--color-text)] ml-auto">Precio <SortIcon col="precio" /></button></th>
-                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('proveedor')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Proveedor <SortIcon col="proveedor" /></button></th>
-                <th className="px-3 py-2.5 font-medium"><button onClick={() => toggleSort('updated_at')} className="flex items-center gap-1 hover:text-[var(--color-text)]">Actualizado <SortIcon col="updated_at" /></button></th>
+      <div className="list-toolbar">
+        {/* Chip all + grupos */}
+        <button
+          className={`chip ${filtroGrupo === 'TODOS' ? 'on' : ''}`}
+          onClick={() => { setFiltroGrupo('TODOS'); setPage(1) }}
+        >
+          Todos ({grupoCounts.TODOS.toLocaleString('es-CO')})
+        </button>
+        {grupos.map(g => (
+          <button
+            key={g}
+            className={`chip ${filtroGrupo === g ? 'on' : ''}`}
+            onClick={() => { setFiltroGrupo(filtroGrupo === g ? 'TODOS' : g); setPage(1) }}
+          >
+            {g} ({(grupoCounts[g] || 0).toLocaleString('es-CO')})
+          </button>
+        ))}
+
+        <div style={{ width: 1, height: 20, background: 'var(--color-border)', margin: '0 4px' }} />
+
+        <select
+          className="chip chip-select"
+          value={filtroPrecio}
+          onChange={e => { setFiltroPrecio(e.target.value as typeof filtroPrecio); setPage(1) }}
+          style={{ minWidth: 140 }}
+        >
+          <option value="todos">Precio: Todos</option>
+          <option value="con_precio">Con precio (&gt;0)</option>
+          <option value="sin_precio">Sin precio (=0)</option>
+        </select>
+
+        {hasFilters && (
+          <button
+            className="chip"
+            onClick={() => { setSearch(''); setFiltroGrupo('TODOS'); setFiltroPrecio('todos'); setPage(1) }}
+            style={{ color: 'var(--color-accent-red)' }}
+          >
+            <X />Limpiar
+          </button>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        <div className="search-input" style={{ flex: '0 0 280px' }}>
+          <Search />
+          <input
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Buscar por código, nombre o proveedor…"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-label)', minHeight: 0, padding: 2 }}>
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="list-scroll">
+        <table className="list-tbl">
+          <thead>
+            <tr>
+              <th style={{ width: '18%' }} className="sortable" onClick={() => toggleSort('codigo')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Código <SortIcon col="codigo" /></span>
+              </th>
+              <th className="sortable" onClick={() => toggleSort('nombre')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Nombre <SortIcon col="nombre" /></span>
+              </th>
+              <th className="sortable" onClick={() => toggleSort('grupo')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Grupo <SortIcon col="grupo" /></span>
+              </th>
+              <th className="sortable" onClick={() => toggleSort('unidad')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Und <SortIcon col="unidad" /></span>
+              </th>
+              <th className="sortable" onClick={() => toggleSort('proveedor')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Proveedor <SortIcon col="proveedor" /></span>
+              </th>
+              <th className="num sortable" onClick={() => toggleSort('precio')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Precio <SortIcon col="precio" /></span>
+              </th>
+              <th className="num sortable" onClick={() => toggleSort('updated_at')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Actualizado <SortIcon col="updated_at" /></span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedData.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-label)' }}>
+                  {hasFilters ? 'Sin materiales para los filtros aplicados' : 'Aún no hay precios registrados. Importa CSV para empezar.'}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {paginatedData.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-3 py-10 text-center text-xs text-[var(--color-text-muted)]">
-                    No se encontraron materiales con los filtros actuales
+            ) : (
+              paginatedData.map((p) => (
+                <tr
+                  key={p.id}
+                  style={{
+                    background: lastEditedId === p.id ? 'var(--color-primary-weak)' : undefined,
+                  }}
+                >
+                  <td className="mono" style={{ color: 'var(--color-text-muted)', fontSize: 11.5 }}>
+                    {p.codigo || <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                  </td>
+                  <td className="primary-cell">{p.nombre}</td>
+                  <td>
+                    <span className="stage-pill">
+                      <span className="stage-dot" style={{ background: 'var(--color-text-label)' }} />
+                      {p.grupo}
+                    </span>
+                    {p.subgrupo && (
+                      <div className="mono" style={{ fontSize: 10.5, color: 'var(--color-text-label)', marginTop: 2 }}>{p.subgrupo}</div>
+                    )}
+                  </td>
+                  <td className="mono" style={{ color: 'var(--color-text-label)' }}>{p.unidad || '—'}</td>
+                  <td onClick={e => e.stopPropagation()}>
+                    {editingProvId === p.id ? (
+                      <input
+                        type="text"
+                        value={editProvValue}
+                        onChange={e => setEditProvValue(e.target.value)}
+                        style={{ width: 140, padding: '3px 6px', fontSize: 12, border: '1px solid var(--color-primary)' }}
+                        autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') saveProvEdit(p.id)
+                          if (e.key === 'Escape') setEditingProvId(null)
+                        }}
+                        onBlur={() => saveProvEdit(p.id)}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => startProvEdit(p.id, p.proveedor)}
+                        style={{ cursor: 'pointer', color: p.proveedor ? 'var(--color-text)' : 'var(--color-text-faint)' }}
+                      >
+                        {p.proveedor || '—'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="num" onClick={e => e.stopPropagation()}>
+                    {editingId === p.id ? (
+                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          style={{ width: 110, padding: '3px 6px', fontSize: 12, textAlign: 'right', border: '1px solid var(--color-primary)' }}
+                          autoFocus
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEdit(p.id)
+                            if (e.key === 'Escape') setEditingId(null)
+                          }}
+                          onBlur={() => setEditingId(null)}
+                        />
+                        <button
+                          onMouseDown={e => { e.preventDefault(); saveEdit(p.id) }}
+                          className="btn-d ghost icon sm"
+                          style={{ color: 'var(--color-accent-green)' }}
+                        ><Save size={11} /></button>
+                      </div>
+                    ) : (
+                      <span
+                        onClick={() => startEdit(p.id, p.precio)}
+                        style={{
+                          cursor: 'pointer',
+                          fontWeight: p.precio > 0 ? 600 : 400,
+                          color: p.precio === 0 ? 'var(--color-text-faint)' : 'var(--color-text)',
+                        }}
+                      >
+                        {p.precio === 0 ? '—' : formatCOP(p.precio)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="num" style={{ color: 'var(--color-text-label)' }}>
+                    <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                      {p.updated_at?.split('T')[0] || '—'}
+                      {p.updated_at && isRecent(p.updated_at) && (
+                        <span className="mono" style={{ fontSize: 9, padding: '1px 4px', borderRadius: 3, background: 'var(--color-primary-weak)', color: 'var(--color-primary)', border: '1px solid var(--color-primary-line)' }}>nuevo</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                paginatedData.map((p) => (
-                  <tr
-                    key={p.id}
-                    className={`border-b border-[#f8fafc] hover:bg-[#fafbfc] transition-colors ${lastEditedId === p.id ? 'bg-yellow-50 ring-1 ring-yellow-200' : ''}`}
-                  >
-                    <td className="px-3 py-2">
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium border whitespace-nowrap ${getGrupoColor(p.grupo)}`}>
-                        {p.grupo}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[var(--color-text-muted)]">{p.subgrupo || '\u2014'}</td>
-                    <td className="px-3 py-2 text-[var(--color-text)] max-w-xs truncate" title={p.nombre}>{p.nombre}</td>
-                    <td className="px-3 py-2 text-[var(--color-text-muted)] font-mono">{p.codigo || '\u2014'}</td>
-                    <td className="px-3 py-2 text-[var(--color-text)]">{p.unidad}</td>
-                    <td className="px-3 py-2 text-right">
-                      {editingId === p.id ? (
-                        <div className="flex items-center gap-1 justify-end">
-                          <input
-                            type="number"
-                            value={editValue}
-                            onChange={e => setEditValue(e.target.value)}
-                            className="w-24 px-1.5 py-0.5 rounded text-[10px] text-right bg-white border border-[var(--color-primary)]/40"
-                            autoFocus
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') saveEdit(p.id)
-                              if (e.key === 'Escape') setEditingId(null)
-                            }}
-                            onBlur={() => setEditingId(null)}
-                          />
-                          <button onMouseDown={e => { e.preventDefault(); saveEdit(p.id) }} className="text-green-600 hover:opacity-80 p-0.5 rounded hover:bg-green-50"><Save size={11} /></button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 justify-end">
-                          <span
-                            onClick={() => startEdit(p.id, p.precio)}
-                            className={`cursor-pointer hover:text-[var(--color-primary)] font-medium transition-colors tabular-nums ${p.precio === 0 ? 'text-[#94a3b8]' : 'text-[var(--color-text)]'}`}
-                          >
-                            {p.precio === 0 ? '—' : formatCOP(p.precio)}
-                          </span>
-                          {lastEditedId === p.id && (
-                            <span className="text-[8px] text-green-600 font-medium animate-fade-in">OK</span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {editingProvId === p.id ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="text"
-                            value={editProvValue}
-                            onChange={e => setEditProvValue(e.target.value)}
-                            className="w-24 px-1.5 py-0.5 rounded text-[10px] bg-white border border-[var(--color-primary)]/40"
-                            autoFocus
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') saveProvEdit(p.id)
-                              if (e.key === 'Escape') setEditingProvId(null)
-                            }}
-                            onBlur={() => setEditingProvId(null)}
-                          />
-                          <button onMouseDown={e => { e.preventDefault(); saveProvEdit(p.id) }} className="text-green-600 hover:opacity-80 p-0.5 rounded hover:bg-green-50"><Save size={11} /></button>
-                        </div>
-                      ) : (
-                        <span
-                          onClick={() => startProvEdit(p.id, p.proveedor)}
-                          className="cursor-pointer hover:text-[var(--color-primary)] transition-colors text-[var(--color-text-muted)]"
-                        >
-                          {p.proveedor || '\u2014'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-[var(--color-text-muted)]">
-                      <div className="flex items-center gap-1">
-                        {p.updated_at?.split('T')[0] || '\u2014'}
-                        {p.updated_at && isRecent(p.updated_at) && (
-                          <span className="text-[8px] px-1 py-0.5 rounded bg-green-50 text-green-700 font-medium border border-green-200">Nuevo</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination bar */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
-          <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
-            <span>Filas por pagina:</span>
-            {PAGE_SIZE_OPTIONS.map(size => (
-              <button
-                key={size}
-                onClick={() => { setPageSize(size); setPage(1) }}
-                className={`px-1.5 py-0.5 rounded font-medium transition ${
-                  pageSize === size
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'hover:bg-[var(--color-surface-hover)] text-[var(--color-text-muted)]'
-                }`}
-              >
-                {size === 0 ? 'Todos' : size}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2 text-[10px]">
-            <span className="text-[var(--color-text-muted)]">
-              Mostrando {filtered.length === 0 ? 0 : (safePage - 1) * (pageSize || filtered.length) + 1}–{Math.min(safePage * (pageSize || filtered.length), filtered.length)} de {filtered.length}
-            </span>
-            {pageSize > 0 && totalPages > 1 && (
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={safePage === 1}
-                  className="p-1 rounded hover:bg-[var(--color-surface-hover)] transition disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={12} />
-                </button>
-                <span className="px-1.5 font-medium text-[var(--color-text)]">
-                  {safePage} <span className="text-[var(--color-text-muted)] font-normal">de</span> {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={safePage === totalPages}
-                  className="p-1 rounded hover:bg-[var(--color-surface-hover)] transition disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight size={12} />
-                </button>
-              </div>
+              ))
             )}
-          </div>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="list-foot">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>Mostrando {filtered.length === 0 ? 0 : (safePage - 1) * (pageSize || filtered.length) + 1}–{Math.min(safePage * (pageSize || filtered.length), filtered.length)} de {filtered.length.toLocaleString('es-CO')}</span>
+          <span style={{ color: 'var(--color-text-faint)' }}>·</span>
+          <span style={{ color: 'var(--color-text-label)' }}>Filas:</span>
+          {PAGE_SIZE_OPTIONS.map(size => (
+            <button
+              key={size}
+              onClick={() => { setPageSize(size); setPage(1) }}
+              className={`chip ${pageSize === size ? 'on' : ''}`}
+              style={{ height: 22, fontSize: 11, padding: '0 8px' }}
+            >
+              {size === 0 ? 'Todos' : size}
+            </button>
+          ))}
         </div>
+        {pageSize > 0 && totalPages > 1 && (
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="btn-d ghost icon sm"
+              style={{ opacity: safePage === 1 ? 0.4 : 1 }}
+            ><ChevronLeft size={12} /></button>
+            <span className="mono" style={{ padding: '0 8px', fontSize: 11.5, color: 'var(--color-text)' }}>
+              {safePage} <span style={{ color: 'var(--color-text-label)' }}>de</span> {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="btn-d ghost icon sm"
+              style={{ opacity: safePage === totalPages ? 0.4 : 1 }}
+            ><ChevronRight size={12} /></button>
+          </div>
+        )}
       </div>
     </div>
   )

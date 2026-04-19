@@ -31,7 +31,7 @@ const SEC = {
   mo:         { label: 'MANO DE OBRA',  bg: 'bg-amber-50',  color: 'text-amber-700',  border: 'border-amber-200', dot: 'bg-amber-500' },
   transporte: { label: 'TRANSPORTE',    bg: 'bg-emerald-50',color: 'text-emerald-700', border: 'border-emerald-200',dot: 'bg-emerald-500' },
   laser:      { label: 'CORTE LÁSER',   bg: 'bg-red-50',    color: 'text-red-700',     border: 'border-red-200',   dot: 'bg-red-500' },
-  poliza:     { label: 'PÓLIZA',        bg: 'bg-gray-50',   color: 'text-gray-600',    border: 'border-gray-200',  dot: 'bg-gray-400' },
+  poliza:     { label: 'PÓLIZA',        bg: 'bg-[var(--color-surface-2)]',   color: 'text-[var(--color-text-muted)]',    border: 'border-[var(--color-border)]',  dot: 'bg-[var(--color-text-faint)]' },
   addon:      { label: 'EXTRAS',        bg: 'bg-purple-50', color: 'text-purple-700',  border: 'border-purple-200',dot: 'bg-purple-500' },
 } as const
 const SEC_ORDER = ['insumos', 'mo', 'transporte', 'laser', 'poliza', 'addon'] as const
@@ -42,15 +42,15 @@ const GROUP_STYLE: Record<string, { icon: typeof Ruler; bg: string; text: string
   Material:                 { icon: Layers,  bg: 'bg-emerald-50', text: 'text-emerald-600' },
   Configuracion:            { icon: Grid3X3, bg: 'bg-purple-50',  text: 'text-purple-600' },
   Accesorios:               { icon: Circle,  bg: 'bg-orange-50',  text: 'text-orange-600' },
-  Extras:                   { icon: Settings,bg: 'bg-slate-100',  text: 'text-slate-500' },
-  General:                  { icon: Box,     bg: 'bg-slate-50',   text: 'text-slate-500' },
+  Extras:                   { icon: Settings,bg: 'bg-[var(--color-surface-2)]',  text: 'text-[var(--color-text-label)]' },
+  General:                  { icon: Box,     bg: 'bg-[var(--color-surface-2)]',   text: 'text-[var(--color-text-label)]' },
   Salpicaderos:             { icon: Layers,  bg: 'bg-orange-50',  text: 'text-orange-600' },
   Babero:                   { icon: Layers,  bg: 'bg-orange-50',  text: 'text-orange-600' },
   Pozuelos:                 { icon: Circle,  bg: 'bg-orange-50',  text: 'text-orange-600' },
   Vertedero:                { icon: Box,     bg: 'bg-orange-50',  text: 'text-orange-600' },
   'Desague':                { icon: Box,     bg: 'bg-orange-50',  text: 'text-orange-600' },
 }
-const DEFAULT_GROUP_STYLE = { icon: Settings, bg: 'bg-slate-50', text: 'text-slate-500' }
+const DEFAULT_GROUP_STYLE = { icon: Settings, bg: 'bg-[var(--color-surface-2)]', text: 'text-[var(--color-text-label)]' }
 
 /* ── Description templates ──────────────────────────── */
 
@@ -116,7 +116,8 @@ export default function ConfiguradorGenerico() {
   const editProductoId = searchParams.get('editar')
   const navigate = useNavigate()
   const { state, dispatch } = useStore()
-  const empresa = state.empresas.find(e => state.oportunidades.find(o => o.id === id)?.empresa_id === e.id)
+  const oportunidad = state.oportunidades.find(o => o.id === id)
+  const empresa = state.empresas.find(e => oportunidad?.empresa_id === e.id)
   const productoId = paramPid || 'mesa'
 
   // If editing, load existing product
@@ -365,20 +366,50 @@ export default function ConfiguradorGenerico() {
     setTimeout(() => navigate(`/oportunidades/${id}`), 500)
   }
 
-  if (loading) return <div className="flex items-center justify-center h-[60vh] text-slate-500">Cargando configurador...</div>
+  if (loading) return <div className="flex items-center justify-center h-[60vh] text-[var(--color-text-label)]">Cargando configurador...</div>
   if (error) return <div className="p-8 text-center text-red-500">Error: {error}</div>
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(`/oportunidades/${id}`)} className="flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:underline"><ArrowLeft size={16} /> Volver</button>
-        <div className="flex-1" />
-        <div className="text-right">
-          <h2 className="text-2xl font-bold text-[var(--color-text)]">{editProductoId ? 'Editar' : 'Configurar'}: {productoNombre}</h2>
-          <p className="text-sm text-slate-500">Empresa: {empresa?.nombre}</p>
-        </div>
-      </div>
+    <div className="page">
+      {/* Header (handoff: crumb + title + back en linea) */}
+      <button
+        onClick={() => navigate(`/oportunidades/${id}`)}
+        className="btn-d ghost sm"
+        style={{ marginBottom: 14, padding: '0 8px' }}
+      >
+        <ArrowLeft size={13} /> Volver a oportunidad
+      </button>
+
+      {(() => {
+        // Feedback JP 2026-04-19 v2: header con contexto más completo para el configurador.
+        // Muestra: COT activa, empresa, contacto, ubicación, productos ya configurados en la opp.
+        const latestCot = oportunidad ? state.cotizaciones
+          .filter(c => c.oportunidad_id === oportunidad.id && !['descartada','rechazada'].includes(c.estado))
+          .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0] : null
+        const contacto = oportunidad ? state.contactos.find(c => c.id === oportunidad.contacto_id) : null
+        const otrosProductos = oportunidad ? state.productos.filter(p => p.oportunidad_id === oportunidad.id && p.id !== editProductoId) : []
+        return (
+          <div className="opp-header">
+            <div className="body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                {latestCot && (
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)' }}>COT {latestCot.numero}</span>
+                )}
+                <span className="mono" style={{ fontSize: 10.5, color: 'var(--color-text-label)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  · {editProductoId ? 'EDITANDO' : 'NUEVO PRODUCTO'}
+                </span>
+              </div>
+              <div className="opp-title">{productoNombre}</div>
+              <div className="opp-company-line" style={{ flexWrap: 'wrap' }}>
+                <strong>{empresa?.nombre || '—'}</strong>
+                {contacto && (<><span className="sep">·</span><span>{contacto.nombre}</span></>)}
+                {oportunidad?.ubicacion && (<><span className="sep">·</span><span>{oportunidad.ubicacion}</span></>)}
+                {otrosProductos.length > 0 && (<><span className="sep">·</span><span className="mono" style={{ color: 'var(--color-text-muted)' }}>{otrosProductos.length} producto{otrosProductos.length !== 1 ? 's' : ''} en la opp</span></>)}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="flex gap-6 items-start">
         {/* LEFT: Controls */}
@@ -387,22 +418,22 @@ export default function ConfiguradorGenerico() {
             const gs = GROUP_STYLE[gn] || DEFAULT_GROUP_STYLE
             const Ic = gs.icon; const isDimOrMat = gn === 'Dimensiones principales' || gn === 'Dimensiones' || gn === 'Material'
             return (
-              <div key={gn} className="bg-white rounded-xl border border-[var(--color-border)] shadow-sm overflow-hidden">
-                <button onClick={() => toggleGroup(gn)} className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/80 transition-colors">
+              <div key={gn} className="bg-white rounded-xl border border-[var(--color-border)] shadow-card overflow-hidden">
+                <button onClick={() => toggleGroup(gn)} className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-[var(--color-surface-hover)]/80 transition-colors">
                   <div className={`w-8 h-8 rounded-lg ${gs.bg} flex items-center justify-center shrink-0`}><Ic size={16} className={gs.text} /></div>
-                  <span className="text-sm font-semibold text-slate-800 flex-1 text-left">{gn}</span>
-                  {!expandedGroups.has(gn) && <span className="text-xs text-slate-400 mr-2">{gv.filter(v => v.tipo !== 'calculado').slice(0, 3).map(v => { const val = computedVars[v.nombre]; return v.tipo === 'toggle' ? (val ? '✓' : '—') : `${val}${v.unidad || ''}` }).join(' · ')}</span>}
-                  {expandedGroups.has(gn) ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+                  <span className="text-sm font-semibold text-[var(--color-text)] flex-1 text-left">{gn}</span>
+                  {!expandedGroups.has(gn) && <span className="text-xs text-[var(--color-text-faint)] mr-2">{gv.filter(v => v.tipo !== 'calculado').slice(0, 3).map(v => { const val = computedVars[v.nombre]; return v.tipo === 'toggle' ? (val ? '✓' : '—') : `${val}${v.unidad || ''}` }).join(' · ')}</span>}
+                  {expandedGroups.has(gn) ? <ChevronDown size={16} className="text-[var(--color-text-faint)]" /> : <ChevronRight size={16} className="text-[var(--color-text-faint)]" />}
                 </button>
                 {expandedGroups.has(gn) && (
-                  <div className="px-5 pb-4 pt-1 border-t border-slate-100">
+                  <div className="px-5 pb-4 pt-1 border-t border-[var(--color-border-light)]">
                     {isDimOrMat ? (
                       <div className="grid grid-cols-3 gap-3">
                         {gv.map(v => (
                           <div key={v.nombre}>
-                            <label className="text-xs font-medium text-slate-500 mb-1.5 block">{v.label}</label>
-                            {v.tipo === 'numero' && <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 bg-white hover:border-slate-300"><input type="number" value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)} step={v.unidad === 'm' ? 0.01 : 1} min={v.min_val ?? undefined} max={v.max_val ?? undefined} className="w-full text-sm font-medium text-right bg-transparent outline-none tabular-nums" />{v.unidad && <span className="text-xs text-slate-400 shrink-0">{v.unidad}</span>}</div>}
-                            {v.tipo === 'seleccion' && <select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="w-full px-3 py-2 text-sm font-medium border border-slate-200 rounded-lg bg-white hover:border-slate-300">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select>}
+                            <label className="text-xs font-medium text-[var(--color-text-label)] mb-1.5 block">{v.label}</label>
+                            {v.tipo === 'numero' && <div className="flex items-center gap-1.5 border border-[var(--color-border)] rounded-lg px-3 py-2 bg-white hover:border-[var(--color-primary)]"><input type="number" value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)} step={v.unidad === 'm' ? 0.01 : 1} min={v.min_val ?? undefined} max={v.max_val ?? undefined} className="w-full text-sm font-medium text-right bg-transparent outline-none tabular-nums" />{v.unidad && <span className="text-xs text-[var(--color-text-faint)] shrink-0">{v.unidad}</span>}</div>}
+                            {v.tipo === 'seleccion' && <select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="w-full px-3 py-2 text-sm font-medium border border-[var(--color-border)] rounded-lg bg-white hover:border-[var(--color-primary)]">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select>}
                           </div>
                         ))}
                       </div>
@@ -412,16 +443,16 @@ export default function ConfiguradorGenerico() {
                           <div key={v.nombre}>
                             {v.tipo === 'numero' && (
                               <div className="flex items-center gap-3">
-                                <span className="text-sm text-slate-600 w-[180px] shrink-0">{v.label}</span>
-                                <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-3 py-2 bg-white hover:border-slate-300 w-[110px]">
+                                <span className="text-sm text-[var(--color-text-muted)] w-[180px] shrink-0">{v.label}</span>
+                                <div className="flex items-center gap-1.5 border border-[var(--color-border)] rounded-lg px-3 py-2 bg-white hover:border-[var(--color-primary)] w-[110px]">
                                   <input type="number" value={Number(computedVars[v.nombre]) || 0} onChange={e => updateVar(v.nombre, parseFloat(e.target.value) || 0)} step={v.unidad === 'm' ? 0.01 : 1} min={v.min_val ?? undefined} max={v.max_val ?? undefined} className="w-full text-sm font-medium text-right bg-transparent outline-none tabular-nums" />
-                                  {v.unidad && <span className="text-xs text-slate-400 shrink-0">{v.unidad}</span>}
+                                  {v.unidad && <span className="text-xs text-[var(--color-text-faint)] shrink-0">{v.unidad}</span>}
                                 </div>
                               </div>
                             )}
-                            {v.tipo === 'toggle' && <label className="flex items-center gap-3 cursor-pointer py-0.5"><input type="checkbox" checked={!!computedVars[v.nombre]} onChange={e => updateVar(v.nombre, e.target.checked ? 1 : 0)} className="w-4.5 h-4.5 accent-blue-600 rounded" /><span className="text-sm text-slate-600">{v.label}</span></label>}
-                            {v.tipo === 'seleccion' && <div className="flex items-center gap-3"><span className="text-sm text-slate-600 w-[180px] shrink-0">{v.label}</span><select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="px-3 py-2 text-sm font-medium border border-slate-200 rounded-lg bg-white hover:border-slate-300">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select></div>}
-                            {v.tipo === 'calculado' && <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg"><span className="text-sm text-slate-500 flex-1">{v.label}</span><span className="text-sm font-bold text-slate-800 tabular-nums">{Math.round(Number(computedVars[v.nombre]) || 0)}</span></div>}
+                            {v.tipo === 'toggle' && <label className="flex items-center gap-3 cursor-pointer py-0.5"><input type="checkbox" checked={!!computedVars[v.nombre]} onChange={e => updateVar(v.nombre, e.target.checked ? 1 : 0)} className="w-4.5 h-4.5 accent-blue-600 rounded" /><span className="text-sm text-[var(--color-text-muted)]">{v.label}</span></label>}
+                            {v.tipo === 'seleccion' && <div className="flex items-center gap-3"><span className="text-sm text-[var(--color-text-muted)] w-[180px] shrink-0">{v.label}</span><select value={String(computedVars[v.nombre])} onChange={e => updateVar(v.nombre, e.target.value)} className="px-3 py-2 text-sm font-medium border border-[var(--color-border)] rounded-lg bg-white hover:border-[var(--color-primary)]">{(v.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}</select></div>}
+                            {v.tipo === 'calculado' && <div className="flex items-center gap-3 bg-[var(--color-surface-2)] px-4 py-2 rounded-lg"><span className="text-sm text-[var(--color-text-label)] flex-1">{v.label}</span><span className="text-sm font-bold text-[var(--color-text)] tabular-nums">{Math.round(Number(computedVars[v.nombre]) || 0)}</span></div>}
                           </div>
                         ))}
                       </div>
@@ -433,17 +464,17 @@ export default function ConfiguradorGenerico() {
           })}
 
           {/* Description */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] shadow-sm p-5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Descripción comercial</label>
+          <div className="bg-white rounded-xl border border-[var(--color-border)] shadow-card p-5">
+            <label className="text-xs font-semibold text-[var(--color-text-label)] uppercase tracking-wider mb-2 block">Descripción comercial</label>
             <textarea value={descripcionEdit} onChange={e => { setDescripcionEdit(e.target.value); setDescManual(true) }} rows={3}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg resize-none focus:border-blue-400 focus:outline-none leading-relaxed" />
+              className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-lg resize-none focus:border-blue-400 focus:outline-none leading-relaxed" />
           </div>
         </div>
 
         {/* RIGHT: Price + APU (sticky) */}
         <div className="w-[380px] shrink-0 space-y-3" style={{ position: 'sticky', top: 80 }}>
           {/* Price card */}
-          <div className="rounded-2xl p-6 text-white shadow-lg" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+          <div className="rounded-[var(--radius-xl)] p-6 text-white" style={{ background: 'linear-gradient(135deg, var(--color-accent-green) 0%, oklch(0.50 0.10 155) 100%)', boxShadow: 'var(--shadow-md)' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Precio comercial</p>
             <p className="text-4xl font-extrabold tabular-nums leading-none">{formatCOP(precioFinal)}</p>
             {cantidad > 1 && <p className="text-sm opacity-80 mt-1">× {cantidad} = {formatCOP(precioFinal * cantidad)}</p>}
@@ -462,16 +493,16 @@ export default function ConfiguradorGenerico() {
 
           {/* Full APU desglose */}
           {full && (
-            <div className="bg-white rounded-xl border border-[var(--color-border)] shadow-sm overflow-hidden">
-              <button onClick={() => setShowAPU(!showAPU)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Desglose APU</span>
-                <span className="text-xs text-slate-400">{full.allLineas.filter(l => l.activa).length} líneas {showAPU ? '▾' : '▸'}</span>
+            <div className="bg-white rounded-xl border border-[var(--color-border)] shadow-card overflow-hidden">
+              <button onClick={() => setShowAPU(!showAPU)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--color-surface-hover)] transition-colors">
+                <span className="text-xs font-semibold text-[var(--color-text-label)] uppercase tracking-wider">Desglose APU</span>
+                <span className="text-xs text-[var(--color-text-faint)]">{full.allLineas.filter(l => l.activa).length} líneas {showAPU ? '▾' : '▸'}</span>
               </button>
               {showAPU && (
                 <div className="max-h-[500px] overflow-y-auto">
                   {/* Column headers */}
-                  <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
-                    <table className="w-full text-[10px]"><thead><tr className="text-slate-400 uppercase tracking-wider">
+                  <div className="sticky top-0 z-10 bg-white border-b border-[var(--color-border)]">
+                    <table className="w-full text-[10px]"><thead><tr className="text-[var(--color-text-faint)] uppercase tracking-wider">
                       <th className="py-1.5 pl-4 text-left font-semibold">Descripcion</th>
                       <th className="py-1.5 w-14 pr-1 text-right font-semibold">Cant</th>
                       <th className="py-1.5 w-16 pr-1 text-right font-semibold">P.Unit</th>
@@ -504,20 +535,20 @@ export default function ConfiguradorGenerico() {
                             const dispTotal = dispCant * dispPu * (1 + (l.desperdicio || 0))
                             const isMissing = l.precio_unitario === 0 && l.cantidad > 0 && !ov?.pu
                             return (
-                              <tr key={`${sec}-${li}`} className={`border-b border-slate-50 ${isOverridden ? 'bg-amber-50/40' : 'hover:bg-slate-50/50'}`}>
-                                <td className="py-1 pl-4 text-slate-600 max-w-[100px] truncate text-[10px]">
+                              <tr key={`${sec}-${li}`} className={`border-b border-[var(--color-border-light)] ${isOverridden ? 'bg-amber-50/40' : 'hover:bg-[var(--color-surface-hover)]/50'}`}>
+                                <td className="py-1 pl-4 text-[var(--color-text-muted)] max-w-[100px] truncate text-[10px]">
                                   {l.descripcion}
                                   {isMissing && <span className="text-red-500 ml-1" title="Precio no encontrado en precios_maestro">⚠</span>}
                                 </td>
                                 <td className="py-1 w-14 pr-1">
                                   <input type="number" value={Number(dispCant.toFixed(4))} step={0.01}
                                     onChange={e => setLineOverrides(p => ({ ...p, [oKey]: { ...p[oKey], cant: parseFloat(e.target.value) || 0 } }))}
-                                    className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isOverridden ? 'text-amber-700 font-semibold' : 'text-slate-500'} hover:bg-white hover:border hover:border-slate-200 hover:rounded px-1`} />
+                                    className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isOverridden ? 'text-amber-700 font-semibold' : 'text-[var(--color-text-label)]'} hover:bg-white hover:border hover:border-[var(--color-border)] hover:rounded px-1`} />
                                 </td>
                                 <td className="py-1 w-16 pr-1">
                                   <input type="number" value={Math.round(dispPu)} step={100}
                                     onChange={e => setLineOverrides(p => ({ ...p, [oKey]: { ...p[oKey], pu: parseFloat(e.target.value) || 0 } }))}
-                                    className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isMissing ? 'text-red-500' : isOverridden ? 'text-amber-700 font-semibold' : 'text-slate-400'} hover:bg-white hover:border hover:border-slate-200 hover:rounded px-1`} />
+                                    className={`w-full text-right text-[10px] tabular-nums bg-transparent outline-none ${isMissing ? 'text-red-500' : isOverridden ? 'text-amber-700 font-semibold' : 'text-[var(--color-text-faint)]'} hover:bg-white hover:border hover:border-[var(--color-border)] hover:rounded px-1`} />
                                 </td>
                                 <td className={`py-1 text-right tabular-nums text-[10px] font-medium pr-3 ${isMissing ? 'text-red-400' : ''}`}>{formatCOP(Math.round(dispTotal))}</td>
                               </tr>
@@ -532,7 +563,7 @@ export default function ConfiguradorGenerico() {
                     <div>
                       <div className="bg-amber-50 px-4 py-1.5 border-y border-amber-200"><span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">LÍNEAS ADICIONALES</span></div>
                       {customLines.map((cl, i) => (
-                        <div key={i} className="flex items-center gap-1 px-4 py-1 text-[11px] border-b border-slate-50">
+                        <div key={i} className="flex items-center gap-1 px-4 py-1 text-[11px] border-b border-[var(--color-border-light)]">
                           <input value={cl.desc} onChange={e => setCustomLines(p => p.map((c, j) => j === i ? { ...c, desc: e.target.value } : c))} className="flex-1 px-1 py-0.5 border border-amber-200 rounded" placeholder="Descripción" />
                           <input type="number" value={cl.cant} onChange={e => setCustomLines(p => p.map((c, j) => j === i ? { ...c, cant: Number(e.target.value) } : c))} className="w-10 px-1 py-0.5 border border-amber-200 rounded text-right" />
                           <input type="number" value={cl.pu} onChange={e => setCustomLines(p => p.map((c, j) => j === i ? { ...c, pu: Number(e.target.value) } : c))} className="w-16 px-1 py-0.5 border border-amber-200 rounded text-right" />
@@ -546,15 +577,15 @@ export default function ConfiguradorGenerico() {
                     <button onClick={() => setCustomLines(p => [...p, { desc: '', cant: 1, pu: 0 }])} className="text-[11px] text-blue-600 font-medium flex items-center gap-1 hover:underline"><Plus size={12} /> Agregar línea</button>
                   </div>
                   {/* Totals */}
-                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 space-y-1 text-xs">
-                    <div className="flex justify-between"><span className="text-slate-500">Insumos</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalInsumos))}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Mano de obra</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalMO))}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Transporte</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalTransporte))}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Corte láser</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalLaser))}</span></div>
-                    {full.totalPoliza > 0 && <div className="flex justify-between"><span className="text-slate-500">Póliza</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalPoliza))}</span></div>}
+                  <div className="px-4 py-3 bg-[var(--color-surface-2)] border-t border-[var(--color-border)] space-y-1 text-xs">
+                    <div className="flex justify-between"><span className="text-[var(--color-text-label)]">Insumos</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalInsumos))}</span></div>
+                    <div className="flex justify-between"><span className="text-[var(--color-text-label)]">Mano de obra</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalMO))}</span></div>
+                    <div className="flex justify-between"><span className="text-[var(--color-text-label)]">Transporte</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalTransporte))}</span></div>
+                    <div className="flex justify-between"><span className="text-[var(--color-text-label)]">Corte láser</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalLaser))}</span></div>
+                    {full.totalPoliza > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-label)]">Póliza</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(full.totalPoliza))}</span></div>}
                     {overrideDelta !== 0 && <div className="flex justify-between text-amber-600"><span>Ajustes manuales</span><span className="font-semibold tabular-nums">{overrideDelta > 0 ? '+' : ''}{formatCOP(Math.round(overrideDelta))}</span></div>}
-                    {customTotal > 0 && <div className="flex justify-between"><span className="text-slate-500">Adicionales</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(customTotal))}</span></div>}
-                    <div className="flex justify-between pt-1.5 border-t border-slate-300"><span className="font-bold text-slate-800">Costo total</span><span className="font-bold tabular-nums">{formatCOP(Math.round(adjustedCostoTotal))}</span></div>
+                    {customTotal > 0 && <div className="flex justify-between"><span className="text-[var(--color-text-label)]">Adicionales</span><span className="font-semibold tabular-nums">{formatCOP(Math.round(customTotal))}</span></div>}
+                    <div className="flex justify-between pt-1.5 border-t border-[var(--color-border-strong)]"><span className="font-bold text-[var(--color-text)]">Costo total</span><span className="font-bold tabular-nums">{formatCOP(Math.round(adjustedCostoTotal))}</span></div>
                   </div>
                 </div>
               )}
@@ -563,8 +594,8 @@ export default function ConfiguradorGenerico() {
 
           {/* Actions */}
           <div className="flex gap-2">
-            <button onClick={handleAdd} disabled={!resultado} className="flex-1 flex items-center justify-center gap-2 h-12 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-40"><Package size={16} /> {editProductoId ? 'ACTUALIZAR PRODUCTO' : 'AGREGAR AL PEDIDO'}</button>
-            <button onClick={() => navigate(`/oportunidades/${id}`)} className="px-5 h-12 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+            <button onClick={handleAdd} disabled={!resultado} className="flex-1 flex items-center justify-center gap-2 h-12 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-card disabled:opacity-40"><Package size={16} /> {editProductoId ? 'ACTUALIZAR PRODUCTO' : 'AGREGAR AL PEDIDO'}</button>
+            <button onClick={() => navigate(`/oportunidades/${id}`)} className="px-5 h-12 rounded-xl border border-[var(--color-border)] text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)] transition-colors">Cancelar</button>
           </div>
         </div>
       </div>

@@ -5,18 +5,20 @@ export type Etapa = 'nuevo_lead' | 'en_cotizacion' | 'cotizacion_enviada' | 'en_
 
 interface EtapaDef { key: Etapa; label: string; color: string }
 
+// Colors: muted OKLCH chroma-unified palette from the redesign (warm-paper aesthetic).
+// Users can override per-etapa via /config (localStorage) if they want stronger hues.
 const ETAPAS_DEFAULTS: EtapaDef[] = [
-  { key: 'nuevo_lead', label: 'Nuevo Lead', color: '#3b82f6' },
-  { key: 'en_cotizacion', label: 'En Cotización', color: '#a855f7' },
-  { key: 'cotizacion_enviada', label: 'Cotización Enviada', color: '#06b6d4' },
-  { key: 'en_seguimiento', label: 'En Seguimiento', color: '#eab308' },
-  { key: 'en_negociacion', label: 'En Negociación', color: '#f97316' },
-  { key: 'adjudicada', label: 'Adjudicada', color: '#22c55e' },
+  { key: 'nuevo_lead', label: 'Nuevo Lead', color: 'oklch(0.62 0.04 260)' },
+  { key: 'en_cotizacion', label: 'En Cotización', color: 'oklch(0.58 0.08 290)' },
+  { key: 'cotizacion_enviada', label: 'Cotización Enviada', color: 'oklch(0.60 0.09 220)' },
+  { key: 'en_seguimiento', label: 'En Seguimiento', color: 'oklch(0.68 0.10 90)' },
+  { key: 'en_negociacion', label: 'En Negociación', color: 'oklch(0.62 0.13 50)' },
+  { key: 'adjudicada', label: 'Adjudicada', color: 'oklch(0.58 0.10 155)' },
   // D-11: estado terminal alternativo — oportunidades con cotizaciones descartadas/consolidadas.
   // NO suma al pipeline activo (ver Dashboard/Pipeline filters). getActiveCotizacionValor sigue
   // excluyendo descartadas/rechazadas: el valor refleja cotización nueva en borrador (0 si no hay).
-  { key: 'recotizada', label: 'Recotizada/Consolidada', color: '#9333ea' },
-  { key: 'perdida', label: 'Perdida', color: '#ef4444' },
+  { key: 'recotizada', label: 'Recotizada/Consolidada', color: 'oklch(0.58 0.08 310)' },
+  { key: 'perdida', label: 'Perdida', color: 'oklch(0.58 0.10 28)' },
 ]
 
 /** Reads custom label/color overrides from localStorage (set by Configuración page). */

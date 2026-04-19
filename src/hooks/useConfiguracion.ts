@@ -61,17 +61,25 @@ export const CONFIG_DEFAULTS: ConfigSistema = {
     { id: 'DG', nombre: 'Daniela Galindo', iniciales: 'D.G', correo: '', activo: true },
   ],
   defaults_cotizacion: {
-    tiempo_entrega: '15 días hábiles',
+    tiempo_entrega: '25 días hábiles o a convenir',
     validez_oferta: '30 días calendario',
+    // Texto completo que se inyecta por defecto al crear una nueva cotización.
+    // Coincide con CONDICIONES_OPTIONS de CotizacionModal. Editable aquí globalmente
+    // y también por cotización individual.
     condiciones: [
-      'Precios no incluyen IVA',
-      '50% anticipo, 50% contra entrega',
-      'Precios sujetos a variación del acero',
+      'Tiempo de entrega: __TIEMPO__, este tiempo corre a partir de la orden de compra, pago del anticipo, la firma de los planos definitivos, la validación de los diseños y los acabados solicitados.',
+      'IVA: Se cobrará de acuerdo a la tarifa vigente en el momento del despacho. No incluye impuestos adicionales gubernamentales, en caso de existir serán asumidos por el cliente y adicionados a la factura final.',
+      'Cantidades: El presupuesto puede variar de acuerdo a lo realmente Suministrado, el cual será el valor final de la factura.',
+      'Daños: Los daños causados en los acabados de los elementos de Durata® por cuenta de la obra serán asumidos por el cliente, la recepción de los elementos implica responsabilidad en el cuidado de los mismos.',
+      'Garantía: DURATA ofrece garantía de 1 AÑO MATERIALES Y CORRECTO FUNCIONAMIENTO, SIEMPRE Y CUANDO SEA INSTALADO POR DURATA.',
     ],
+    // Coincide con NO_INCLUYE_OPTIONS de CotizacionModal.
     no_incluye: [
-      'Obra civil',
-      'Instalaciones eléctricas e hidráulicas',
-      'Instalación (cotizar aparte)',
+      'Suministro ni instalación de canastilla, superboard, desagües, sellado a muro, grifería, pruebas de soldadura, Chapas y/o pasadores en puertas, ningún elemento que no esté especificado en la presente cotización.',
+      'Obra civil, demolición y cuarto para herramienta y personal, ni uniformes fuera de los institucionales de durata.',
+      'Andamios, estos serán suministrados por la obra incluido su respectivo transporte vertical y horizontal hasta el punto de trabajo.',
+      'Personal SISO permanente, en caso de requerirlo tiene un valor de 180.000$ por día. +TTE',
+      'El elemento cotizado corresponde a una valoración numérica de la propuesta del cliente, los diseños, los cálculos de dicho sistema y su cumplimiento con la NSR son responsabilidad directa del cliente y exonera a Durata® SAS de cualquier compromiso con estabilidad del elemento.',
     ],
   },
   fuentes_lead: ['Referido', 'Página web', 'WhatsApp', 'Llamada', 'Licitación', 'Residente', 'Histórico Excel', 'Otro'],
@@ -158,6 +166,23 @@ async function saveKeyToSupabase(clave: string, valor: unknown): Promise<boolean
 
 // ── Public API ───────────────────────────────────────────────
 
+/** Detecta si defaults_cotizacion es la versión vieja (labels cortos) y
+ * la migra al texto completo del handoff. Heurística: una condición que
+ * NO contiene dos puntos (:) es probablemente un label corto.
+ * Así si el usuario editó manualmente los textos, no se sobrescriben. */
+function migrateDefaultsIfNeeded(d: DefaultsCotizacion | undefined | null): DefaultsCotizacion {
+  if (!d) return CONFIG_DEFAULTS.defaults_cotizacion
+  const hasLegalText = d.condiciones.some(c => c.includes(':') && c.length > 100)
+  if (hasLegalText) return d
+  // Todos cortos → defaults del usuario están desactualizados, migrar
+  return {
+    tiempo_entrega: d.tiempo_entrega || CONFIG_DEFAULTS.defaults_cotizacion.tiempo_entrega,
+    validez_oferta: d.validez_oferta || CONFIG_DEFAULTS.defaults_cotizacion.validez_oferta,
+    condiciones: CONFIG_DEFAULTS.defaults_cotizacion.condiciones,
+    no_incluye: CONFIG_DEFAULTS.defaults_cotizacion.no_incluye,
+  }
+}
+
 export async function loadConfig(): Promise<ConfigSistema> {
   const local = loadFromLS()
   const remote = await loadFromSupabase()
@@ -166,7 +191,9 @@ export async function loadConfig(): Promise<ConfigSistema> {
   const merged: ConfigSistema = {
     datos_empresa: (remote.datos_empresa as DatosEmpresa) ?? local.datos_empresa,
     cotizadores: (remote.cotizadores as Cotizador[]) ?? local.cotizadores,
-    defaults_cotizacion: (remote.defaults_cotizacion as DefaultsCotizacion) ?? local.defaults_cotizacion,
+    defaults_cotizacion: migrateDefaultsIfNeeded(
+      (remote.defaults_cotizacion as DefaultsCotizacion) ?? local.defaults_cotizacion
+    ),
     fuentes_lead: (remote.fuentes_lead as string[]) ?? local.fuentes_lead,
     sectores: (remote.sectores as string[]) ?? local.sectores,
     etapas_custom: (remote.etapas_custom as Record<string, EtapaCustom>) ?? local.etapas_custom ?? {},
