@@ -1,326 +1,225 @@
-# Guía del usuario — DURATA CRM v2
+# Guía del Usuario — DURATA CRM
 
-**Para:** Omar, Sebastián, Juan Pablo, Camilo, Daniela
-**URL:** https://durata-crm.vercel.app
-**Soporte:** WhatsApp JP Ramírez
+Esta guía es para vos que cotizás todos los días. **No hace falta saber nada técnico.** Lo que importa es el flujo comercial: cliente pide → cotizás → enviás → se adjudica o se pierde.
 
 ---
 
-## 1. Qué cambió en la v2 (redesign)
+## 1. Entrar al sistema
 
-La interfaz fue rediseñada para verse profesional e industrial (no "corporate azul"). Lo importante:
+1. Abrí https://durata-crm.vercel.app
+2. Entrá con tu correo de Durata y tu clave.
+3. La primera pantalla que ves es el **Pipeline**: todas las oportunidades abiertas agrupadas por etapa.
 
-- **Sidebar claro** a la izquierda con grupos Principal/Comercial/Sistema y contadores en tiempo real (Pipeline 1.6k, Empresas 2.3k, Cotizaciones 5.2k)
-- **Topbar con breadcrumbs** y búsqueda global (⌘K o Ctrl+K desde cualquier pantalla)
-- **Oportunidad** ahora tiene **4 tabs**: Actividad · Productos · Cotizaciones · Adjuntos (antes todo junto en una lista larga)
-- **Cotización** ahora tiene **versiones clickables A/B/C** arriba para cambiar entre versiones de la misma cotización
-- **Cards uniformes** en Pipeline (siempre 70px de alto, mismo formato)
-- **Estado de cotización** con colores específicos: borrador gris · enviada azul · aprobada verde · rechazada rojo · descartada tachada
-
-Todo lo demás funciona igual — los flujos no cambiaron, solo el aspecto.
+> Si olvidás la clave, pedísela a JP Ramírez por WhatsApp. Es personal — no la compartas.
 
 ---
 
-## 2. Primer login
+## 2. De qué se compone el sistema
 
-1. Abrir https://durata-crm.vercel.app en Chrome o Edge (no usar Internet Explorer)
-2. Entrar con tu email `@durata.co` y la contraseña que te dieron
-3. Si olvidaste la contraseña, pedí reset a JP por WhatsApp
+Cinco pantallas que vas a usar:
 
-**Importante:** no compartir tu sesión. Cada acción queda registrada con tu usuario.
+| Pantalla | Para qué sirve |
+|---|---|
+| **Pipeline** | Ver todas las oportunidades por etapa (Nuevo lead, En cotización, Enviada, Adjudicada…). |
+| **Empresas** | Listado de clientes. Acá creás empresas nuevas. |
+| **Productos** | Catálogo de productos que se pueden cotizar (mesas, cárcamos, pozuelos, etc.). |
+| **Precios** | Precios vigentes de materiales y mano de obra. Los edita JP o Sebastián. |
+| **Configuración** | Tus datos personales, preferencias, lista de cotizadores. |
 
----
-
-## 3. Tu día a día — cotizar una oportunidad nueva
-
-### Paso 1 · Crear la oportunidad
-
-Hay 3 formas según el caso:
-
-**A) Cliente nuevo o no estás seguro si existe**
-- Sidebar → **Pipeline** → botón **"+ Nueva"** arriba a la derecha
-- El sistema te permite buscar primero si la empresa existe
-- Si no existe, la creás ahí mismo en 3 pasos (Empresa → Contacto → Oportunidad)
-
-**B) Cliente ya existe**
-- Sidebar → **Empresas** → buscar → click
-- Botón **"+ Nueva oportunidad"** desde ahí
-
-**C) Duplicar oportunidad existente**
-- Abrí la oportunidad fuente → botón **"Duplicar para otro cliente"**
-- Elegís empresa destino (existente o nueva)
-- Los productos se copian al nuevo cliente
-
-### Paso 2 · Agregar productos
-
-Desde el detalle de la oportunidad, pestaña **Productos**:
-
-1. Botón **"+ Agregar producto"** → selector con los **33 productos**:
-   - **Mesas** (con vista 3D)
-   - **Mesones**
-   - **Pozuelos** (solo, corrido industrial, cuadrado, esférico, pedestal ancho, quirúrgico)
-   - **Campanas** (mural, isla, genérica)
-   - **Estanterías** (graduable, ranurada, perforada, escabiladero)
-   - **Muebles** (gabinete, gabinete corredizo, inferior, superior)
-   - **Barras accesibles** (recta, L, abatible)
-   - **Drenaje** (cárcamo, caja sifonada inox/hierro)
-   - **Accesorios** (lavaollas, lavaescobas, vertedero, lavabotas, ducto, repisa, deslizador bandejas)
-2. Se abre el **configurador** del producto:
-   - Dimensiones (largo, ancho, alto)
-   - Material (acero 304/430, calibre 14/16/18/20, acabado)
-   - Accesorios opcionales (patas, salpicaderos, pozuelos integrados)
-   - Servicios (instalación, transporte, póliza)
-3. **El APU se calcula automáticamente** — insumos, MO, transporte, láser, póliza
-4. Click **"Guardar producto"**
-
-**Si el producto NO está en el catálogo** (pasamanos, estructuras, BBQ especiales):
-- Usá **"+ Producto manual"** — escribís el producto a mano y adjuntas archivos generados en excel
-
-### Paso 3 · Generar la cotización
-
-Cuando tengas todos los productos:
-
-1. Botón **"Cotización"** (verde) en el header de la oportunidad
-2. Modal con 3 tabs:
-   - **General:** número automático, tiempo de entrega, incluye transporte
-   - **Condiciones:** checkboxes con textos legales completos (IVA, daños, garantía, forma de pago, etc.)
-   - **No incluye:** checkboxes con cláusulas típicas (obra civil, acabados, etc.)
-3. Confirmar → se crea la cotización en **Borrador** y la oportunidad pasa a **En Cotización**
-
-### Paso 4 · Editar y generar PDF
-
-1. Click en la cotización → abre el **editor completo** con:
-   - Header sticky con # cotización + versión badge + empresa
-   - Meta-grid con NIT/correo/WhatsApp/ubicación
-   - Líneas editables (cantidad, descripción, precio, imagen por producto)
-   - Condiciones comerciales (textareas editables con texto completo)
-   - No incluye (textareas editables)
-   - **Totales sticky** a la derecha con Subtotal + IVA + Total grande
-   - Botones: Guardar borrador · APU consolidado · **Descargar PDF**
-2. Botón **"Descargar PDF"** → genera el PDF profesional y auto-guarda en Storage
-3. La cotización pasa a **Enviada** y la oportunidad a **Cotización Enviada**
-
-Para enviar al cliente: descargás el PDF → WhatsApp o correo como hacés hoy.
-
-### Paso 5 · Seguimiento
-
-El **Dashboard** te avisa:
-- Alertas de cotizaciones con **>7 / >14 / >30 días sin respuesta**
-- Click en la alerta te lleva a la oportunidad
-
-Desde la oportunidad podés:
-- **Agregar nota** con lo que dijo el cliente (campo de nota arriba de la timeline en tab Actividad)
-- **Mover de etapa** (drag&drop en Pipeline o dropdown en header del detalle)
-- **Recotizar** si el cliente pide cambios (crea versión A, B, C automáticamente — la anterior queda descartada)
-- **Reactivar versión anterior** si cliente aprueba una descartada
-- **Adjuntar imagen** por producto (se agrega al PDF con header "Imagen alusiva")
-
-### Paso 6 · Cierre
-
-**Ganaste (Adjudicada):**
-1. Drag de la oportunidad en el Pipeline a **"Adjudicada"** (o dropdown "Mover etapa" en detalle)
-2. Modal pide valor adjudicado (pre-llenado con el cotizado) + fecha
-3. La cotización activa queda como **Aprobada** automáticamente
-4. Si hay varias cotizaciones activas, el sistema te pregunta cuál ganó
-
-**Perdiste:**
-1. Drag a **"Perdida"**
-2. Modal pide motivo: Precio, Tiempo, Competencia, Proyecto congelado, Licitación, Cambió alcance, Sin respuesta, Presupuesto cancelado
-3. La cotización queda como **Rechazada**
-
-**Te equivocaste** (ej: adjudicaste por error):
-- Drag de vuelta a la etapa anterior
-- El sistema limpia automáticamente valor_adjudicado / motivo_perdida
-- Devuelve la cotización a Enviada
+En la esquina superior derecha hay un **buscador** (`Ctrl+K`) que te encuentra cualquier empresa, cotización o producto escribiendo pocas letras.
 
 ---
 
-## 4. Flujos especiales
+## 3. El flujo completo de una cotización (paso a paso)
 
-### Recotización (cliente pide cambios)
+### Paso A — Un cliente pide una cotización
 
-Hay 2 formas:
+**Ejemplo:** Felipe de *Entorno Azul* te escribe por WhatsApp pidiendo precio para un cárcamo y una mesa de trabajo.
 
-**A) Desde el editor de cotización (más visible):**
-1. Abrí la cotización → en el header sticky ves los **version badges (v1, v2, v3...)** clickables
-2. Botón **"Recotizar (precios actuales)"** en el aside
-3. Se crea la versión siguiente, la anterior queda descartada
+1. Vas al **Pipeline** → botón **"Nueva oportunidad"**.
+2. Si Entorno Azul ya existe como empresa, la elegís. Si no, **"Crear empresa"** ahí mismo: nombre, NIT (opcional), sector.
+3. Elegís el contacto (Felipe). Si no está, **"Crear contacto"**: nombre, cargo, correo, celular.
+4. Llenás los datos de la oportunidad:
+   - **Ubicación:** dónde es el proyecto (ej. "Eco Square CR × 50 und")
+   - **Fuente:** cómo llegó el cliente (Referido, Página web, WhatsApp, Licitación…)
+   - **Fecha de ingreso:** hoy (autocompletada).
+5. La opp queda en etapa **"Nuevo lead"** en el pipeline.
 
-**B) Desde la oportunidad:**
-1. Tab Cotizaciones → botón **"Recotizar"** en el header o icono ArrowRightLeft amarillo en la cotización activa
-2. Mismo resultado
+### Paso B — Agregar productos
 
-**Si al final el cliente aprueba una versión anterior:**
-- Tab Cotizaciones → ver versiones anteriores (details expandible al final) → botón **"Reactivar"** (icono RotateCcw violeta)
-- La versión reactivada vuelve a Enviada, la actual pasa a Descartada
-- Ya podés adjudicar la correcta
+Abrí la oportunidad (click en su tarjeta). Arriba vas a ver la empresa, el contacto, el número de cotización cuando exista (ej. `COT 2026-341`) y botones **Nota · Producto · Adjunto · Mover etapa**.
 
-### Duplicar para otro cliente
+1. Click **"Producto"**.
+2. Se abre un panel con las familias (Mesas, Cárcamos, Pozuelos, Estanterías, etc.).
+3. Elegís la familia → abre el configurador.
+4. Llenás las dimensiones (largo, ancho, alto), material (acero 304 o 430), calibre, refuerzos, etc.
+5. El sistema **calcula el precio automáticamente** usando el APU (Análisis de Precios Unitarios). Ves el total en la derecha.
+6. Click **"Agregar al pedido"**. El producto queda guardado en la oportunidad.
+7. Repetís para cada producto del pedido.
 
-Cuando dos clientes piden cotizaciones muy similares:
-1. Oportunidad fuente → tab Cotizaciones → icono Copy en la cotización
-2. Elegís empresa destino → crea nueva oportunidad con los mismos productos
-3. Ajustás lo específico del segundo cliente
-4. Cada oportunidad tiene su propio número de cotización
+**Si el producto NO está en el catálogo** (un pasamano especial, una reja, algo único):
 
-### Cotización con productos mixtos (catálogo + manual)
+- Click **"Producto manual"** en el mismo panel.
+- Escribís descripción, cantidad, unidad (und/m/m²) y precio unitario.
+- Opcionalmente adjuntás un Excel con el APU que armaste por fuera. **El sistema no calcula el APU de productos manuales** — solo guarda lo que le des.
 
-Podés combinar: agregás Mesa (del catálogo), Cárcamo (del catálogo) y un Pasamano (manual). Al generar PDF, los 3 aparecen. El APU consolidado tendrá **2 hojas** (solo los del catálogo generan APU automático).
+### Paso C — Generar la cotización
 
-> **Nota importante:** Los productos **manuales no calculan APU automáticamente** — solo permiten ingresar descripción, cantidad, unidad y valor. Si necesitás el APU del producto manual, lo haces aparte en Excel y adjuntás el archivo a la cotización.
+Con todos los productos cargados:
 
----
+1. Botón **"Cotización"** (verde) arriba a la derecha.
+2. Confirmás las condiciones:
+   - **Tiempo de entrega** (ej. "20 días hábiles después de anticipo")
+   - **Incluye transporte** (sí/no)
+   - **Condiciones** (anticipo, forma de pago, vigencia)
+   - **No incluye** (obra civil, instalación, etc.)
+3. El sistema genera:
+   - **PDF** para enviarle al cliente
+   - **APU Excel** consolidado de todos los productos
+4. Los 2 archivos se guardan en la oportunidad y podés descargarlos cuando quieras.
+5. La oportunidad pasa a etapa **"Cotización enviada"**.
 
-## 5. Dashboard — qué ver y cuándo
+### Paso D — Enviar al cliente
 
-### Cada mañana (5 min)
+1. Abrís el PDF → lo revisás (¿números bien? ¿descripciones claras? ¿imagen sí?).
+2. Lo mandás por correo o WhatsApp al cliente.
+3. En la oportunidad, botón **"Nota"** y dejás registro: *"PDF enviado a felipe@entornoazul.co el 01-mar a las 3:42 PM"*.
 
-- **Alert banner superior**: ¿cotizaciones >7 días sin respuesta? Click en "Ver en pipeline"
-- **5 KPIs**: oportunidades activas, valor pipeline, cotizaciones del mes, tasa cierre cantidad/valor
-- **Alertas de seguimiento** (panel izquierdo): top 8 cotizaciones más urgentes
+La **línea de tiempo** (tab Actividad) te muestra todo lo que pasó en orden: cuándo se creó la opp, qué productos configuraste, cuándo enviaste el PDF.
 
-### Reunión semanal (15 min)
+### Paso E — El cliente pide cambios (recotizar)
 
-- **Pipeline activo**: lista de oportunidades >$20M ordenadas por urgencia
-- Click en la fila te abre la oportunidad para revisar notas
+Si el cliente dice *"el cárcamo mejor con tapa más gruesa"*:
 
-### Fin de mes (30 min)
+1. En la oportunidad, tab **Cotizaciones** → botón **"Recotizar"**.
+2. Se crea una nueva versión (ej. si la original era `2026-341`, la nueva es `2026-341A`).
+3. La original queda marcada como **descartada** (tachada, más tenue).
+4. Abrís la nueva versión → editás lo que el cliente pidió cambiar.
+5. Generás el PDF nuevo → enviás al cliente.
 
-- **Métricas mensuales**: últimos 6 meses con cotizaciones, adjudicadas, tasa de cierre
-- **Comparativo vs año anterior**: Ene–Abr 2025 vs Ene–Abr 2026
-- **Top 10 clientes**: quién está cotizando más
-- **Métricas por cotizador**: cuántas cots y % adj por cotizador
-- **Evolución anual**: 2021–2026
+Si hace falta otra ronda, recotizás otra vez y queda `2026-341B`. Las versiones se ven arriba como pills (`v0 · vA · vB`).
 
----
+### Paso F — Adjudicación o pérdida
 
-## 6. Atajos y tips
+**Si el cliente acepta:**
+1. Botón **"Mover etapa"** → **Adjudicada**.
+2. El sistema te pregunta:
+   - **Valor adjudicado** (por si es distinto al cotizado por descuento)
+   - **Fecha de adjudicación**
+3. La última versión activa queda como **aprobada**.
+4. La oportunidad se cierra como ganada.
 
-### Atajos de teclado
-
-- **⌘K / Ctrl+K**: buscador global (empresa, contacto, # cotización) desde cualquier pantalla
-- **Escape**: cerrar modal o dropdown
-- **Enter** en input de nota: guardar nota rápido
-- **Esc** en edición inline de precio/proveedor: cancelar
-
-### Pipeline
-
-- **Drag & drop**: mover oportunidad entre etapas
-- **Chips superiores**: filtrar por cotizador (segmented), año, mes, rango, sector, valor
-- **"Mis cots"** chip: solo tus cotizaciones (detecta tu email)
-- **"Históricas"** chip: ver también terminadas (adjudicadas + perdidas)
-- **Orden**: dropdown con 7 criterios (valor, fecha, empresa A-Z, cotizador, #COT)
-
-### Detalle de oportunidad
-
-- **Tabs** cambian la vista central sin perder la info lateral (aside)
-- Aside: cotizador editable en dropdown, empresa y contacto clickables
-- **Header actions**: Nota · Producto · Cotización · Mover etapa (dropdown) · Eliminar
-
-### Editor de cotización
-
-- **Version badges clickables** arriba para saltar entre versiones A/B/C
-- **Inline edit** en líneas: click en cantidad/precio/descripción para editar
-- **Adjuntar imagen** por producto: aparece en PDF con header "Imagen alusiva"
-- **APU consolidado**: si hay 2+ productos, botón para descargar un Excel con 1 hoja por producto
-
-### Empresas / Cotizaciones / Precios (listas)
-
-- **Columnas ordenables** (click en el header)
-- **Filtros persistentes** hasta cambiar o limpiar
-- **Paginación** al pie con "Cargar más" o números de página
-
-### Precios (`/precios`)
-
-- 1,408 materiales
-- **Inline edit**: click en precio o proveedor → escribir → Enter para guardar
-- Highlight primary-weak por 2.5s después de editar
-
-### Configuración (`/config`)
-
-- Tabs: Empresa · Equipo · Pipeline · Cotización · Fuentes · Sectores
-- **Cotización → Condiciones comerciales**: editá los textos legales completos que aparecen por defecto en cada cotización nueva
-- **`__TIEMPO__`** en el texto se reemplaza automáticamente por el tiempo de entrega que pongas al generar la cotización
+**Si el cliente elige otro proveedor o cancela:**
+1. **"Mover etapa"** → **Perdida**.
+2. Elegís **motivo**: precio, tiempo de entrega, eligió competencia, etc.
+3. Dejás una nota si querés más contexto.
 
 ---
 
-## 7. Reglas que NO podés romper
+## 4. Cosas útiles del día a día
 
-1. **No borres oportunidades adjudicadas o perdidas** — rompe reportes históricos
-2. **No modifiques manualmente el valor_adjudicado** después de adjudicar sin razón clara
-3. **Los números de cotización siguen el año + consecutivo** (2026-501, 2026-502...). El sistema los sugiere — no los inventes
-4. **Recotizar ≠ Duplicar**:
-   - **Recotizar**: nueva versión en la MISMA oportunidad (2026-501A → 2026-501B)
-   - **Duplicar**: misma cotización base para OTRO cliente (nueva oportunidad)
-5. **Si ves algo raro** (número en 0, etapa mal, ops duplicadas), avisá a JP **antes** de corregir
-6. **El Excel REGISTRO** queda solo como backup — no actualizar ahí, todo en el CRM
+### Buscar una cotización vieja
 
----
+Escribí `Ctrl+K` (o el icono de lupa arriba) y poné cualquier cosa:
+- Número de cotización (`2026-341`)
+- Nombre del cliente (`Entorno Azul`)
+- Nombre del contacto (`Felipe`)
+- Tipo de producto (`Cárcamo`)
 
-## 8. Qué hacer si algo falla
+### Duplicar una cotización (para otro cliente parecido)
 
-1. Tomá un **screenshot** completo (incluyendo URL en la barra)
-2. Anotá: qué estabas haciendo, qué esperabas, qué pasó
-3. Mandá por WhatsApp a JP
+En la tab Cotizaciones, botón **Duplicar** al lado de una cotización:
+- Te pregunta qué cliente destino (empresa + contacto).
+- **Copia todos los productos con sus APUs** a la nueva opp.
+- Vos editás lo que haga falta y generás el PDF.
 
-Si el error es **bloqueante** (no podés trabajar), volvé al Excel como respaldo y avisá inmediatamente.
+Esto es útil cuando dos restaurantes piden lo mismo y solo cambia el cliente.
 
----
+### Revivir una cotización descartada
 
-## 9. Lo que NO hace el sistema (todavía)
+Si por error recotizaste o querés volver a una versión anterior, en la tab Cotizaciones desplegás **"Ver versiones anteriores"** → botón **reactivar** sobre la que querés. Vuelve a ser la activa y la actual queda descartada.
 
-Estas funciones están en el roadmap pero aún no están disponibles:
+### Adjuntar archivos al cliente
 
-- ❌ Chat con datos ("¿cuánto cotizamos a Hospital X el mes pasado?") — llega en Fase 4 (nov 2026)
-- ❌ Generación de imagen 3D del producto → PDF (hoy solo se adjunta manual) — Fase 4
-- ❌ Envío automático por WhatsApp del PDF — Fase 2 con n8n
-- ❌ Recordatorios automáticos por email/SMS al cliente — Fase 2 con Resend
-- ❌ App móvil nativa (funciona en browser del celular pero no optimizado) — Fase 5
-- ❌ Integración con Contapyme (órdenes de producción post-adjudicación) — Fase 5
+En la oportunidad → botón **Adjunto** → subís cualquier archivo (planos, RFQ, fotos del cliente).
+Esos archivos quedan en la oportunidad (tab Adjuntos). No aparecen en el PDF que enviás, son para tu registro interno.
+
+### Actualizar el catálogo de productos
+
+Si un producto tiene precio viejo o falta un producto nuevo, **no lo editás vos**. Avisale a JP Ramírez en WhatsApp y él lo actualiza desde la pantalla Precios / Productos.
 
 ---
 
-## 10. Próximas mejoras (te lo cuento para que estés preparado)
+## 5. Preguntas frecuentes
 
-### Junio–Agosto 2026: Módulo Compras + Material Master
+**¿Qué pasa si cambio el precio de un material? ¿Se actualizan las cotizaciones viejas?**
+No. Las cotizaciones ya enviadas quedan **congeladas** con los precios del momento de generarlas. Solo las NUEVAS toman el precio actualizado. Esto es intencional — el cliente vio el PDF con ese precio.
 
-Cuando alguien (ej. Oscar de compras, o un residente) pide un material, hoy se hace por WhatsApp/Excel manual. Lo vamos a integrar al CRM:
+**¿Cómo sé cuánto llevo cotizado este mes?**
+En el **Dashboard** (ícono casa arriba a la izquierda) tenés el resumen: cotizaciones del mes, valor total, tasa de cierre, promedio de días para cotizar.
 
-- **Catálogo de 1,550 materiales** con código único (AILAL00102, AIHL00201...) en vez de texto libre
-- **Comparador multi-proveedor**: cargar 3-5 cotizaciones de WESCO, IMPORINOX, STECKERL... lado a lado, el sistema sugiere el ganador
-- **Órdenes de Compra** con trazabilidad: "esta OC viene de la cotización Y del cliente X"
-- **APU con freshness**: verde si precio <30 días, rojo si >60 días (alerta antes de cotizar con precio viejo)
+**¿Cómo veo lo que cotiza mi compañero?**
+En Pipeline podés filtrar por **Cotizador**. Sebastián/Camilo ven todo; Omar/Daniela ven lo suyo más lo asignado.
 
-### Septiembre–Octubre 2026: Módulo Proyectos
+**El sistema dice "datos incompletos" en un contacto. ¿Qué falta?**
+Probablemente el correo o el teléfono. Click en el contacto → **Completar contacto**.
 
-Cuando adjudicás una cotización, hoy la oportunidad queda en "Adjudicada" y ahí termina. Vamos a crear el siguiente paso:
+**Perdí el PDF de una cotización. ¿Cómo lo recupero?**
+En la oportunidad, tab Cotizaciones, cada cotización tiene un botón de **descarga** al lado. Ahí lo bajás.
 
-- Proyecto productivo con estado: en cola → producción → entrega → garantía
-- Residente asignado + fechas objetivo vs reales
-- Lista consolidada de materiales necesarios (sugerida automáticamente al adjudicar)
-- Alertas de atraso
-
----
-
-## 11. Datos de producción al 16-abr-2026
-
-- **5,187 oportunidades** históricas (2021–2026)
-- **5,190 cotizaciones** migradas
-- **2,303 empresas** clasificadas por sector
-- **354 APUs + 379 PDFs** del 2026 adjuntos
-- **33 productos** configurables con APU automático
-- **1,408 materiales** en precios_maestro
+**Tuve que hacer una cotización rápida por WhatsApp sin meterla al sistema. ¿Cómo la subo después?**
+Creá la oportunidad normal, agregá el producto (o el manual), generá la cotización con **fecha retroactiva** (podés editarla en el modal). Adjuntá el PDF original como archivo si querés.
 
 ---
 
-## 12. Soporte y contacto
+## 6. Errores comunes y cómo evitarlos
 
-- **Bugs o dudas técnicas**: WhatsApp JP
-- **Nuevas features**: WhatsApp/email JP
-- **Capacitación**: solicitar sesión con JP (45 min, individual o grupal)
+| Síntoma | Causa más común | Qué hacer |
+|---|---|---|
+| El valor del pipeline no cambia al cotizar | No recargaste la página | Click botón **"Actualizar"** arriba a la derecha |
+| El cliente no aparece al buscar | Lo creaste con una tilde distinta | Buscá sin tilde (`entorno` encuentra `Éntorno` también) |
+| El PDF sale sin imagen | El producto no tenía imagen cargada | Abrí el producto → subí la imagen → regenerá el PDF |
+| Dos cotizaciones con el mismo número | **Casi imposible desde 2026-04-18** — hay protección a nivel BD. Si pasa, avisá a JP | — |
+| El margen da negativo | Precio unitario menor al costo calculado | Revisá en el configurador los precios de materiales |
 
-### URLs de referencia
+Si el sistema te tira un mensaje de error raro, **sacale una foto con el celular y mandala** a JP Ramírez. No cierres la ventana antes de mandar la foto.
 
-- **App**: https://durata-crm.vercel.app
-- **Guía** (este documento): `docs/GUIA_USUARIO.md` en el repo
-- **Videotutorial**: pendiente de grabar (mayo 2026)
+---
+
+## 7. Quién hace qué en Durata
+
+| Persona | Rol |
+|---|---|
+| **JP Ramírez** | Dueño técnico del sistema. Le avisás cualquier bug, cualquier precio viejo, cualquier pedido de mejora. WhatsApp directo. |
+| **Sebastián Aguirre** | Gerente comercial. Aprueba descuentos grandes, revisa cotizaciones antes de enviar a clientes top. |
+| **Camilo Araque** | Gerente general. Ve todo el pipeline. |
+| **Omar Cossio** | Cotizador — máximo volumen, especialmente en proyectos grandes. |
+| **Daniela Galindo** | Cotizadora — proyectos medianos y chicos. |
+
+---
+
+## 8. Atajos de teclado
+
+| Atajo | Qué hace |
+|---|---|
+| `Ctrl+K` | Abrir buscador global |
+| `Ctrl+N` (en Pipeline) | Nueva oportunidad |
+| `Esc` | Cerrar modal/panel |
+| `Enter` (en nota) | Publicar nota |
+| `F5` | Recargar datos del servidor |
+
+---
+
+## 9. Qué hacer si algo no entendés
+
+1. Primero, revisá esta guía — usá `Ctrl+F` para buscar la palabra clave.
+2. Si no está acá, preguntále a un compañero (Omar sabe el día a día, Sebastián la parte comercial).
+3. Si nadie sabe, WhatsApp a JP: *"¿Qué hago cuando X?"*.
+4. Si el sistema está lento o con error raro: F5 primero. Si sigue, foto del error a JP.
+
+No te quedes trabado: el sistema está para facilitarte cotizar más rápido, no para complicarte.
+
+---
+
+**Última actualización:** 2026-04-19
+**Responsable de la guía:** JP Ramírez

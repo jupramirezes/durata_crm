@@ -478,13 +478,63 @@ npm test -- --run                       # debe dar 854/854
 
 | Ref | Ítem round 2 | Estado |
 |---|---|---|
-| R1 | PDF: valor unitario SIGUE montado sobre descripción | 🔄 Re-arreglado — layout completamente rehecho, precio al centro vertical |
-| R2 | Modales actividad/cotización/productos aún no 100% fieles al redesign | ⚠️ PENDING — requiere adjuntar el handoff específico de esos modales |
-| R3 | En tab Productos aparecen PDF/APU que deberían estar en Cotización | ✅ OK round 2 — ocultado inline en tab Productos. Los archivos siguen accesibles desde tab Adjuntos |
-| R4 | Nombre producto manual: descripción completa en lugar de resumen | 🔄 Re-arreglado — ahora extrae primeras 6 palabras de primera frase, máx 45 chars |
-| R5 | Modal "Agregar producto" aún tiene formato anterior | 🔄 Re-arreglado — cards re-diseñados con tokens v2, tipografía mejorada, badge "Próximo" minimal |
-| R6 | Configurador: no mejoré nada en diseño ni features | 🔄 Parcial — header enriquecido con contexto completo. Mejoras profundas de layout + features avanzadas quedan en sprint siguiente |
-| R7 | Modal Actividad: diseño no estético ni útil (con imagen adjunta) | ⚠️ PENDING — necesito que compartas la imagen del handoff para replicar el diseño específico |
+| R1 | PDF: valor unitario SIGUE montado sobre descripción | ✅ OK round 3 — layout rehecho según handoff + precio al centro vertical |
+| R2 | Modales actividad/cotización/productos aún no 100% fieles al redesign | ✅ OK round 3 — refactor completo según `docs/_design-handoff/project/durata/detail.jsx` (ver §6.10) |
+| R3 | En tab Productos aparecen PDF/APU que deberían estar en Cotización | ✅ OK round 2 — ocultado inline en tab Productos |
+| R4 | Nombre producto manual: descripción completa en lugar de resumen | ✅ OK round 2 — primeras 6 palabras de primera frase, máx 45 chars |
+| R5 | Modal "Agregar producto" aún tiene formato anterior | ✅ OK round 2 — cards con tokens v2, badge "Próximo" minimal |
+| R6 | Configurador: no mejoré nada en diseño ni features | 🟡 PARCIAL — header enriquecido. Mejoras profundas quedan en sprint siguiente (no hay handoff visual específico) |
+| R7 | Modal Actividad: diseño no estético ni útil | ✅ OK round 3 — refactor según handoff (ver §6.10) |
+
+---
+
+## 6.10 Round 3 — refactor al handoff exacto (2026-04-19)
+
+Tras imágenes adjuntas por JP mostrando exactamente cómo debe verse Actividad + Cotizaciones, refactoricé para matchear 100% `docs/_design-handoff/project/durata/detail.jsx`.
+
+### Cambios clave
+
+**Tab Actividad:**
+- `note-bar` con avatar pequeño + input + botón "Nota" (ghost) + botón "Publicar" (primary negro)
+- Timeline con `tl-item` usando clases CSS ya definidas (`.hd`, `.t`, `.time`, `.body`)
+- Detail va en su propio bloque `.body` abajo del título (pill gris), no inline en el header
+- Timestamps con formato **"DD/MM/YYYY · H:MM AM/PM"** (antes `19 abr · 14:30`)
+
+**Tabs Productos / Cotizaciones / Adjuntos (unificados):**
+- Los 3 tabs no-Actividad ahora muestran las **3 secciones stacked en una sola vista** (como en el handoff L106-181)
+- Orden fiel al handoff: **Productos → Cotizaciones → Adjuntos**
+- El tab elegido solo cambia los contadores visuales, el contenido es el mismo
+- Archivos APU/PDF de cada cotización aparecen inline debajo (`.att` chips con ext + name + size + download)
+- Adjuntos de la oportunidad al final, con botón "Subir archivo"
+
+**`utils.formatShortDateTime`** reformateado al estilo del handoff (en-US hour12).
+
+### Tests + build
+
+- ✅ Build 29s limpio
+- ✅ 854/854 tests pass
+
+---
+
+## 6.11 Guía de usuario v2 — reescrita para gente no técnica (2026-04-19)
+
+`docs/GUIA_USUARIO.md` reescrita de cero. Cambios:
+
+- **Tono directo** al usuario ("vos que cotizás todos los días"), sin jerga técnica
+- **Estructura por flujo**: paso A (cliente pide) → B (productos) → C (cotizar) → D (enviar) → E (recotizar) → F (adjudicación)
+- **Ejemplo concreto real**: "Felipe de Entorno Azul te escribe por WhatsApp pidiendo cárcamo + mesa"
+- **Preguntas frecuentes** (FAQ) con situaciones del día real
+- **Errores comunes** con tabla de síntoma/causa/solución
+- **Atajos de teclado** resumidos
+- **"Quién hace qué"**: los 5 cotizadores + roles claros
+- **Eliminadas** todas las referencias a `src/`, `store`, `dispatch`, SQL, comandos CLI
+- **Agregadas** ilustraciones verbales de qué ve el usuario en cada paso
+
+Resultado: 9 secciones, ~260 líneas, lenguaje comercial.
+
+### Video-guía — pending
+
+Ver §6.9 propuesta Loom. Queda **PENDING** para que JP lo grabe. Estimado: 15 min de video + 2h de edición básica = medio día.
 
 ### 6.9 Propuesta para video-guía de usuario + guía no técnica
 

@@ -13,7 +13,7 @@ import { exportApuExcel, exportApuConsolidado } from '../lib/exportar-apu'
 import * as svcOportunidades from '../hooks/useOportunidades'
 import {
   ArrowLeft, FileText, Package, Trash2, User, Edit3,
-  StickyNote, Send, Wrench, X, ChevronDown, Copy, Download,
+  StickyNote, Wrench, X, ChevronDown, Copy, Download,
   ArrowRightLeft, MessageSquare, Box, Phone, Mail, AlertCircle,
   Paperclip, FileSpreadsheet, File as FileIcon, RotateCcw, Plus,
 } from 'lucide-react'
@@ -867,7 +867,7 @@ export default function OportunidadDetalle() {
           </div>
 
           {tab === 'actividad' && (<>
-            {/* Quick note input (handoff: .note-bar con avatar + input + botones) */}
+            {/* Quick note input — handoff: detail.jsx L93-98 */}
             <div className="note-bar">
               <span className="avatar sm" style={{ background: cotizador ? getAvatarColor(cotizador.nombre) : 'var(--color-surface-3)', color: cotizador ? '#fff' : 'var(--color-text)', border: 'none' }}>
                 {cotizador?.iniciales || '—'}
@@ -879,28 +879,25 @@ export default function OportunidadDetalle() {
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNota() } }}
                 placeholder="Añadir una nota, mención o actualización…"
               />
+              <button className="btn-d sm" disabled>Nota</button>
               <button
                 onClick={handleAddNota}
                 disabled={!notaTexto.trim()}
                 className="btn-d primary sm"
-              >
-                <Send size={12} /> Publicar
-              </button>
+              >Publicar</button>
             </div>
 
-            {/* Timeline (handoff: .timeline + .tl-item) */}
+            {/* Timeline — handoff: detail.jsx L100-102 + TimelineItem L21-32 */}
             {timelineEvents.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center', fontSize: 13, color: 'var(--color-text-label)' }}>
                 Sin actividad registrada. Agregá la primera nota arriba.
               </div>
             ) : (
-              <div className="timeline" style={{ maxHeight: 640, overflowY: 'auto' }}>
+              <div className="timeline">
                 {timelineEvents.map((ev) => {
                   const accentClass = ev.type === 'cotizacion' ? 'adj' : ev.type === 'producto' || ev.type === 'nota' ? 'accent' : ''
-                  const isCotTitle = ev.type === 'nota' && ev.title.startsWith('COT:')
                   const isEditingThis = ev.type === 'nota' && editingNotaIdx !== null && ev.id === `nota-${editingNotaIdx}`
                   const notaIdx = ev.type === 'nota' ? Number(ev.id.replace('nota-', '')) : -1
-
                   return (
                     <div key={ev.id} className={`tl-item ${accentClass}`}>
                       <div className="hd">
@@ -918,31 +915,22 @@ export default function OportunidadDetalle() {
                           </div>
                         ) : (
                           <>
-                            <span className="t" style={{ fontWeight: isCotTitle ? 600 : 500 }}>{ev.title}</span>
-                            {ev.detail && (
-                              <span className="mono" style={{ fontSize: 11, color: ev.color, fontWeight: 500 }}>{ev.detail}</span>
-                            )}
+                            <span className="t">{ev.title}</span>
                             {ev.sortDate > 0 && (
                               <span className="time">{formatShortDateTime(ev.sortDate)}</span>
                             )}
                             {ev.type === 'nota' && !isEditingThis && (
-                              <span style={{ display: 'inline-flex', gap: 2, marginLeft: 4 }}>
-                                <button
-                                  onClick={() => handleEditNota(notaIdx)}
-                                  className="btn-d ghost icon sm"
-                                  title="Editar nota"
-                                ><Edit3 size={11} /></button>
-                                <button
-                                  onClick={() => handleDeleteNota(notaIdx)}
-                                  className="btn-d ghost icon sm"
-                                  style={{ color: 'var(--color-accent-red)' }}
-                                  title="Eliminar nota"
-                                ><X size={11} /></button>
+                              <span style={{ display: 'inline-flex', gap: 2, marginLeft: 8 }}>
+                                <button onClick={() => handleEditNota(notaIdx)} className="btn-d ghost icon sm" title="Editar nota"><Edit3 size={11} /></button>
+                                <button onClick={() => handleDeleteNota(notaIdx)} className="btn-d ghost icon sm" style={{ color: 'var(--color-accent-red)' }} title="Eliminar nota"><X size={11} /></button>
                               </span>
                             )}
                           </>
                         )}
                       </div>
+                      {ev.detail && !isEditingThis && (
+                        <div className="body">{ev.detail}</div>
+                      )}
                     </div>
                   )
                 })}
@@ -950,7 +938,11 @@ export default function OportunidadDetalle() {
             )}
           </>)}
 
-          {tab === 'productos' && (<>
+          {/* Handoff detail.jsx L106-181: todos los tabs no-Actividad muestran
+              Productos + Cotizaciones + Adjuntos stacked. El tab elegido solo cambia
+              los contadores, no el contenido. */}
+          {tab !== 'actividad' && (<>
+            {/* ── Productos configurados ── */}
             <div className="tab-section-head">
               <h3>Productos configurados</h3>
               <span className="count">{productos.length}</span>
@@ -1103,53 +1095,9 @@ export default function OportunidadDetalle() {
                 })}
               </div>
             )}
-          </>)}
 
-          {tab === 'adjuntos' && (<>
-          <div className="tab-section-head">
-            <h3>Adjuntos de la oportunidad</h3>
-            <span className="count">{archivos.length}</span>
-            <div className="spacer" />
-            <label className={`btn-d sm ${uploadingFile ? '' : 'primary'}`} style={{ cursor: uploadingFile ? 'wait' : 'pointer' }}>
-              <Paperclip size={12} /> {uploadingFile ? 'Subiendo…' : 'Subir archivo'}
-              <input type="file" className="hidden" accept=".pdf,.xlsx,.xlsm,.xls,.png,.jpg,.jpeg,.doc,.docx" disabled={uploadingFile} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); e.target.value = '' }} />
-            </label>
-          </div>
-
-          {archivos.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: 'var(--color-text-label)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-lg)' }}>
-              Sin archivos adjuntos
-            </div>
-          ) : (
-            <div>
-              {archivos.map(f => {
-                const ext = (f.name.split('.').pop() || '').toLowerCase()
-                const sizeStr = f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : f.size > 0 ? `${Math.round(f.size / 1024)} KB` : ''
-                return (
-                  <div key={f.path} className="att" onClick={() => handleDownloadFile(f.path, f.name)}>
-                    <span className={`ext ${ext}`}>{ext || 'FILE'}</span>
-                    <span className="name" title={f.name}>{f.name}</span>
-                    <span className="size">{sizeStr}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDownloadFile(f.path, f.name) }}
-                      className="btn-d ghost icon sm"
-                      title="Descargar"
-                    ><Download size={12} /></button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.path, f.name) }}
-                      className="btn-d ghost icon sm"
-                      style={{ color: 'var(--color-accent-red)' }}
-                      title="Eliminar"
-                    ><Trash2 size={12} /></button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          </>)}
-
-          {tab === 'cotizaciones' && (<>
+            {/* ── Cotizaciones ── */}
+            <div style={{ marginTop: 24 }} />
             {(() => {
               const oppCots = cotizaciones.filter(c => c.oportunidad_id === opp.id)
               const activeCots = oppCots.filter(c => c.estado !== 'descartada')
@@ -1283,6 +1231,39 @@ export default function OportunidadDetalle() {
                 </>
               )
             })()}
+
+            {/* ── Adjuntos de la oportunidad ── */}
+            <div style={{ marginTop: 24 }} />
+            <div className="tab-section-head">
+              <h3>Adjuntos de la oportunidad</h3>
+              <span className="count">{archivos.length}</span>
+              <div className="spacer" />
+              <label className={`btn-d sm ${uploadingFile ? '' : 'primary'}`} style={{ cursor: uploadingFile ? 'wait' : 'pointer' }}>
+                <Paperclip size={12} /> {uploadingFile ? 'Subiendo…' : 'Subir archivo'}
+                <input type="file" className="hidden" accept=".pdf,.xlsx,.xlsm,.xls,.png,.jpg,.jpeg,.doc,.docx" disabled={uploadingFile} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); e.target.value = '' }} />
+              </label>
+            </div>
+            {archivos.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 12.5, color: 'var(--color-text-label)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-lg)' }}>
+                Sin archivos adjuntos
+              </div>
+            ) : (
+              <div>
+                {archivos.map(f => {
+                  const ext = (f.name.split('.').pop() || '').toLowerCase()
+                  const sizeStr = f.size > 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : f.size > 0 ? `${Math.round(f.size / 1024)} KB` : ''
+                  return (
+                    <div key={f.path} className="att" onClick={() => handleDownloadFile(f.path, f.name)}>
+                      <span className={`ext ${ext}`}>{ext || 'FILE'}</span>
+                      <span className="name" title={f.name}>{f.name}</span>
+                      <span className="size">{sizeStr}</span>
+                      <button onClick={(e) => { e.stopPropagation(); handleDownloadFile(f.path, f.name) }} className="btn-d ghost icon sm" title="Descargar"><Download size={12} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteFile(f.path, f.name) }} className="btn-d ghost icon sm" style={{ color: 'var(--color-accent-red)' }} title="Eliminar"><Trash2 size={12} /></button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </>)}
 
         </div> {/* close .detail-main */}
